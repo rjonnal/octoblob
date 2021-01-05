@@ -1,0 +1,651 @@
+
+% Default to the notebook output style
+
+    
+
+
+% Inherit from the specified cell style.
+
+
+
+
+    
+\documentclass[11pt]{article}
+
+    
+    
+    \usepackage[T1]{fontenc}
+    % Nicer default font (+ math font) than Computer Modern for most use cases
+    \usepackage{mathpazo}
+
+    % Basic figure setup, for now with no caption control since it's done
+    % automatically by Pandoc (which extracts ![](path) syntax from Markdown).
+    \usepackage{graphicx}
+    % We will generate all images so they have a width \maxwidth. This means
+    % that they will get their normal width if they fit onto the page, but
+    % are scaled down if they would overflow the margins.
+    \makeatletter
+    \def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth
+    \else\Gin@nat@width\fi}
+    \makeatother
+    \let\Oldincludegraphics\includegraphics
+    % Set max figure width to be 80% of text width, for now hardcoded.
+    \renewcommand{\includegraphics}[1]{\Oldincludegraphics[width=.8\maxwidth]{#1}}
+    % Ensure that by default, figures have no caption (until we provide a
+    % proper Figure object with a Caption API and a way to capture that
+    % in the conversion process - todo).
+    \usepackage{caption}
+    \DeclareCaptionLabelFormat{nolabel}{}
+    \captionsetup{labelformat=nolabel}
+
+    \usepackage{adjustbox} % Used to constrain images to a maximum size 
+    \usepackage{xcolor} % Allow colors to be defined
+    \usepackage{enumerate} % Needed for markdown enumerations to work
+    \usepackage{geometry} % Used to adjust the document margins
+    \usepackage{amsmath} % Equations
+    \usepackage{amssymb} % Equations
+    \usepackage{textcomp} % defines textquotesingle
+    % Hack from http://tex.stackexchange.com/a/47451/13684:
+    \AtBeginDocument{%
+        \def\PYZsq{\textquotesingle}% Upright quotes in Pygmentized code
+    }
+    \usepackage{upquote} % Upright quotes for verbatim code
+    \usepackage{eurosym} % defines \euro
+    \usepackage[mathletters]{ucs} % Extended unicode (utf-8) support
+    \usepackage[utf8x]{inputenc} % Allow utf-8 characters in the tex document
+    \usepackage{fancyvrb} % verbatim replacement that allows latex
+    \usepackage{grffile} % extends the file name processing of package graphics 
+                         % to support a larger range 
+    % The hyperref package gives us a pdf with properly built
+    % internal navigation ('pdf bookmarks' for the table of contents,
+    % internal cross-reference links, web links for URLs, etc.)
+    \usepackage{hyperref}
+    \usepackage{longtable} % longtable support required by pandoc >1.10
+    \usepackage{booktabs}  % table support for pandoc > 1.12.2
+    \usepackage[inline]{enumitem} % IRkernel/repr support (it uses the enumerate* environment)
+    \usepackage[normalem]{ulem} % ulem is needed to support strikethroughs (\sout)
+                                % normalem makes italics be italics, not underlines
+    
+
+    
+    
+    % Colors for the hyperref package
+    \definecolor{urlcolor}{rgb}{0,.145,.698}
+    \definecolor{linkcolor}{rgb}{.71,0.21,0.01}
+    \definecolor{citecolor}{rgb}{.12,.54,.11}
+
+    % ANSI colors
+    \definecolor{ansi-black}{HTML}{3E424D}
+    \definecolor{ansi-black-intense}{HTML}{282C36}
+    \definecolor{ansi-red}{HTML}{E75C58}
+    \definecolor{ansi-red-intense}{HTML}{B22B31}
+    \definecolor{ansi-green}{HTML}{00A250}
+    \definecolor{ansi-green-intense}{HTML}{007427}
+    \definecolor{ansi-yellow}{HTML}{DDB62B}
+    \definecolor{ansi-yellow-intense}{HTML}{B27D12}
+    \definecolor{ansi-blue}{HTML}{208FFB}
+    \definecolor{ansi-blue-intense}{HTML}{0065CA}
+    \definecolor{ansi-magenta}{HTML}{D160C4}
+    \definecolor{ansi-magenta-intense}{HTML}{A03196}
+    \definecolor{ansi-cyan}{HTML}{60C6C8}
+    \definecolor{ansi-cyan-intense}{HTML}{258F8F}
+    \definecolor{ansi-white}{HTML}{C5C1B4}
+    \definecolor{ansi-white-intense}{HTML}{A1A6B2}
+
+    % commands and environments needed by pandoc snippets
+    % extracted from the output of `pandoc -s`
+    \providecommand{\tightlist}{%
+      \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+    \DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+    % Add ',fontsize=\small' for more characters per line
+    \newenvironment{Shaded}{}{}
+    \newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{{#1}}}}
+    \newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.56,0.13,0.00}{{#1}}}
+    \newcommand{\DecValTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{{#1}}}
+    \newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{{#1}}}
+    \newcommand{\FloatTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{{#1}}}
+    \newcommand{\CharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+    \newcommand{\StringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+    \newcommand{\CommentTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textit{{#1}}}}
+    \newcommand{\OtherTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{{#1}}}
+    \newcommand{\AlertTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{{#1}}}}
+    \newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.02,0.16,0.49}{{#1}}}
+    \newcommand{\RegionMarkerTok}[1]{{#1}}
+    \newcommand{\ErrorTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{{#1}}}}
+    \newcommand{\NormalTok}[1]{{#1}}
+    
+    % Additional commands for more recent versions of Pandoc
+    \newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.53,0.00,0.00}{{#1}}}
+    \newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+    \newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+    \newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.73,0.40,0.53}{{#1}}}
+    \newcommand{\ImportTok}[1]{{#1}}
+    \newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.73,0.13,0.13}{\textit{{#1}}}}
+    \newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+    \newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+    \newcommand{\VariableTok}[1]{\textcolor[rgb]{0.10,0.09,0.49}{{#1}}}
+    \newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{{#1}}}}
+    \newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.40,0.40,0.40}{{#1}}}
+    \newcommand{\BuiltInTok}[1]{{#1}}
+    \newcommand{\ExtensionTok}[1]{{#1}}
+    \newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.74,0.48,0.00}{{#1}}}
+    \newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.49,0.56,0.16}{{#1}}}
+    \newcommand{\InformationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+    \newcommand{\WarningTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+    
+    
+    % Define a nice break command that doesn't care if a line doesn't already
+    % exist.
+    \def\br{\hspace*{\fill} \\* }
+    % Math Jax compatability definitions
+    \def\gt{>}
+    \def\lt{<}
+    % Document parameters
+    \title{octoblob\_OCTA\_pipeline\_example}
+    
+    
+    
+
+    % Pygments definitions
+    
+\makeatletter
+\def\PY@reset{\let\PY@it=\relax \let\PY@bf=\relax%
+    \let\PY@ul=\relax \let\PY@tc=\relax%
+    \let\PY@bc=\relax \let\PY@ff=\relax}
+\def\PY@tok#1{\csname PY@tok@#1\endcsname}
+\def\PY@toks#1+{\ifx\relax#1\empty\else%
+    \PY@tok{#1}\expandafter\PY@toks\fi}
+\def\PY@do#1{\PY@bc{\PY@tc{\PY@ul{%
+    \PY@it{\PY@bf{\PY@ff{#1}}}}}}}
+\def\PY#1#2{\PY@reset\PY@toks#1+\relax+\PY@do{#2}}
+
+\expandafter\def\csname PY@tok@gd\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.63,0.00,0.00}{##1}}}
+\expandafter\def\csname PY@tok@gu\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.50,0.00,0.50}{##1}}}
+\expandafter\def\csname PY@tok@gt\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.27,0.87}{##1}}}
+\expandafter\def\csname PY@tok@gs\endcsname{\let\PY@bf=\textbf}
+\expandafter\def\csname PY@tok@gr\endcsname{\def\PY@tc##1{\textcolor[rgb]{1.00,0.00,0.00}{##1}}}
+\expandafter\def\csname PY@tok@cm\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+\expandafter\def\csname PY@tok@vg\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@vi\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@vm\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@mh\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@cs\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+\expandafter\def\csname PY@tok@ge\endcsname{\let\PY@it=\textit}
+\expandafter\def\csname PY@tok@vc\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@il\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@go\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.53,0.53,0.53}{##1}}}
+\expandafter\def\csname PY@tok@cp\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.74,0.48,0.00}{##1}}}
+\expandafter\def\csname PY@tok@gi\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.63,0.00}{##1}}}
+\expandafter\def\csname PY@tok@gh\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,0.50}{##1}}}
+\expandafter\def\csname PY@tok@ni\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.60,0.60,0.60}{##1}}}
+\expandafter\def\csname PY@tok@nl\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.63,0.63,0.00}{##1}}}
+\expandafter\def\csname PY@tok@nn\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,1.00}{##1}}}
+\expandafter\def\csname PY@tok@no\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.53,0.00,0.00}{##1}}}
+\expandafter\def\csname PY@tok@na\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.49,0.56,0.16}{##1}}}
+\expandafter\def\csname PY@tok@nb\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@nc\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,1.00}{##1}}}
+\expandafter\def\csname PY@tok@nd\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.67,0.13,1.00}{##1}}}
+\expandafter\def\csname PY@tok@ne\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.82,0.25,0.23}{##1}}}
+\expandafter\def\csname PY@tok@nf\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,1.00}{##1}}}
+\expandafter\def\csname PY@tok@si\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.73,0.40,0.53}{##1}}}
+\expandafter\def\csname PY@tok@s2\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@nt\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@nv\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@s1\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@dl\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@ch\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+\expandafter\def\csname PY@tok@m\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@gp\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,0.50}{##1}}}
+\expandafter\def\csname PY@tok@sh\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@ow\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.67,0.13,1.00}{##1}}}
+\expandafter\def\csname PY@tok@sx\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@bp\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@c1\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+\expandafter\def\csname PY@tok@fm\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.00,1.00}{##1}}}
+\expandafter\def\csname PY@tok@o\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@kc\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@c\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+\expandafter\def\csname PY@tok@mf\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@err\endcsname{\def\PY@bc##1{\setlength{\fboxsep}{0pt}\fcolorbox[rgb]{1.00,0.00,0.00}{1,1,1}{\strut ##1}}}
+\expandafter\def\csname PY@tok@mb\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@ss\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.10,0.09,0.49}{##1}}}
+\expandafter\def\csname PY@tok@sr\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.40,0.53}{##1}}}
+\expandafter\def\csname PY@tok@mo\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@kd\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@mi\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.40,0.40,0.40}{##1}}}
+\expandafter\def\csname PY@tok@kn\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@cpf\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.25,0.50,0.50}{##1}}}
+\expandafter\def\csname PY@tok@kr\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@s\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@kp\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@w\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.73,0.73}{##1}}}
+\expandafter\def\csname PY@tok@kt\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.69,0.00,0.25}{##1}}}
+\expandafter\def\csname PY@tok@sc\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@sb\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@sa\endcsname{\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+\expandafter\def\csname PY@tok@k\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.00,0.50,0.00}{##1}}}
+\expandafter\def\csname PY@tok@se\endcsname{\let\PY@bf=\textbf\def\PY@tc##1{\textcolor[rgb]{0.73,0.40,0.13}{##1}}}
+\expandafter\def\csname PY@tok@sd\endcsname{\let\PY@it=\textit\def\PY@tc##1{\textcolor[rgb]{0.73,0.13,0.13}{##1}}}
+
+\def\PYZbs{\char`\\}
+\def\PYZus{\char`\_}
+\def\PYZob{\char`\{}
+\def\PYZcb{\char`\}}
+\def\PYZca{\char`\^}
+\def\PYZam{\char`\&}
+\def\PYZlt{\char`\<}
+\def\PYZgt{\char`\>}
+\def\PYZsh{\char`\#}
+\def\PYZpc{\char`\%}
+\def\PYZdl{\char`\$}
+\def\PYZhy{\char`\-}
+\def\PYZsq{\char`\'}
+\def\PYZdq{\char`\"}
+\def\PYZti{\char`\~}
+% for compatibility with earlier versions
+\def\PYZat{@}
+\def\PYZlb{[}
+\def\PYZrb{]}
+\makeatother
+
+
+    % Exact colors from NB
+    \definecolor{incolor}{rgb}{0.0, 0.0, 0.5}
+    \definecolor{outcolor}{rgb}{0.545, 0.0, 0.0}
+
+
+
+    
+    % Prevent overflowing lines due to hard-to-break entities
+    \sloppy 
+    % Setup hyperref package
+    \hypersetup{
+      breaklinks=true,  % so long urls are correctly broken across lines
+      colorlinks=true,
+      urlcolor=urlcolor,
+      linkcolor=linkcolor,
+      citecolor=citecolor,
+      }
+    % Slightly bigger margins than the latex defaults
+    
+    \geometry{verbose,tmargin=1in,bmargin=1in,lmargin=1in,rmargin=1in}
+    
+    
+
+    \begin{document}
+    
+    
+    \maketitle
+    
+    
+
+    
+    \hypertarget{introduction-to-octa-processing-code}{%
+\section{Introduction to OCTA processing
+code}\label{introduction-to-octa-processing-code}}
+
+    This document contains instructions for interactively running OCTA
+processing. It is meant to illustrate the architecture of the processing
+tool chain, the distinction between the OCT/OCTA libraries and
+processing scripts, and other important (and confusing) issues. In
+actuality, the OCTA data will be processed using Python scripts (i.e.,
+batch processing), with no interaction with the user.
+
+The first step in constructing a script is to import the tools you'll
+need. \texttt{numpy} and \texttt{matplotlib} are the standard numerical
+and plotting libraries in Python, and are always imported. The
+\texttt{\_\_future\_\_\_} and \texttt{builtins} imports implement some
+Python 3 functions, which will make porting this to Python 3 easier.
+
+\texttt{octoblob} is the unfortunate name I've chosen for the OCT/OCTA
+processing libraries. It is a descendent of the now obsolete
+\texttt{octopod} and \texttt{cuttlefish} libraries we've used in the
+past. We could have imported all the classes and functions from octoblob
+with \texttt{from\ octoblob\ import\ *}, but it's better practice to
+keep the module name around, so that when module functions are called
+(e.g. \texttt{bscan\ =\ blob.make\_bscan(data)}), it's clear that the
+function is coming from the octoblob package, and clear where one needs
+to go to find the definition of the function.
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}1}]:} \PY{k+kn}{from} \PY{n+nn}{\PYZus{}\PYZus{}future\PYZus{}\PYZus{}} \PY{k+kn}{import} \PY{p}{(}\PY{n}{absolute\PYZus{}import}\PY{p}{,} \PY{n}{division}\PY{p}{,}
+                                \PY{n}{print\PYZus{}function}\PY{p}{,} \PY{n}{unicode\PYZus{}literals}\PY{p}{)}
+        \PY{k+kn}{from} \PY{n+nn}{builtins} \PY{k+kn}{import} \PY{o}{*}
+        \PY{k+kn}{import} \PY{n+nn}{numpy} \PY{k+kn}{as} \PY{n+nn}{np}
+        \PY{k+kn}{from} \PY{n+nn}{matplotlib} \PY{k+kn}{import} \PY{n}{pyplot} \PY{k}{as} \PY{n}{plt}
+        \PY{k+kn}{import} \PY{n+nn}{octoblob} \PY{k+kn}{as} \PY{n+nn}{blob}
+\end{Verbatim}
+
+
+    \hypertarget{some-architectural-principles}{%
+\subsection{Some architectural
+principles}\label{some-architectural-principles}}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  One reasonable way to think about scientific software is to split it
+  into two categories: \textbf{libraries} and \textbf{scripts}.
+  Libraries are collections of functions (and \emph{classes}--more on
+  that later) where each function and class has a well-defined goal, and
+  the implementations have been extensively tested or otherwise verified
+  to be correct. We \emph{really} don't want any errors in a library.
+  Scripts are the day-to-day programs we run. Some are batch scripts
+  that process lots of data autonomously, and others are exploratory,
+  where we run them to see what the data looks like, often in order to
+  help us design the next step in the processing pipeline. Sometimes a
+  portion of a script becomes used so frequently that it makes sense to
+  turn it into a library functions and thus simplify the script.
+\item
+  Specifically with regard to the OCT/OCTA processing pipeline, I
+  believe the libraries should be split into two parts: 1) a library for
+  reading raw data and getting it organized, and 2) a library for
+  turning raw data into OCT/OCTA images. The first of these is handled
+  by a \emph{class}, and the second is handled by a set of
+  \emph{functions}.
+\item
+  \textbf{Classes}. If you're not familiar with object-oriented
+  programming, all you need to know about a class is that it is a
+  specification for an \emph{object}, i.e.~a list of functions and
+  variables that are stored together and somehow insulated from the rest
+  of the code. The raw OCT data is handled by a class, because it needs
+  to keep track of lots of information about the data. We create an
+  \texttt{OCTRawData} class, and it keeps track of how many bytes there
+  are per pixel, how many pixels per spectrum, how many spectra per
+  B-scan, etc. By implementing this with a class, we don't have to
+  specify how to get the raw data every time we need a new frame. We
+  just instantiate the object and then ask it for frames, which will be
+  illustrated below.
+\end{enumerate}
+
+    \hypertarget{parameters-for-the-octrawdata-class}{%
+\subsection{\texorpdfstring{Parameters for the \texttt{OCTRawData}
+class}{Parameters for the OCTRawData class}}\label{parameters-for-the-octrawdata-class}}
+
+The \texttt{OCTRawData} class needs to know how to get a frame out of
+the file, and to do that it needs a bunch of parameters. Let's specify
+these first. They should be self-explanatory, but trailing comments may
+clarify in some cases.
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}2}]:} \PY{c+c1}{\PYZsh{} PARAMETERS FOR RAW DATA SOURCE}
+        \PY{n}{filename} \PY{o}{=} \PY{l+s+s1}{\PYZsq{}}\PY{l+s+s1}{../octa\PYZus{}test\PYZus{}set.unp}\PY{l+s+s1}{\PYZsq{}} \PY{c+c1}{\PYZsh{} name of the raw data file}
+        \PY{n}{n\PYZus{}vol} \PY{o}{=} \PY{l+m+mi}{1} \PY{c+c1}{\PYZsh{} number of volumes}
+        \PY{n}{n\PYZus{}slow} \PY{o}{=} \PY{l+m+mi}{4} \PY{c+c1}{\PYZsh{} number of B\PYZhy{}scans in each volume}
+        \PY{n}{n\PYZus{}repeats} \PY{o}{=} \PY{l+m+mi}{5} \PY{c+c1}{\PYZsh{} number of repeats for OCTA data}
+        \PY{n}{n\PYZus{}fast} \PY{o}{=} \PY{l+m+mi}{2500} \PY{c+c1}{\PYZsh{} number of A\PYZhy{}scans per B\PYZhy{}scan x number of repeats}
+        \PY{n}{n\PYZus{}skip} \PY{o}{=} \PY{l+m+mi}{500} \PY{c+c1}{\PYZsh{} number of A\PYZhy{}scans to skip at the start}
+        \PY{n}{n\PYZus{}depth} \PY{o}{=} \PY{l+m+mi}{1536} \PY{c+c1}{\PYZsh{} number of pixels per spectrum}
+        \PY{n}{bit\PYZus{}shift\PYZus{}right} \PY{o}{=} \PY{l+m+mi}{4} \PY{c+c1}{\PYZsh{} ignore for now}
+        \PY{n}{dtype}\PY{o}{=}\PY{n}{np}\PY{o}{.}\PY{n}{uint16} \PY{c+c1}{\PYZsh{} the data type of the raw data}
+        
+        \PY{n}{fbg\PYZus{}position} \PY{o}{=} \PY{l+m+mi}{148} \PY{c+c1}{\PYZsh{} if there is an FBG, approximately where is it located}
+        \PY{n}{spectrum\PYZus{}start} \PY{o}{=} \PY{l+m+mi}{159} \PY{c+c1}{\PYZsh{} where does the spectral data start (i.e. after FBG)}
+        \PY{n}{spectrum\PYZus{}end} \PY{o}{=} \PY{l+m+mi}{1459} \PY{c+c1}{\PYZsh{} where does the spectral data end (i.e., before any dead/dark time at the end)}
+\end{Verbatim}
+
+
+    Now we can instantiate the \texttt{OCTRawData} object, which will later
+be used to get frames.
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}3}]:} \PY{n}{src} \PY{o}{=} \PY{n}{blob}\PY{o}{.}\PY{n}{OCTRawData}\PY{p}{(}\PY{n}{filename}\PY{p}{,}\PY{n}{n\PYZus{}vol}\PY{p}{,}\PY{n}{n\PYZus{}slow}\PY{p}{,}\PY{n}{n\PYZus{}fast}\PY{p}{,}\PY{n}{n\PYZus{}depth}\PY{p}{,}\PY{n}{n\PYZus{}repeats}\PY{p}{,}
+                              \PY{n}{fbg\PYZus{}position}\PY{o}{=}\PY{n}{fbg\PYZus{}position}\PY{p}{,}
+                              \PY{n}{spectrum\PYZus{}start}\PY{o}{=}\PY{n}{spectrum\PYZus{}start}\PY{p}{,}\PY{n}{spectrum\PYZus{}end}\PY{o}{=}\PY{n}{spectrum\PYZus{}end}\PY{p}{,}
+                              \PY{n}{bit\PYZus{}shift\PYZus{}right}\PY{o}{=}\PY{n}{bit\PYZus{}shift\PYZus{}right}\PY{p}{,}
+                              \PY{n}{n\PYZus{}skip}\PY{o}{=}\PY{n}{n\PYZus{}skip}\PY{p}{,}\PY{n}{dtype}\PY{o}{=}\PY{n}{dtype}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+File size incorrect.
+30720000	expected
+32256000	actual
+n\_vol		1
+n\_slow		4
+n\_repeats	5
+n\_fast		2500
+n\_depth		1536
+bytes\_per\_pixel	2
+total\_expected\_size	30720000
+
+    \end{Verbatim}
+
+    The ``File size incorrect'' warning is just telling us that there are
+more bytes in the file than we need. This is because using Yifan's
+software and the Axsun source, there's no synchronization between the
+slow scanner and the data acquisition, such that the first set of N
+repeats can begin on any of the first N frames.
+
+    \hypertarget{parameters-for-octocta-processing}{%
+\subsection{Parameters for OCT/OCTA
+processing}\label{parameters-for-octocta-processing}}
+
+In addition to the raw data parameters, the code needs to know how to
+process the OCT data. These parameters are of greater interest to OCT
+scientists, and are subject to continual revision and refinement.
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}4}]:} \PY{c+c1}{\PYZsh{} PROCESSING PARAMETERS}
+        \PY{n}{mapping\PYZus{}coefficients} \PY{o}{=} \PY{p}{[}\PY{l+m+mf}{12.5e\PYZhy{}10}\PY{p}{,}\PY{o}{\PYZhy{}}\PY{l+m+mf}{12.5e\PYZhy{}7}\PY{p}{,}\PY{l+m+mf}{0.0}\PY{p}{,}\PY{l+m+mf}{0.0}\PY{p}{]}
+        \PY{n}{dispersion\PYZus{}coefficients} \PY{o}{=} \PY{p}{[}\PY{l+m+mf}{0.0}\PY{p}{,}\PY{l+m+mf}{1.5e\PYZhy{}6}\PY{p}{,}\PY{l+m+mf}{0.0}\PY{p}{,}\PY{l+m+mf}{0.0}\PY{p}{]}
+        
+        \PY{n}{fft\PYZus{}oversampling\PYZus{}size} \PY{o}{=} \PY{l+m+mi}{4096}
+        
+        \PY{c+c1}{\PYZsh{} Cropping parameters:}
+        \PY{n}{bscan\PYZus{}z1} \PY{o}{=} \PY{l+m+mi}{3147}
+        \PY{n}{bscan\PYZus{}z2} \PY{o}{=} \PY{o}{\PYZhy{}}\PY{l+m+mi}{40} \PY{c+c1}{\PYZsh{} negative indices are relative to the end of the array}
+        \PY{n}{bscan\PYZus{}x1} \PY{o}{=} \PY{l+m+mi}{0}
+        \PY{n}{bscan\PYZus{}x2} \PY{o}{=} \PY{o}{\PYZhy{}}\PY{l+m+mi}{100} \PY{c+c1}{\PYZsh{} negative indices are relative to the end of the array}
+\end{Verbatim}
+
+
+    \hypertarget{pulling-and-processing-an-octa-frame}{%
+\subsection{Pulling and processing an OCTA
+frame}\label{pulling-and-processing-an-octa-frame}}
+
+Let's say we want to process one OCTA frame, using the OCTRawData object
+\texttt{src} defined above.
+
+First, we need to get the raw spectra. Let's adopt the convention of
+calling these \textbf{frames}. A frame has dimensions
+\texttt{n\_k\ *\ n\_x}, where \texttt{n\_k} is the number of points in
+the k-dimension (the vertical/first dimension, by convention) and
+\texttt{n\_x} is the number of points in the fast scan dimension,
+including repeats. Our B-scans are 500 pixels wide, and we have 5
+repeats, so a single frame will contain 2500 A-scans. Remember that
+Python, like every sane programming language, begins indices with 0, not
+1. We'll get the first frame and see what it looks like.
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}5}]:} \PY{n}{frame} \PY{o}{=} \PY{n}{src}\PY{o}{.}\PY{n}{get\PYZus{}frame}\PY{p}{(}\PY{l+m+mi}{0}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{figure}\PY{p}{(}\PY{n}{dpi}\PY{o}{=}\PY{l+m+mi}{150}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{imshow}\PY{p}{(}\PY{n}{frame}\PY{p}{,}\PY{n}{aspect}\PY{o}{=}\PY{l+s+s1}{\PYZsq{}}\PY{l+s+s1}{auto}\PY{l+s+s1}{\PYZsq{}}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{colorbar}\PY{p}{(}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{output_12_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    \hypertarget{oct-processing-pipeline}{%
+\subsection{OCT processing pipeline}\label{oct-processing-pipeline}}
+
+The next steps in the process are 1) DC-subtraction, 2) k-resampling, 3)
+dispersion compensation, 4) windowing, and 5) FFTing (and oversampling)
+the spectra into a B-scan. These are illustrated next.
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}6}]:} \PY{n}{frame} \PY{o}{=} \PY{n}{blob}\PY{o}{.}\PY{n}{dc\PYZus{}subtract}\PY{p}{(}\PY{n}{frame}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{figure}\PY{p}{(}\PY{n}{dpi}\PY{o}{=}\PY{l+m+mi}{150}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{imshow}\PY{p}{(}\PY{n}{frame}\PY{p}{,}\PY{n}{aspect}\PY{o}{=}\PY{l+s+s1}{\PYZsq{}}\PY{l+s+s1}{auto}\PY{l+s+s1}{\PYZsq{}}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{colorbar}\PY{p}{(}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{output_14_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}7}]:} \PY{n}{frame} \PY{o}{=} \PY{n}{blob}\PY{o}{.}\PY{n}{k\PYZus{}resample}\PY{p}{(}\PY{n}{frame}\PY{p}{,}\PY{n}{mapping\PYZus{}coefficients}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{figure}\PY{p}{(}\PY{n}{dpi}\PY{o}{=}\PY{l+m+mi}{150}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{imshow}\PY{p}{(}\PY{n}{frame}\PY{p}{,}\PY{n}{aspect}\PY{o}{=}\PY{l+s+s1}{\PYZsq{}}\PY{l+s+s1}{auto}\PY{l+s+s1}{\PYZsq{}}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{colorbar}\PY{p}{(}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{output_15_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}8}]:} \PY{n}{frame} \PY{o}{=} \PY{n}{blob}\PY{o}{.}\PY{n}{dispersion\PYZus{}compensate}\PY{p}{(}\PY{n}{frame}\PY{p}{,}\PY{n}{dispersion\PYZus{}coefficients}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{figure}\PY{p}{(}\PY{n}{dpi}\PY{o}{=}\PY{l+m+mi}{150}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{imshow}\PY{p}{(}\PY{n}{np}\PY{o}{.}\PY{n}{abs}\PY{p}{(}\PY{n}{frame}\PY{p}{)}\PY{p}{,}\PY{n}{aspect}\PY{o}{=}\PY{l+s+s1}{\PYZsq{}}\PY{l+s+s1}{auto}\PY{l+s+s1}{\PYZsq{}}\PY{p}{)} \PY{c+c1}{\PYZsh{} need \PYZsq{}abs\PYZsq{} because dispersion compensation introduces imaginary component}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{colorbar}\PY{p}{(}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{output_16_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}9}]:} \PY{n}{frame} \PY{o}{=} \PY{n}{blob}\PY{o}{.}\PY{n}{gaussian\PYZus{}window}\PY{p}{(}\PY{n}{frame}\PY{p}{,}\PY{l+m+mf}{0.9}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{figure}\PY{p}{(}\PY{n}{dpi}\PY{o}{=}\PY{l+m+mi}{150}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{imshow}\PY{p}{(}\PY{n}{np}\PY{o}{.}\PY{n}{abs}\PY{p}{(}\PY{n}{frame}\PY{p}{)}\PY{p}{,}\PY{n}{aspect}\PY{o}{=}\PY{l+s+s1}{\PYZsq{}}\PY{l+s+s1}{auto}\PY{l+s+s1}{\PYZsq{}}\PY{p}{)} \PY{c+c1}{\PYZsh{} need \PYZsq{}abs\PYZsq{} because dispersion compensation introduces imaginary component}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{colorbar}\PY{p}{(}\PY{p}{)}
+        \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{output_17_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    \hypertarget{lets-have-a-look-at-the-gaussian-window-just-for-fun-by-running-it-on-a-vector-of-ones}{%
+\subsubsection{Let's have a look at the Gaussian window, just for fun,
+by running it on a vector of
+ones}\label{lets-have-a-look-at-the-gaussian-window-just-for-fun-by-running-it-on-a-vector-of-ones}}
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}10}]:} \PY{n}{window\PYZus{}shape} \PY{o}{=} \PY{n}{blob}\PY{o}{.}\PY{n}{gaussian\PYZus{}window}\PY{p}{(}\PY{n}{np}\PY{o}{.}\PY{n}{ones}\PY{p}{(}\PY{n}{frame}\PY{o}{.}\PY{n}{shape}\PY{p}{[}\PY{l+m+mi}{0}\PY{p}{]}\PY{p}{)}\PY{p}{,}\PY{l+m+mf}{0.9}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{figure}\PY{p}{(}\PY{n}{dpi}\PY{o}{=}\PY{l+m+mi}{150}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{plot}\PY{p}{(}\PY{n}{window\PYZus{}shape}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{output_19_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    \hypertarget{now-we-generate-a-b-scan-from-the-spectra}{%
+\subsubsection{Now we generate a B-scan from the
+spectra}\label{now-we-generate-a-b-scan-from-the-spectra}}
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}11}]:} \PY{n}{bscan} \PY{o}{=} \PY{n}{blob}\PY{o}{.}\PY{n}{spectra\PYZus{}to\PYZus{}bscan}\PY{p}{(}\PY{n}{frame}\PY{p}{,}\PY{n}{oversampled\PYZus{}size}\PY{o}{=}\PY{n}{fft\PYZus{}oversampling\PYZus{}size}\PY{p}{,}\PY{n}{z1}\PY{o}{=}\PY{n}{bscan\PYZus{}z1}\PY{p}{,}\PY{n}{z2}\PY{o}{=}\PY{n}{bscan\PYZus{}z2}\PY{p}{)}
+         \PY{n}{dB\PYZus{}bscan} \PY{o}{=} \PY{l+m+mi}{20}\PY{o}{*}\PY{n}{np}\PY{o}{.}\PY{n}{log10}\PY{p}{(}\PY{n}{np}\PY{o}{.}\PY{n}{abs}\PY{p}{(}\PY{n}{bscan}\PY{p}{)}\PY{p}{)}
+         \PY{c+c1}{\PYZsh{} define rough contrast lims\PYZhy{}\PYZhy{}if our sensitivity is 90 dB and our dynamic range is 45 dB, then (45,90) will work.}
+         \PY{n}{clim} \PY{o}{=} \PY{p}{(}\PY{l+m+mi}{45}\PY{p}{,}\PY{l+m+mi}{90}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{figure}\PY{p}{(}\PY{n}{dpi}\PY{o}{=}\PY{l+m+mi}{150}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{imshow}\PY{p}{(}\PY{n}{dB\PYZus{}bscan}\PY{p}{,}\PY{n}{clim}\PY{o}{=}\PY{p}{(}\PY{l+m+mi}{45}\PY{p}{,}\PY{l+m+mi}{90}\PY{p}{)}\PY{p}{,}\PY{n}{aspect}\PY{o}{=}\PY{l+s+s1}{\PYZsq{}}\PY{l+s+s1}{auto}\PY{l+s+s1}{\PYZsq{}}\PY{p}{)} \PY{c+c1}{\PYZsh{} need \PYZsq{}abs\PYZsq{} because dispersion compensation introduces imaginary component}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{colorbar}\PY{p}{(}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{output_21_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    \hypertarget{now-we-have-to-reshape-the-compound-b-scan-into-a-stack-of-5-n_repeats-individual-b-scans}{%
+\subsubsection{Now we have to reshape the compound B-scan into a stack
+of 5 (n\_repeats) individual
+B-scans}\label{now-we-have-to-reshape-the-compound-b-scan-into-a-stack-of-5-n_repeats-individual-b-scans}}
+
+We'll check the shape of the stack (3D array), and then we'll visualize
+the first one in the stack, as sanity checks.
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}12}]:} \PY{n}{stack\PYZus{}complex} \PY{o}{=} \PY{n}{blob}\PY{o}{.}\PY{n}{reshape\PYZus{}repeats}\PY{p}{(}\PY{n}{bscan}\PY{p}{,}\PY{n}{n\PYZus{}repeats}\PY{p}{,}\PY{n}{x1}\PY{o}{=}\PY{n}{bscan\PYZus{}x1}\PY{p}{,}\PY{n}{x2}\PY{o}{=}\PY{n}{bscan\PYZus{}x2}\PY{p}{)}
+         \PY{k}{print}\PY{p}{(}\PY{n}{stack\PYZus{}complex}\PY{o}{.}\PY{n}{shape}\PY{p}{)}
+         \PY{c+c1}{\PYZsh{} remember that the original array bscan was complex; we used abs and log10 to visualize it before}
+         \PY{n}{dB\PYZus{}first\PYZus{}bscan} \PY{o}{=} \PY{l+m+mi}{20}\PY{o}{*}\PY{n}{np}\PY{o}{.}\PY{n}{log10}\PY{p}{(}\PY{n}{np}\PY{o}{.}\PY{n}{abs}\PY{p}{(}\PY{n}{stack\PYZus{}complex}\PY{p}{[}\PY{p}{:}\PY{p}{,}\PY{p}{:}\PY{p}{,}\PY{l+m+mi}{0}\PY{p}{]}\PY{p}{)}\PY{p}{)}
+         \PY{c+c1}{\PYZsh{} define rough contrast lims\PYZhy{}\PYZhy{}if our sensitivity is 90 dB and our dynamic range is 45 dB, then (45,90) will work.}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{figure}\PY{p}{(}\PY{n}{dpi}\PY{o}{=}\PY{l+m+mi}{150}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{imshow}\PY{p}{(}\PY{n}{dB\PYZus{}first\PYZus{}bscan}\PY{p}{,}\PY{n}{clim}\PY{o}{=}\PY{p}{(}\PY{l+m+mi}{45}\PY{p}{,}\PY{l+m+mi}{90}\PY{p}{)}\PY{p}{,}\PY{n}{aspect}\PY{o}{=}\PY{l+s+s1}{\PYZsq{}}\PY{l+s+s1}{auto}\PY{l+s+s1}{\PYZsq{}}\PY{p}{)} \PY{c+c1}{\PYZsh{} need \PYZsq{}abs\PYZsq{} because dispersion compensation introduces imaginary component}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{colorbar}\PY{p}{(}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+(909, 400, 5)
+
+    \end{Verbatim}
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{output_23_1.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    \hypertarget{lastly-well-convert-this-stack-of-complex-repeats-into-an-angiogram}{%
+\subsubsection{Lastly, we'll convert this stack of complex repeats into
+an
+angiogram}\label{lastly-well-convert-this-stack-of-complex-repeats-into-an-angiogram}}
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}13}]:} \PY{n}{phase\PYZus{}variance} \PY{o}{=} \PY{n}{blob}\PY{o}{.}\PY{n}{make\PYZus{}angiogram}\PY{p}{(}\PY{n}{stack\PYZus{}complex}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{figure}\PY{p}{(}\PY{n}{dpi}\PY{o}{=}\PY{l+m+mi}{150}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{imshow}\PY{p}{(}\PY{n}{phase\PYZus{}variance}\PY{p}{,}\PY{n}{clim}\PY{o}{=}\PY{p}{(}\PY{l+m+mi}{0}\PY{p}{,}\PY{l+m+mf}{0.2}\PY{o}{*}\PY{n}{np}\PY{o}{.}\PY{n}{pi}\PY{p}{)}\PY{p}{,}\PY{n}{aspect}\PY{o}{=}\PY{l+s+s1}{\PYZsq{}}\PY{l+s+s1}{auto}\PY{l+s+s1}{\PYZsq{}}\PY{p}{)} \PY{c+c1}{\PYZsh{} need \PYZsq{}abs\PYZsq{} because dispersion compensation introduces imaginary component}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{colorbar}\PY{p}{(}\PY{p}{)}
+         \PY{n}{plt}\PY{o}{.}\PY{n}{show}\PY{p}{(}\PY{p}{)}
+\end{Verbatim}
+
+
+    \begin{center}
+    \adjustimage{max size={0.9\linewidth}{0.9\paperheight}}{output_25_0.png}
+    \end{center}
+    { \hspace*{\fill} \\}
+    
+    \hypertarget{the-octa-processing-functions}{%
+\subsubsection{The OCTA processing
+functions}\label{the-octa-processing-functions}}
+
+Obviously a lot of the work is buried in the OCTA processing functions,
+and we'll eventually document all of those clearly as well. Here, for
+example, is the dispersion compensation function:
+
+    \begin{Verbatim}[commandchars=\\\{\}]
+{\color{incolor}In [{\color{incolor}14}]:} \PY{k}{def} \PY{n+nf}{dispersion\PYZus{}compensate}\PY{p}{(}\PY{n}{spectra}\PY{p}{,}\PY{n}{coefficients}\PY{o}{=}\PY{p}{[}\PY{l+m+mf}{0.0}\PY{p}{,}\PY{l+m+mf}{1.5e\PYZhy{}6}\PY{p}{,}\PY{l+m+mf}{0.0}\PY{p}{,}\PY{l+m+mf}{0.0}\PY{p}{]}\PY{p}{)}\PY{p}{:}
+             \PY{c+c1}{\PYZsh{} x\PYZus{}in specified on 1..N+1 to accord w/ Justin\PYZsq{}s code}
+             \PY{c+c1}{\PYZsh{} fix this later, ideally as part of a greater effort}
+             \PY{c+c1}{\PYZsh{} to define our meshes for mapping and dispersion compensation}
+             \PY{c+c1}{\PYZsh{} on k instead of integer index}
+             \PY{n}{x} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{arange}\PY{p}{(}\PY{l+m+mi}{1}\PY{p}{,}\PY{n}{spectra}\PY{o}{.}\PY{n}{shape}\PY{p}{[}\PY{l+m+mi}{0}\PY{p}{]}\PY{o}{+}\PY{l+m+mi}{1}\PY{p}{)}
+             \PY{n}{dechirping\PYZus{}phasor} \PY{o}{=} \PY{n}{np}\PY{o}{.}\PY{n}{exp}\PY{p}{(}\PY{o}{\PYZhy{}}\PY{l+m+mi}{1j}\PY{o}{*}\PY{n}{np}\PY{o}{.}\PY{n}{polyval}\PY{p}{(}\PY{n}{coefficients}\PY{p}{,}\PY{n}{x}\PY{p}{)}\PY{p}{)}
+             \PY{k}{return} \PY{p}{(}\PY{n}{spectra}\PY{o}{.}\PY{n}{T}\PY{o}{*}\PY{n}{dechirping\PYZus{}phasor}\PY{p}{)}\PY{o}{.}\PY{n}{T}
+\end{Verbatim}
+
+
+
+    % Add a bibliography block to the postdoc
+    
+    
+    
+    \end{document}
