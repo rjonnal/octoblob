@@ -9,7 +9,14 @@ if len(sys.argv)<2:
 input_directory = sys.argv[1]
 output_directory = os.path.join(input_directory,'en_face_projections')
 
-os.makedirs(output_directory,exist_ok=True)
+
+#os.makedirs(output_directory,exist_ok=True)
+
+try:
+    os.mkdir(output_directory)
+except Exception as e:
+    print('%s exists; using existing directory')
+
 
 assert os.path.exists(input_directory)
 
@@ -36,9 +43,10 @@ vol = np.array(vol)
 profile = vol.mean(2).mean(0)
 plt.subplot(1,2,1)
 plt.imshow(vol.mean(0))
-plt.title('Please enter axial extent in console window.')
+plt.suptitle('Please enter axial extent in console window.')
 plt.subplot(1,2,2)
-plt.plot(profile,range(len(profile),0,-1))
+plt.plot(profile,range(len(profile)))
+plt.ylim((len(profile),0))
 plt.pause(.1)
 
 z1 = int(input('Enter z1: '))
