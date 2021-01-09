@@ -72,12 +72,18 @@ phase_variance_threshold = 0.43
 
 
 # setting diagnostics to True will plot/show a bunch of extra information to help
-# you understand why things don't look right
-
+# you understand why things don't look right, and then quit after the first loop
 diagnostics = False
+
+# setting show_processed_data to True will spawn a window that shows you how the b-scans and angiograms look
+show_processed_data = False
+
+if show_processed_data:
+    processing_fig = plt.figure(0)
 
 # In this section, we will load one set of repeats and arrange them in a 3D array
 # to be bulk-motion corrected
+
 for frame_index in range(n_slow):
     print(frame_index)
     frame = src.get_frame(frame_index)
@@ -100,7 +106,9 @@ for frame_index in range(n_slow):
     angiogram_out_filename = os.path.join(output_directory_angiograms,'angiogram_bscan_%05d.npy'%frame_index)
 
 
-    
+    if show_processed_data:
+        plt.figure(0)
+        
     plt.clf()
     plt.subplot(2,1,1)
     plt.imshow(20*np.log10(np.abs(bscan)),aspect='auto',cmap='gray')
@@ -120,5 +128,6 @@ for frame_index in range(n_slow):
     np.save(angiogram_out_filename,phase_variance)
     
     if diagnostics:
+        plt.show()
         break
     
