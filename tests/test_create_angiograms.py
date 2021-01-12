@@ -76,10 +76,10 @@ phase_variance_threshold = 0.43
 diagnostics = False
 
 # setting show_processed_data to True will spawn a window that shows you how the b-scans and angiograms look
-show_processed_data = False
+show_processed_data = True
 
 if show_processed_data:
-    processing_fig = plt.figure(0)
+    processing_fig = plt.figure(0,figsize=(4,6))
 
 # In this section, we will load one set of repeats and arrange them in a 3D array
 # to be bulk-motion corrected
@@ -109,18 +109,18 @@ for frame_index in range(n_slow):
     if show_processed_data:
         plt.figure(0)
         
-    plt.clf()
-    plt.subplot(2,1,1)
-    plt.imshow(20*np.log10(np.abs(bscan)),aspect='auto',cmap='gray')
-    plt.colorbar()
-    plt.title('bscan dB')
+        plt.clf()
+        plt.subplot(2,1,1)
+        plt.imshow(20*np.log10(np.abs(bscan)),aspect='auto',cmap='gray')
+        plt.colorbar()
+        plt.title('bscan dB')
 
-    plt.subplot(2,1,2)
-    plt.imshow(phase_variance,aspect='auto',cmap='gray')
-    plt.colorbar()
-    plt.title('angiogram (pv)')
-    
-    plt.pause(.1)
+        plt.subplot(2,1,2)
+        plt.imshow(phase_variance,aspect='auto',cmap='gray')
+        plt.colorbar()
+        plt.title('angiogram (pv)')
+
+        plt.pause(.1)
 
     # here we're saving the complex stack--could abs and average them first if we need to save disk space
     np.save(bscan_out_filename,stack_complex)
