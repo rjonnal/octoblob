@@ -78,6 +78,12 @@ class OCTRawData:
         self.bit_shift_right = bit_shift_right
         self.n_skip = n_skip
         self.fbg_sign = fbg_sign
+
+
+
+
+        
+        self.saturation_value = np.iinfo(self.dtype).max
         
         if spectrum_start is None:
             self.spectrum_start = 0
@@ -158,8 +164,9 @@ class OCTRawData:
             out[:,x] = np.roll(frame[:,x],-max_rise_index[x])
 
         return out
-        
-    def get_frame(self,frame_index,volume_index=0,plot_fbg=False):
+
+    
+    def get_frame(self,frame_index,volume_index=0,diagnostics=False):
         '''Get a raw frame from a UNP file. This function will
         try to read configuration details from a UNP file with
         the same name but .xml extension instead of .unp.
@@ -184,14 +191,41 @@ class OCTRawData:
 
             # Use numpy fromfile to read raw data.
             frame = np.fromfile(fid,dtype=self.dtype,count=self.n_depth*self.n_fast)
+
+            if frame.max()>=self.saturation_value:
+                if diagnostics:
+                    plt.figure()
+                    plt.hist(frame,bins=100)
+                    plt.title('Frame saturated with pixels >= %d.'%self.saturation_value)
+                print('Frame saturated, with pixels >= %d.'%self.saturation_value)
             
+            if diagnostics:
+                plt.figure()
+                plt.subplot(2,1,1)
+                plt.hist(frame,bins=100)
+                plt.title('before %d bit shift'%self.bit_shift_right)
+                
             # Bit-shift if necessary, e.g. for Axsun data
             if self.bit_shift_right:
                 frame = np.right_shift(frame,self.bit_shift_right)
 
+            if diagnostics:
+                plt.figure()
+                plt.subplot(2,1,2)
+                plt.hist(frame,bins=100)
+                plt.title('after %d bit shift'%self.bit_shift_right)
+                
+                
             # Reshape into the k*x 2D array
             frame = frame.reshape(self.n_fast,self.n_depth).T
 
+
+            if diagnostics:
+                plt.figure()
+                plt.imshow(frame,aspect='auto',interpolation='none')
+                plt.colorbar()
+                plt.title('raw data (bit shifted %d bits)'%self.bit_shift_right)
+            
             # If there's an fbg, align spectra using the align_to_fbg function
             if self.has_fbg:
                 frame = self.align_to_fbg(frame,sign=self.fbg_sign,do_plots=plot_fbg)
@@ -199,12 +233,34 @@ class OCTRawData:
             frame = frame[self.spectrum_start:self.spectrum_end,:]
         return frame
 
+
+class Resampler:
+
+    def __init__(self,lambda0,d_lambda,n_points):
+        ##### Add possibility for remapping here; store it in the object so the interpolator
+        ##### persists and we don't have to recalc the interpolator for every frame
+        ##### (Actually this would be a good thing to do for k-remapping too)
+        self.lambda0 = lambda0
+        self.d_lambda = d_lambda
+        self.n_points = n_points
+        #self.wavelength_spectrum = np.polyval([4.1e-11,8.01e-7],np.arange(points_per_spectrum))
+        self.wavelength_spectrum = np.polyval([self.d_lambda,self.lambda0],np.arange(self.n_points))
+        self.k_in = 2.0*np.pi/self.wavelength_spectrum
+        self.k_out = np.linspace(self.k_in[0],self.k_in[-1],self.n_points)
+
+    def map(self,spectra):
+        k_interpolator = spi.interp1d(self.k_in,spectra,axis=0,copy=False)
+        return k_interpolator(self.k_out)
+
+
+    
 def dc_subtract(spectra):
     """Estimate DC by averaging spectra spatially (dimension 1),
     then subtract by broadcasting."""
     dc = spectra.mean(1)
     out = (spectra.T-dc).T
     return out
+
 
 def k_resample(spectra,coefficients=pp.k_resampling_coefficients):
     """Resample the spectrum such that it is uniform w/r/t k.
