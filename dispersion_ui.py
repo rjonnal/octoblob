@@ -29,7 +29,7 @@ c2range = c2max-c2min
 auto_n_points = 6
 
 def max(im):
-    return np.median(np.max(im,axis=0))
+    return np.max(np.max(im,axis=0))
     #return np.max(im)
 
 def dispersion_ui(raw_data,func,c3min=c3min,c3max=c3max,c2min=c2min,c2max=c2max):
