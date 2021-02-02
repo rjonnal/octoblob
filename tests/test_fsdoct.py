@@ -8,6 +8,9 @@ from matplotlib import pyplot as plt
 import octoblob as blob
 from octoblob import config_reader,dispersion_ui
 from octoblob.bmp_tools import savebmp
+from octoblob import registration_tools as rt
+
+import glob
 
 #L0,dL,c3,c2 = [8.00649178e-07,6.00000000e-11,1.40844018e-09,5.82829653e-07]
 L0,dL,c3,c2 = [8.01935799e-07,8.00000000e-11,-2.58738949e-09,-1.61729114e-06]
@@ -98,6 +101,10 @@ if show_processed_data:
 
 for frame_index in range(n_slow):
     print(frame_index)
+    bscan_out_filename = os.path.join(output_directory_bscans,'complex_bscan_%05d.npy'%frame_index)
+    if os.path.exists(bscan_out_filename):
+        continue
+    
     frame = src.get_frame(frame_index)
     frame = blob.dc_subtract(frame)
     #frame = blob.k_resample(frame,mapping_coefficients)
@@ -125,4 +132,23 @@ for frame_index in range(n_slow):
     if diagnostics:
         plt.show()
         break
+    
+# Now we do point-by-point registration between pairs of B-scans, including phase alignment
+
+start_idx = 375
+end_idx = 525
+
+flist = sorted(glob.glob(os.path.join(output_directory_bscans,'*.npy')))[start_idx:end_idx]
+
+rt.register_series(flist[75],flist,max_shift=50,overwrite=True,diagnostics=False)
+
+sys.exit()
+
+for fn1,fn2 in zip(flist[:-1],flist[1:]):
+    f1 = np.load(fn1)
+    f2 = np.load(fn2)
+    xshift,yshift = rt.rigid_register(f1,f2,max_shift=10,diagnostics=False)
+
+    rt.point_register(f1,f2)
+    
     
