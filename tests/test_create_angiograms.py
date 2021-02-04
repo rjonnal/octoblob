@@ -26,11 +26,15 @@ n_repeats = cfg['n_bm_scans']
 n_fast = cfg['n_fast']
 n_depth = cfg['n_depth']
 
+# This shouldn't really be hard coded in;
+# See test_create_angiograms_batch.py for a function that determines
+# this value automatically
+n_skip = 1*n_fast
+
 # some conversions to comply with old conventions:
 n_slow = n_slow
 n_fast = n_fast*n_repeats
 
-n_skip = 500
 bit_shift_right = 4
 dtype=np.uint16
 

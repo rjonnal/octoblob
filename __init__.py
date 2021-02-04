@@ -655,19 +655,6 @@ def make_angiogram(stack_complex,bulk_correction_threshold=None,phase_variance_t
 
     if diagnostics:
 
-        def xcm(tar,ref):
-            ftar = np.fft.fft2(tar)
-            fref = np.conj(np.fft.fft2(ref))
-            xc = np.abs(np.fft.ifft2(ftar*fref))
-            return xc.max()
-        
-        # check cross-correlation of frames to make sure that our n_skip was set correctly
-        plt.figure()
-        for idx1,idx2 in zip(range(stack_complex.shape[2]-1),range(1,stack_complex.shape[2])):
-            xc_max = xcm(stack_complex[:,:,idx1],stack_complex[:,:,idx2])
-            plt.plot(idx1,xc_max,'ks')
-            print(xc_max)
-        
         plt.figure()
         plt.imshow(mean_log_amplitude_stack,cmap='gray',aspect='auto')
         plt.title('diagnostics: log b-scan')
