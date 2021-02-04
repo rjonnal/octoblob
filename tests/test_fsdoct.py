@@ -138,6 +138,8 @@ for frame_index in range(n_slow):
 flist = sorted(glob.glob(os.path.join(output_directory_bscans,'*.npy')))
 rt.register_series(flist[300],flist,max_shift=50,overwrite=True,diagnostics=False)
 
+
+
 sys.exit()
 
 for fn1,fn2 in zip(flist[:-1],flist[1:]):
