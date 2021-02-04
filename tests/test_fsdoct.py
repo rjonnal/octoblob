@@ -135,12 +135,8 @@ for frame_index in range(n_slow):
     
 # Now we do point-by-point registration between pairs of B-scans, including phase alignment
 
-start_idx = 375
-end_idx = 525
-
-flist = sorted(glob.glob(os.path.join(output_directory_bscans,'*.npy')))[start_idx:end_idx]
-
-rt.register_series(flist[75],flist,max_shift=50,overwrite=True,diagnostics=False)
+flist = sorted(glob.glob(os.path.join(output_directory_bscans,'*.npy')))
+rt.register_series(flist[300],flist,max_shift=50,overwrite=True,diagnostics=False)
 
 sys.exit()
 

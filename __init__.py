@@ -112,7 +112,7 @@ class OCTRawData:
         print('n_vol\t\t%d\nn_slow\t\t%d\nn_repeats\t%d\nn_fast\t\t%d\nn_depth\t\t%d\nbytes_per_pixel\t%d\ntotal_expected_size\t%d'%(self.n_vol,self.n_slow,self.n_repeats,self.n_fast,self.n_depth,self.bytes_per_pixel,self.n_bytes))
 
 
-    def align_to_fbg(self,frame,region_height=48,smoothing_size=5,sign=1,do_plots=False):
+    def align_to_fbg(self,frame,region_height=48,smoothing_size=5,sign=1,diagnostics=False):
         # The algorithm here is copied from Justin Migacz's MATLAB prototype; one
         # key difference is that Justin cats 5 sets of spectra together, such that
         # they share the same k-axis; this step is performed on a "compound" frame,
@@ -122,7 +122,7 @@ class OCTRawData:
         z1 = self.fbg_position-region_height//2
         z2 = self.fbg_position+region_height//2-1
 
-        if do_plots:
+        if diagnostics:
             plt.figure()
             plt.imshow(frame,cmap='gray',aspect='auto')
             plt.axhspan(z1,z2,alpha=0.2)
@@ -228,7 +228,7 @@ class OCTRawData:
             
             # If there's an fbg, align spectra using the align_to_fbg function
             if self.has_fbg:
-                frame = self.align_to_fbg(frame,sign=self.fbg_sign,do_plots=plot_fbg)
+                frame = self.align_to_fbg(frame,sign=self.fbg_sign,diagnostics=diagnostics)
 
             frame = frame[self.spectrum_start:self.spectrum_end,:]
         return frame
@@ -654,6 +654,20 @@ def make_angiogram(stack_complex,bulk_correction_threshold=None,phase_variance_t
     phase_variance_mask = (mean_log_amplitude_stack>phase_variance_threshold)
 
     if diagnostics:
+
+        def xcm(tar,ref):
+            ftar = np.fft.fft2(tar)
+            fref = np.conj(np.fft.fft2(ref))
+            xc = np.abs(np.fft.ifft2(ftar*fref))
+            return xc.max()
+        
+        # check cross-correlation of frames to make sure that our n_skip was set correctly
+        plt.figure()
+        for idx1,idx2 in zip(range(stack_complex.shape[2]-1),range(1,stack_complex.shape[2])):
+            xc_max = xcm(stack_complex[:,:,idx1],stack_complex[:,:,idx2])
+            plt.plot(idx1,xc_max,'ks')
+            print(xc_max)
+        
         plt.figure()
         plt.imshow(mean_log_amplitude_stack,cmap='gray',aspect='auto')
         plt.title('diagnostics: log b-scan')

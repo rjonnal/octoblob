@@ -31,6 +31,8 @@ def rigid_register(ref,tar,max_shift=None,diagnostics=False,ref_pre_fft=False):
         xc = xc * mask
         
     peaky,peakx = np.unravel_index(np.argmax(xc),xc.shape)
+    xc_peak = xc[peaky,peakx]
+    
     if diagnostics:
         plt.plot(peakx,peaky,'ro')
         plt.pause(.001)
@@ -40,7 +42,7 @@ def rigid_register(ref,tar,max_shift=None,diagnostics=False,ref_pre_fft=False):
     if peakx>xc.shape[1]//2:
         peakx=peakx-xc.shape[1]
 
-    return peakx,peaky
+    return peakx,peaky,xc
 
 
 def register_series(ref_fn,fn_list,output_directory=None,max_shift=None,diagnostics=False,overwrite=False):
@@ -59,7 +61,36 @@ def register_series(ref_fn,fn_list,output_directory=None,max_shift=None,diagnost
         print('%s exists. Please delete or specify a different output_directory.'%output_directory)
 
 
+    
+    try:
+        median_autocorrelation = np.loadtxt(os.path.join(rinfo_directory,'median_autocorrelation.txt'))[0]
+    except:
+        # estimate ideal cross-correlation and build stack:
+        xc_vec = []
+        for fn in fn_list:
+            f = np.load(fn)
+            dx,dy,xc = rigid_register(f,f)
+            xc_vec.append(xc.max())
+        median_autocorrelation = np.median(xc_vec)
+        np.savetxt(os.path.join(rinfo_directory,'median_autocorrelation.txt'),[np.median(xc_vec)])
 
+
+    try:
+        xc_stack = np.load(os.path.join(rinfo_directory,'cross_correlation_stack.npy'))
+    except:
+        xc_stack = []
+        fref = np.fft.fft2(np.load(ref_fn))
+        
+        for fn in fn_list:
+            f = np.load(fn)
+            dx,dy,xc = rigid_register(f,fref,ref_pre_fft=True)
+            xc_stack.append(xc)
+            
+        xc_stack = np.array(xc_stack)
+        np.save(os.path.join(rinfo_directory,'cross_correlation_stack.npy'),xc_stack)
+
+    print('median autocorrelation = %0.3f'%median_autocorrelation)
+    sys.exit()
     # the first step is to use pairwise shifts to create confidence limits for the later, global registration:
     try:
         cdx_vec = np.loadtxt(os.path.join(rinfo_directory,'cdx.txt')).astype(np.int16)
@@ -69,15 +100,24 @@ def register_series(ref_fn,fn_list,output_directory=None,max_shift=None,diagnost
         cdx_vec = []
         cdy_vec = []
 
-        for idx,(f1,f2) in enumerate(zip(fn_list[:-1],fn_list[1:])):
+
+
+        
+
+        
+        print(np.median(xc_vec))
+        plt.plot(xc_vec)
+        plt.show()
+        
+        for idx,(fn1,fn2) in enumerate(zip(fn_list[:-1],fn_list[1:])):
 
             # ref_idx is the index of the item in cdx_vec,cdy_vec containing
             # the shifts from the reference to the subsequent image; needed
             # below
-            if f1==ref_fn:
+            if fn1==ref_fn:
                 ref_idx = idx
                 
-            cdx,cdy = rigid_register(np.load(f1),np.load(f2),max_shift=None)
+            cdx,cdy = rigid_register(np.load(fn1),np.load(fn2),max_shift=None)
             cdx_vec.append(cdx)
             cdy_vec.append(cdy)
 
