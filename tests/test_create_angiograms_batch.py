@@ -9,6 +9,26 @@ import octoblob as blob
 from octoblob import config_reader,dispersion_ui
 from octoblob.bmp_tools import savebmp
 import glob
+import multiprocessing as mp
+from octoblob.registration_tools import rigid_shift
+
+
+# # # quick rigid_shift test:
+# source = np.random.randn(100,100)
+# ref = source[2:52,3:53]
+# tar = source[:50,:50]
+# shifted_tar = rigid_shift(ref,tar)
+
+# plt.figure()
+# plt.imshow(ref)
+# #plt.figure()
+# #plt.imshow(tar)
+# plt.figure()
+# plt.imshow(shifted_tar)
+# plt.show()
+
+# sys.exit()
+
 
 # mapping and dispersion coefficients [m3,m2,c3,c2] output by test_optimize_mapping_dispersion_swept_source:
 #[ 2.71487217e-10 -3.74028591e-07 -6.67475212e-09 -8.97711135e-06]
@@ -35,13 +55,17 @@ spectrum_end = 1459
 
 fft_oversampling_size = 4096
 bscan_z1 = 2900
-bscan_z2 = -40
+bscan_z2 = -500
 bscan_x1 = 0
 bscan_x2 = -100
 
 # parameters for bulk motion correction and phase variance calculation:
-bulk_correction_threshold = 0.3
-phase_variance_threshold = 0.57#0.43
+# original values:
+# bulk_correction_threshold = 0.3
+# phase_variance_threshold = 0.43
+
+bulk_correction_threshold = 0.5
+phase_variance_threshold = 0.5#0.43
 
 # setting diagnostics to True will plot/show a bunch of extra information to help
 # you understand why things don't look right, and then quit after the first loop
@@ -103,6 +127,12 @@ def process_unp(filename,diagnostics,show_processed_data=True,manual_dispersion=
         bscan_series = blob.spectra_to_bscan(frame,oversampled_size=fft_oversampling_size,z1=bscan_z1,z2=bscan_z2,diagnostics=diagnostics)
         stack_complex = blob.reshape_repeats(bscan_series,n_repeats,x1=bscan_x1,x2=bscan_x2)
 
+
+        ref = stack_complex[:,:,0]
+        for k in range(1,stack_complex.shape[2]):
+            tar = stack_complex[:,:,k]
+            stack_complex[:,:,k] = rigid_shift(ref,tar,max_shift=10,diagnostics=False)
+        
         bscan = np.mean(np.abs(stack_complex),2)
 
         phase_variance = blob.make_angiogram(stack_complex,
@@ -231,8 +261,29 @@ def identify_skip_frames(filename,diagnostics=False):
     # rather than frame index. What a mess:
     return n_skip_frames*n_fast_original
 
-for unp_filename in sorted(glob.glob('angio/*.unp'))[1:]:
-    # it seems that for the Axsun, n_skip is always 0; can omit this step:
-    #n_skip = identify_skip_frames(unp_filename,diagnostics=False)
-    
-    process_unp(unp_filename,diagnostics=False,manual_dispersion=False,n_skip=0)
+
+
+
+
+
+def proc(fn):
+    return process_unp(fn,diagnostics=False,manual_dispersion=False,n_skip=0)
+
+flist = sorted(glob.glob('angio/*.unp'))
+
+# to do diagnostics, do something like the following:
+# process_unp(flist[0],diagnostics=True)
+
+# change this to false if it starts causing problems, but it should be stable:
+use_multiprocessing = True
+
+if use_multiprocessing:
+    # parallelize the loop over files
+    with mp.Pool(max(len(flist),4)) as p:
+        p.map(proc,flist)
+else:
+    # serialize the loop over files
+    for unp_filename in flist:
+        # it seems that for the Axsun, n_skip is always 0; can omit this step:
+        #n_skip = identify_skip_frames(unp_filename,diagnostics=False)
+        process_unp(unp_filename,diagnostics=False,manual_dispersion=False,n_skip=0)

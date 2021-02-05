@@ -45,6 +45,50 @@ def rigid_register(ref,tar,max_shift=None,diagnostics=False,ref_pre_fft=False):
     return peakx,peaky,xc
 
 
+def rigid_shift(ref,tar,max_shift=None,diagnostics=False,ref_pre_fft=False):
+    # use rigid_register above and return a correctly shifted version of target (tar)
+    
+    dx,dy,xc = rigid_register(ref,tar,max_shift,diagnostics,ref_pre_fft)
+    new_tar = np.ones(tar.shape,dtype=tar.dtype)*np.min(tar)
+    print(dx,dy)
+    
+    if dx>0:
+        put_x1 = dx
+        put_x2 = tar.shape[1]
+        get_x1 = 0
+        get_x2 = put_x2-put_x1
+        
+    if dy>0:
+        put_y1 = dy
+        put_y2 = tar.shape[0]
+        get_y1 = 0
+        get_y2 = put_y2-put_y1
+
+    if dx<=0:
+        get_x1 = -dx
+        get_x2 = tar.shape[1]
+        put_x1 = 0
+        put_x2 = get_x2-get_x1
+        
+    if dy<=0:
+        get_y1 = -dy
+        get_y2 = tar.shape[0]
+        put_y1 = 0
+        put_y2 = get_y2-get_y1
+
+    
+    new_tar[put_y1:put_y2,put_x1:put_x2] = tar[get_y1:get_y2,get_x1:get_x2]
+    
+    if diagnostics:
+        plt.figure()
+        plt.subplot(1,2,1)
+        plt.imshow(np.abs(tar),aspect='auto')
+        plt.subplot(1,2,2)
+        plt.imshow(np.abs(new_tar),aspect='auto')
+        
+    return new_tar
+    
+
 def register_series(ref_fn,fn_list,output_directory=None,max_shift=None,diagnostics=False,overwrite=False):
 
     if output_directory is None:
