@@ -3,14 +3,14 @@ import numpy as np
 import sys,os
 from . import bmp_tools
 
-dispersion_3_max = 10.0
+dispersion_3_max = 1.0
 dispersion_2_max = 5.0
 
 dispersion_3_min = -dispersion_3_max
 
 #dispersion_3_multiplier = 1e-16
 #dispersion_3_multiplier = 1e-8
-dispersion_3_multiplier = 1e-9
+dispersion_3_multiplier = 1e-8
 
 dispersion_2_min = -dispersion_2_max
 

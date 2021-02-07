@@ -29,22 +29,13 @@ from octoblob.registration_tools import rigid_shift
 
 # sys.exit()
 
+# dispersion coefficients output by manual adjustment:
+mapping_coefficients = [-5.598141695702673e-10, 7.486559139784956e-07, 0.0, 0.0]
+dispersion_coefficients = [-7.676063773624743e-09, -2.8924731182795676e-05, 0.0, 0.0]
 
 # mapping and dispersion coefficients [m3,m2,c3,c2] output by test_optimize_mapping_dispersion_swept_source:
-#[ 2.71487217e-10 -3.74028591e-07 -6.67475212e-09 -8.97711135e-06]
-
 #mapping_coefficients = [2.71487217e-10,-3.74028591e-07,0.0,0.0]
 #dispersion_coefficients = [-6.67475212e-09,-8.97711135e-06,0.0,0.0]
-
-# dispersion coefficients output by manual dispersion:
-#[-7.313905606588533e-09, -2.939516129032258e-05, 0.0, 0.0]
-#dispersion_coefficients = [-7.313905606588533e-09, -2.939516129032258e-05, 0.0, 0.0]
-
-# on these data, processed b-scans look best (to me, RSJ) with no mapping or disp. comp.
-# for now, let's set Axsun dispcomp/mapping issues aside as a second order issue
-# -RSJ / 4 Feb 2021
-mapping_coefficients = [0.0]*4
-dispersion_coefficients = [0.0]*4
 
 bit_shift_right = 4
 dtype=np.uint16
@@ -111,6 +102,20 @@ def process_unp(filename,diagnostics,show_processed_data=True,manual_dispersion=
         print([c3,c2,0.0,0.0])
         sys.exit()
 
+    if manual_mapping:
+        # check the mapping coefficients
+        # first we need a process function that takes a frame and the m3 and m2 coefficients
+        # and returns a B-scan; we can copose this out of several blob functions:
+        def process(frame,m3,m2):
+            return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.k_resample(blob.dc_subtract(frame),[m3,m2,0.0,0.0]),dispersion_coefficients),0.9))[800:1200,:]
+        
+        points,maxes = dispersion_ui.dispersion_ui(src.get_frame(0),process,c3min=-1e-9,c3max=1e-9,c2min=-1e-6,c2max=1e-6)
+
+        m2,m3 = points[np.argmax(maxes)]
+        print('Optimized mapping coefficients:')
+        print([m3,m2,0.0,0.0])
+        sys.exit()
+        
     if show_processed_data:
         processing_fig = plt.figure(0,figsize=(4,6))
 
@@ -260,9 +265,6 @@ def identify_skip_frames(filename,diagnostics=False):
     # And, now since n_skip should be given in A-line index
     # rather than frame index. What a mess:
     return n_skip_frames*n_fast_original
-
-
-
 
 
 
