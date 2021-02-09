@@ -257,11 +257,32 @@ class Resampler:
 
 
     
-def dc_subtract(spectra):
+def dc_subtract(spectra,diagnostics=False):
     """Estimate DC by averaging spectra spatially (dimension 1),
     then subtract by broadcasting."""
     dc = spectra.mean(1)
     out = (spectra.T-dc).T
+    
+    if diagnostics:
+        plt.figure()
+        plt.subplot(2,2,1)
+        plt.imshow(spectra,aspect='auto',cmap='gray',interpolation='none')
+        plt.colorbar()
+        plt.title('uncorrected spectra')
+        plt.subplot(2,2,2)
+        plt.plot(dc)
+        plt.xlabel('spectral index')
+        plt.ylabel('amplitude')
+        plt.title('estimated DC')
+        plt.subplot(2,2,3)
+        plt.imshow(out,aspect='auto',cmap='gray',interpolation='none')
+        plt.title('DC corrected spectra')
+        plt.colorbar()
+        plt.subplot(2,2,4)
+        plt.hist(np.ravel(out),bins=range(-1000,1010,10))
+        plt.xlabel('DC corrected amplitude')
+        plt.ylabel('count')
+        
     return out
 
 

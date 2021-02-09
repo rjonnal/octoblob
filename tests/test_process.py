@@ -126,7 +126,7 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
     for frame_index in range(n_slow):
         print(frame_index)
         frame = src.get_frame(frame_index,diagnostics=diagnostics)
-        frame = blob.dc_subtract(frame)
+        frame = blob.dc_subtract(frame,diagnostics=diagnostics)
         frame = blob.k_resample(frame,mapping_coefficients,diagnostics=diagnostics)
         frame = blob.dispersion_compensate(frame,dispersion_coefficients,diagnostics=diagnostics)
         frame = blob.gaussian_window(frame,0.9)
