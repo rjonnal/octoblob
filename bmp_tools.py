@@ -27,6 +27,11 @@ def savebmp(filename,arr,clim=None,dpi=100,cmap='gray'):
     plt.imshow(arr,cmap=cmap)
     plt.savefig(filename,dpi=dpi)
     plt.close()
+
+def dbscale(frame):
+    '''A convenience function for scaling OCT b-scans
+    expects a complex, linear-scale matrix. Returns dB'''
+    return 20*np.log10(np.abs(frame))
     
 def logscale(frame,lower_limit=None,upper_limit=None,bit_depth=16):
     '''A convenience function for scaling OCT b-scans

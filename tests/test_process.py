@@ -13,9 +13,19 @@ import multiprocessing as mp
 from octoblob.registration_tools import rigid_shift
 
 
-# dispersion coefficients output by manual adjustment:
-mapping_coefficients = [-5.598141695702673e-10, 7.486559139784956e-07, 0.0, 0.0]
-dispersion_coefficients = [-7.676063773624743e-09, -2.8924731182795676e-05, 0.0, 0.0]
+test_type = 'angio'
+
+if test_type=='structural':
+    file_search_string = 'structural/*.unp'
+    mapping_coefficients = [0.0e-10,0.0e-6,0.0,0.0]
+    dispersion_coefficients = [-6.2e-09, -3.7e-05, 0.0, 0.0]
+if test_type=='angio':
+    # coefficients output by manual adjustment,
+    # for the angiographic test set:
+    file_search_string = 'angio/*.unp'
+    mapping_coefficients = [3.2e-10,-1e-6,0.0,0.0]
+    dispersion_coefficients = [3.6e-9,-7.1e-7,0.0,0.0]
+
 
 bit_shift_right = 4
 dtype=np.uint16
@@ -26,7 +36,7 @@ spectrum_end = 1459
 
 fft_oversampling_size = 4096
 bscan_z1 = 2900
-bscan_z2 = -500
+bscan_z2 = -100
 bscan_x1 = 0
 bscan_x2 = -100
 
@@ -38,7 +48,7 @@ bscan_x2 = -100
 bulk_correction_threshold = 0.5
 phase_variance_threshold = 0.5#0.43
 
-def process(filename,diagnostics=False,show_processed_data=True,manual_dispersion=False,manual_mapping=False,n_skip=0,do_angiography=None,do_rigid_registration=False):
+def process(filename,diagnostics=False,show_processed_data=True,manual_dispersion=False,manual_mapping=False,n_skip=0,do_angiography=None,do_rigid_registration=False,dispersion_coefficients=dispersion_coefficients):
     # setting diagnostics to True will plot/show a bunch of extra information to help
     # you understand why things don't look right, and then quit after the first loop
     # setting show_processed_data to True will spawn a window that shows you how the b-scans and angiograms look
@@ -60,11 +70,13 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
     if do_angiography is None:
         do_angiography = n_repeats > 1
 
-
     # Make directories, as needed:
     
     output_directory_bscans = filename.replace('.unp','')+'_bscans'
     os.makedirs(output_directory_bscans,exist_ok=True)
+
+    output_directory_info = filename.replace('.unp','')+'_info'
+    os.makedirs(output_directory_info,exist_ok=True)
 
     if do_angiography:
         output_directory_angiograms = filename.replace('.unp','')+'_angiograms'
@@ -74,8 +86,6 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
         output_directory_png = filename.replace('.unp','')+'_png'
         os.makedirs(output_directory_png,exist_ok=True)
 
-
-        
     src = blob.OCTRawData(filename,n_vol,n_slow,n_fast,n_depth,n_repeats,fbg_position=fbg_position,spectrum_start=spectrum_start,spectrum_end=spectrum_end,bit_shift_right=bit_shift_right,n_skip=n_skip,dtype=dtype)
 
     if manual_dispersion:
@@ -86,10 +96,13 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
             return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.k_resample(blob.dc_subtract(frame),mapping_coefficients),[c3,c2,0.0,0.0]),0.9))[800:1200,:]
         points,maxes = dispersion_ui.dispersion_ui(src.get_frame(0),process_for_ui)
 
-        c2,c3 = points[np.argmax(maxes)]
-        print('Optimized coefficients:')
+        # c2,c3 = points[np.argmax(maxes)]
+        c2,c3 = points[-1]
+
+        dispersion_coefficients = [c3,c2,0.0,0.0]
+        np.savetxt(os.path.join(output_directory_info,'dispersion_coefficients.txt'),dispersion_coefficients)
+        print('Optimized dispersion coefficients:')
         print([c3,c2,0.0,0.0])
-        sys.exit()
 
     if manual_mapping:
         # check the mapping coefficients
@@ -100,167 +113,111 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
         
         points,maxes = dispersion_ui.dispersion_ui(src.get_frame(0),process_for_ui,c3min=-1e-9,c3max=1e-9,c2min=-1e-6,c2max=1e-6)
 
-        m2,m3 = points[np.argmax(maxes)]
+        # m2,m3 = points[np.argmax(maxes)]
+        m2,m3 = points[-1]
+        
         print('Optimized mapping coefficients:')
         print([m3,m2,0.0,0.0])
         sys.exit()
-        
+
     if show_processed_data:
         processing_fig = plt.figure(0,figsize=(4,6))
 
     for frame_index in range(n_slow):
         print(frame_index)
-        frame = src.get_frame(frame_index)
+        frame = src.get_frame(frame_index,diagnostics=diagnostics)
         frame = blob.dc_subtract(frame)
-        frame = blob.k_resample(frame,mapping_coefficients)
+        frame = blob.k_resample(frame,mapping_coefficients,diagnostics=diagnostics)
         frame = blob.dispersion_compensate(frame,dispersion_coefficients,diagnostics=diagnostics)
         frame = blob.gaussian_window(frame,0.9)
-        bscan_series = blob.spectra_to_bscan(frame,oversampled_size=fft_oversampling_size,z1=bscan_z1,z2=bscan_z2,diagnostics=diagnostics)
-        stack_complex = blob.reshape_repeats(bscan_series,n_repeats,x1=bscan_x1,x2=bscan_x2)
 
-
-        ref = stack_complex[:,:,0]
-        for k in range(1,stack_complex.shape[2]):
-            tar = stack_complex[:,:,k]
-            stack_complex[:,:,k] = rigid_shift(ref,tar,max_shift=10,diagnostics=False)
         
-        bscan = np.mean(np.abs(stack_complex),2)
+        bscan_series = blob.spectra_to_bscan(frame,oversampled_size=fft_oversampling_size,z1=bscan_z1,z2=bscan_z2,diagnostics=diagnostics)
 
-        phase_variance = blob.make_angiogram(stack_complex,
-                                             bulk_correction_threshold=bulk_correction_threshold,
-                                             phase_variance_threshold=phase_variance_threshold,
-                                             diagnostics=diagnostics)
+        if not do_angiography:
+            bscan = bscan_series
+            bscan_out_filename = os.path.join(output_directory_bscans,'complex_bscan_%05d.npy'%frame_index)
 
-        bscan_out_filename = os.path.join(output_directory_bscans,'complex_bscan_stack_%05d.npy'%frame_index)
-        angiogram_out_filename = os.path.join(output_directory_angiograms,'angiogram_bscan_%05d.npy'%frame_index)
+        else:
+        
+            stack_complex = blob.reshape_repeats(bscan_series,n_repeats,x1=bscan_x1,x2=bscan_x2)
+
+
+            if do_rigid_registration:
+                ref = stack_complex[:,:,0]
+                for k in range(1,stack_complex.shape[2]):
+                    tar = stack_complex[:,:,k]
+                    stack_complex[:,:,k] = rigid_shift(ref,tar,max_shift=10,diagnostics=False)
+
+            bscan_out_filename = os.path.join(output_directory_bscans,'complex_bscan_stack_%05d.npy'%frame_index)
+            bscan = np.mean(np.abs(stack_complex),2)
+            phase_variance = blob.make_angiogram(stack_complex,
+                                                 bulk_correction_threshold=bulk_correction_threshold,
+                                                 phase_variance_threshold=phase_variance_threshold,
+                                                 diagnostics=diagnostics)
+
+            angiogram_out_filename = os.path.join(output_directory_angiograms,'angiogram_bscan_%05d.npy'%frame_index)
 
 
         if show_processed_data:
-            png_out_filename = os.path.join(output_directory_png,'bscan_angiogram_%05d.png'%frame_index)
+            if do_angiography:
+                png_out_filename = os.path.join(output_directory_png,'bscan_angiogram_%05d.png'%frame_index)
+            else:
+                png_out_filename = os.path.join(output_directory_png,'bscan_%05d.png'%frame_index)
             
             plt.figure(0)
 
             plt.clf()
-            plt.subplot(2,1,1)
+            if do_angiography:
+                plt.subplot(2,1,1)
             plt.imshow(20*np.log10(np.abs(bscan)),aspect='auto',cmap='gray',clim=(40,90))
             plt.colorbar()
             plt.title('bscan dB')
             plt.xticks([])
             plt.yticks([])
-            
-            plt.subplot(2,1,2)
-            plt.imshow(phase_variance,aspect='auto',cmap='gray')
-            plt.colorbar()
-            plt.title('angiogram (pv)')
-            plt.xticks([])
-            plt.yticks([])
+
+            if do_angiography:
+                plt.subplot(2,1,2)
+                plt.imshow(phase_variance,aspect='auto',cmap='gray')
+                plt.colorbar()
+                plt.title('angiogram (pv)')
+                plt.xticks([])
+                plt.yticks([])
 
             plt.savefig(png_out_filename,dpi=150)
             
             plt.pause(.1)
 
-        # here we're saving the complex stack--could abs and average them first if we need to save disk space
-        np.save(bscan_out_filename,stack_complex)
-
-        np.save(angiogram_out_filename,phase_variance)
+        if do_angiography:
+            # here we're saving the complex stack--could abs and average them first if we need to save disk space
+            np.save(bscan_out_filename,stack_complex)
+        else:
+            np.save(bscan_out_filename,bscan)
+            
+        if do_angiography:
+            np.save(angiogram_out_filename,phase_variance)
 
         if diagnostics:
             plt.show()
 
 
-def identify_skip_frames(filename,diagnostics=False):
-    # This program looks at cross-correlation between consecutive frames to determine where the slow scanner has
-    # moved, so that the repeated B-scans are clustered together correctly. Use it to set skip_frames correctly
-    # PARAMETERS FOR RAW DATA SOURCE
-    
-    cfg = config_reader.get_configuration(filename.replace('.unp','.xml'))
-
-    n_vol = cfg['n_vol']
-    n_slow = cfg['n_slow']
-    # we'll make one stack consisting of 10 groups of repeat scans:
-    n_repeats = cfg['n_bm_scans']
-
-    
-    n_repeats_big_stack = n_repeats*10
-    
-    n_fast = cfg['n_fast']
-    n_fast_original = n_fast
-    n_depth = cfg['n_depth']
-
-    # some conversions to comply with old conventions:
-    n_slow = n_slow
-    n_fast = n_fast*n_repeats_big_stack
-
-    src = blob.OCTRawData(filename,n_vol,n_slow,n_fast,n_depth,n_repeats_big_stack,fbg_position=fbg_position,spectrum_start=spectrum_start,spectrum_end=spectrum_end,bit_shift_right=bit_shift_right,dtype=dtype)
-
-    frame = src.get_frame(0)
-    frame = blob.dc_subtract(frame)
-    frame = blob.k_resample(frame,mapping_coefficients)
-    frame = blob.dispersion_compensate(frame,dispersion_coefficients)
-    frame = blob.gaussian_window(frame,0.9)
-    bscan_series = blob.spectra_to_bscan(frame,oversampled_size=fft_oversampling_size,z1=bscan_z1,z2=bscan_z2)
-    stack_complex = blob.reshape_repeats(bscan_series,n_repeats_big_stack,x1=bscan_x1,x2=bscan_x2)
-
-    def xcm(tar,ref):
-        ftar = np.fft.fft2(tar)
-        fref = np.conj(np.fft.fft2(ref))
-        xc = np.abs(np.fft.ifft2(ftar*fref))
-        return xc.max()
-
-    def corr(tar,ref):
-        atar = np.abs(tar)
-        aref = np.abs(ref)
-        sy,sx = tar.shape
-        return np.sum((atar-atar.mean())*(aref-aref.mean()))/(np.std(atar)*np.std(aref))/float(sy)/float(sx)
-        
-    # check cross-correlation of frames to make sure that our n_skip was set correctly
-    
-    vals = []
-    for idx1,idx2 in zip(range(stack_complex.shape[2]-1),range(1,stack_complex.shape[2])):
-        #val = xcm(stack_complex[:,:,idx1],stack_complex[:,:,idx2])
-        val = corr(stack_complex[:,:,idx1],stack_complex[:,:,idx2])
-        vals.append(val)
-
-    vals = np.array(vals)
-
-    if diagnostics:
-        plt.figure()
-        plt.plot(vals)
-        plt.xlabel('nth frame correlation with (n+1)th frame')
-        plt.ylabel('correlation')
-    
-    vals_sums = []
-    offsets = range(n_repeats)
-    for offset in offsets:
-        comb_indices = range(offset,len(vals),n_repeats)
-        vals_sums.append(np.sum(vals[comb_indices]))
-
-    if diagnostics:
-        plt.figure()
-        plt.plot((np.array(offsets)+1)%n_repeats,vals_sums,'ks')
-        plt.show()
-
-    # A bit of weird modulo math, necessitated by the
-    # way the correlations were calculated:
-    # the correlations (vals) are between the 0th and 1st
-    # frame, then the 1st and 2nd frame, etc.
-    # Therefore, we expect minima (low correlations)
-    # at the n_skip-1, 2*n_skip-1, 3*n_skip-1, etc. locations
-    n_skip_frames = (np.argmin(vals_sums)+1)%n_repeats
-
-    # And, now since n_skip should be given in A-line index
-    # rather than frame index. What a mess:
-    return n_skip_frames*n_fast_original
-
-
 
 def proc(fn):
-    return process_unp(fn,diagnostics=False,manual_dispersion=False,n_skip=0)
+    return process(fn,diagnostics=False,manual_dispersion=False,manual_mapping=False,n_skip=0)
 
-flist = sorted(glob.glob('angio/*.unp'))
+flist = sorted(glob.glob(file_search_string))
 
 # to do diagnostics, do something like the following:
-# process_unp(flist[0],diagnostics=True)
+process(flist[0],diagnostics=True)
+sys.exit()
+
+# to do manual dispersion compensation, do something like the following:
+# process(flist[0],diagnostics=False,manual_dispersion=True)
+# sys.exit()
+
+# to do manual mapping, do something like the following:
+# process(flist[0],diagnostics=False,manual_mapping=True)
+# sys.exit()
 
 # change this to false if it starts causing problems, but it should be stable:
 use_multiprocessing = True
@@ -274,4 +231,4 @@ else:
     for unp_filename in flist:
         # it seems that for the Axsun, n_skip is always 0; can omit this step:
         #n_skip = identify_skip_frames(unp_filename,diagnostics=False)
-        process_unp(unp_filename,diagnostics=False,manual_dispersion=False,n_skip=0)
+        process(unp_filename,diagnostics=False,manual_dispersion=False,n_skip=0)

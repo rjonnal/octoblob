@@ -122,13 +122,6 @@ class OCTRawData:
         z1 = self.fbg_position-region_height//2
         z2 = self.fbg_position+region_height//2-1
 
-        if diagnostics:
-            plt.figure()
-            plt.imshow(frame,cmap='gray',aspect='auto')
-            plt.axhspan(z1,z2,alpha=0.2)
-            plt.show()
-        
-        
         # crop the relevant region:
         fbg_region = np.zeros((z2-z1,frame.shape[1]))
         fbg_region[:,:] = frame[z1:z2,:]
@@ -162,7 +155,18 @@ class OCTRawData:
         out = np.zeros(frame.shape)
         for x in range(frame.shape[1]):
             out[:,x] = np.roll(frame[:,x],-max_rise_index[x])
+            
+        if diagnostics:
+            plt.figure()
+            plt.subplot(2,1,1)
+            plt.imshow(frame,cmap='gray',aspect='auto',interpolation='none')
+            plt.axhspan(z1,z2,alpha=0.1)
+            plt.title('align_to_fbg: uncorrected and search region')
+            plt.subplot(2,1,2)
+            plt.imshow(out,cmap='gray',aspect='auto',interpolation='none')
+            plt.title('align_to_fbg: corrected')
 
+        
         return out
 
     
@@ -210,7 +214,6 @@ class OCTRawData:
                 frame = np.right_shift(frame,self.bit_shift_right)
 
             if diagnostics:
-                plt.figure()
                 plt.subplot(2,1,2)
                 plt.hist(frame,bins=100)
                 plt.title('after %d bit shift'%self.bit_shift_right)
@@ -262,7 +265,7 @@ def dc_subtract(spectra):
     return out
 
 
-def k_resample(spectra,coefficients=pp.k_resampling_coefficients):
+def k_resample(spectra,coefficients=pp.k_resampling_coefficients,diagnostics=False):
     """Resample the spectrum such that it is uniform w/r/t k.
     The default coefficients here were experimentally determined
     by Justin Migacz, using the Axsun light source.
@@ -290,6 +293,38 @@ def k_resample(spectra,coefficients=pp.k_resampling_coefficients):
     # definitely remove this later
     interpolated[0,:] = interpolated[1,:]
     interpolated[-1,:] = interpolated[-2,:]
+
+    if diagnostics:
+        plt.figure()
+        plt.subplot(3,2,1)
+        plt.imshow(spectra)
+        plt.colorbar()
+        plt.title('spectra before mapping')
+        plt.subplot(3,2,2)
+        plt.imshow(interpolated)
+        plt.colorbar()
+        plt.title('spectra after mapping')
+        plt.subplot(3,2,3)
+        plt.imshow(np.log(np.abs(np.fft.fft(spectra,axis=0))))
+        plt.colorbar()
+        plt.title('fft before mapping')
+        plt.subplot(3,2,4)
+        plt.imshow(np.log(np.abs(np.fft.fft(interpolated,axis=0))))
+        plt.colorbar()
+        plt.title('fft after mapping')
+        plt.subplot(3,2,5)
+        plt.hist(np.ravel(np.log(np.abs(np.fft.fft(spectra,axis=0)))),bins=100)
+        plt.colorbar()
+        plt.title('fft before mapping')
+        plt.subplot(3,2,6)
+        plt.hist(np.ravel(np.log(np.abs(np.fft.fft(interpolated,axis=0)))),bins=100)
+        plt.colorbar()
+        plt.title('fft after mapping')
+
+        
+        plt.suptitle('k_resample diagnostics')
+        
+    
     return interpolated
 
 def dispersion_compensate(spectra,coefficients=pp.dispersion_coefficients,diagnostics=False):

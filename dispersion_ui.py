@@ -51,14 +51,11 @@ def dispersion_ui(raw_data,func,c3min=c3min,c3max=c3max,c2min=c2min,c2max=c2max)
             return
         
         global points,imaxes,imins
-
-        if event.button==1:
-            xnewclick = event.xdata
-            ynewclick = event.ydata
         
-            click_points = [(xnewclick,ynewclick)]
-            
-            if xnewclick<c2min or xnewclick>c2max or ynewclick<c3min or ynewclick>c3max:
+        if event.button==1:
+
+            if event.xdata is None and event.ydata is None:
+                # clicked outside plot--clear everything
                 print('Clearing.')
                 points = []
                 imaxes = []
@@ -68,11 +65,15 @@ def dispersion_ui(raw_data,func,c3min=c3min,c3max=c3max,c2min=c2min,c2max=c2max)
                 ax2.set_xlim([c2min,c2max])
                 ax2.set_ylim([c3min,c3max])
                 plt.draw()
+            else:
+                xnewclick = event.xdata
+                ynewclick = event.ydata
+        
+                click_points = [(xnewclick,ynewclick)]
                 
         elif event.button==3:
             click_points = []
-            if len(points):
-
+            if len(points)>=2:
                 mat = np.array(points)
                 c2vals = mat[:,0]
                 c3vals = mat[:,1]
@@ -99,14 +100,14 @@ def dispersion_ui(raw_data,func,c3min=c3min,c3max=c3max,c2min=c2min,c2max=c2max)
             imax = max(im)
             imaxes.append(imax)
 
-            im = bmp_tools.logscale(im)
+            im = bmp_tools.dbscale(im)
 
             peak_max = np.max(imaxes)
             peak_min = np.min(imaxes)
 
             ax1.cla()#plt.cla()
-            ax1.imshow(im,aspect='auto',cmap='gray')
-
+            ax1.imshow(im,aspect='auto',cmap='gray',clim=(40,90))
+            
             ax2.cla()
             for p,imax in zip(points,imaxes):
                 if imax==peak_max:
