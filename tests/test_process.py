@@ -93,7 +93,8 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
         # first we need a process function that takes a frame and the c3 and c2 coefficients
         # and returns a B-scan; we can copose this out of several blob functions:
         def process_for_ui(frame,c3,c2):
-            return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.k_resample(blob.dc_subtract(frame),mapping_coefficients),[c3,c2,0.0,0.0]),0.9))[800:1200,:]
+            return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.k_resample(blob.dc_subtract(frame),mapping_coefficients),[c3,c2,0.0,0.0]),0.9),oversampled_size=fft_oversampling_size,z1=bscan_z1,z2=bscan_z2,diagnostics=diagnostics)
+        #[800:1200,:]
         points,maxes = dispersion_ui.dispersion_ui(src.get_frame(0),process_for_ui)
 
         # c2,c3 = points[np.argmax(maxes)]
@@ -109,9 +110,9 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
         # first we need a process function that takes a frame and the m3 and m2 coefficients
         # and returns a B-scan; we can copose this out of several blob functions:
         def process_for_ui(frame,m3,m2):
-            return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.k_resample(blob.dc_subtract(frame),[m3,m2,0.0,0.0]),dispersion_coefficients),0.9))[800:1200,:]
+            return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.k_resample(blob.dc_subtract(frame),[m3,m2,0.0,0.0]),dispersion_coefficients),0.9),oversampled_size=fft_oversampling_size,z1=bscan_z1,z2=bscan_z2,diagnostics=diagnostics)
         
-        points,maxes = dispersion_ui.dispersion_ui(src.get_frame(0),process_for_ui,c3min=-1e-9,c3max=1e-9,c2min=-1e-6,c2max=1e-6)
+        points,maxes = dispersion_ui.dispersion_ui(src.get_frame(0),process_for_ui,c3min=-1e-9,c3max=1e-9,c2min=-1e-5,c2max=1e-5)
 
         # m2,m3 = points[np.argmax(maxes)]
         m2,m3 = points[-1]
@@ -129,7 +130,7 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
         frame = blob.dc_subtract(frame,diagnostics=diagnostics)
         frame = blob.k_resample(frame,mapping_coefficients,diagnostics=diagnostics)
         frame = blob.dispersion_compensate(frame,dispersion_coefficients,diagnostics=diagnostics)
-        frame = blob.gaussian_window(frame,0.9)
+        frame = blob.gaussian_window(frame,0.9,diagnostics=diagnostics)
 
         
         bscan_series = blob.spectra_to_bscan(frame,oversampled_size=fft_oversampling_size,z1=bscan_z1,z2=bscan_z2,diagnostics=diagnostics)
@@ -208,16 +209,16 @@ def proc(fn):
 flist = sorted(glob.glob(file_search_string))
 
 # to do diagnostics, do something like the following:
-process(flist[0],diagnostics=True)
-sys.exit()
+# process(flist[0],diagnostics=True)
+# sys.exit()
 
 # to do manual dispersion compensation, do something like the following:
 # process(flist[0],diagnostics=False,manual_dispersion=True)
 # sys.exit()
 
 # to do manual mapping, do something like the following:
-# process(flist[0],diagnostics=False,manual_mapping=True)
-# sys.exit()
+process(flist[0],diagnostics=False,manual_mapping=True)
+sys.exit()
 
 # change this to false if it starts causing problems, but it should be stable:
 use_multiprocessing = True

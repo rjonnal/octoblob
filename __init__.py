@@ -371,10 +371,43 @@ def dispersion_compensate(spectra,coefficients=pp.dispersion_coefficients,diagno
     return dechirped
     
 
-def gaussian_window(spectra,sigma=pp.gaussian_window_sigma):
+def gaussian_window(spectra,sigma=pp.gaussian_window_sigma,diagnostics=False):
     # WindowMat = repmat(exp(-((linspace(-1,1,size(Aspectra,1)))'.^2)/SIG),[1,C*D2]);
     x = np.exp(-((np.linspace(-1.0,1.0,spectra.shape[0]))**2/sigma))
-    return (spectra.T*x).T
+    out = (spectra.T*x).T
+    if diagnostics:
+        def get_dc(frame):
+            frame = 20*np.log10(np.abs(np.fft.fftshift(np.fft.fft(frame,axis=0),axes=(0))))
+            sy,sx = frame.shape
+            z1 = sy//2-10
+            z2 = sy//2+10
+            return frame[z1:z2,:]
+            
+        plt.figure()
+        plt.subplot(3,2,1)
+        plt.imshow(np.abs(spectra),cmap='gray',aspect='auto',interpolation='none')
+        plt.colorbar()
+        plt.title('amplitude of complex fringe before Gaussian windowing')
+        plt.subplot(3,2,2)
+        plt.imshow(np.abs(out),cmap='gray',aspect='auto',interpolation='none')
+        plt.colorbar()
+        plt.title('amplitude of complex fringe after Gaussian windowing')
+        
+        plt.subplot(3,2,3)
+        plt.imshow(get_dc(spectra),cmap='gray',aspect='auto',interpolation='none')
+        plt.colorbar()
+        plt.title('DC before windowing (dB)')
+        
+        plt.subplot(3,2,4)
+        plt.imshow(get_dc(out),cmap='gray',aspect='auto',interpolation='none')
+        plt.colorbar()
+        plt.title('DC after windowing (dB)')
+        
+        plt.subplot(3,2,5)
+        plt.plot(x)
+        plt.title('Gaussian window')
+        
+    return out
 
 def spectra_to_bscan(spectra,oversampled_size=None,z1=None,z2=None,x1=None,x2=None,diagnostics=False):
     # pass oversampled_size to fft.fft as parameter n, which will
