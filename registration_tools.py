@@ -85,6 +85,7 @@ def rigid_shift(ref,tar,max_shift=None,diagnostics=False,ref_pre_fft=False):
         plt.imshow(np.abs(tar),aspect='auto')
         plt.subplot(1,2,2)
         plt.imshow(np.abs(new_tar),aspect='auto')
+        plt.title('rigid shift')
         
     return new_tar
     

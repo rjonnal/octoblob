@@ -377,33 +377,69 @@ def gaussian_window(spectra,sigma=pp.gaussian_window_sigma,diagnostics=False):
     out = (spectra.T*x).T
     if diagnostics:
         def get_dc(frame):
-            frame = 20*np.log10(np.abs(np.fft.fftshift(np.fft.fft(frame,axis=0),axes=(0))))
+            #frame = 20*np.log10(np.abs(np.fft.fftshift(np.fft.fft(frame,axis=0),axes=(0))))
+            frame = np.abs(np.fft.fftshift(np.fft.fft(frame,axis=0),axes=(0)))
             sy,sx = frame.shape
-            z1 = sy//2-10
-            z2 = sy//2+10
-            return frame[z1:z2,:]
+            dcz1 = sy//2-10
+            dcz2 = sy//2+10
+            dc = frame[dcz1:dcz2,:]
+            vprof = np.mean(frame,axis=1)
+            vprof[dcz1:dcz2] = 0
+            bind = np.argmax(vprof)
+            bz1 = max(bind-10,0)
+            bz2 = min(bind+10,sy)
+            bright = frame[bz1:bz2,:]
+            return dc,bright
+
             
         plt.figure()
-        plt.subplot(3,2,1)
+        plt.subplot(4,2,1)
         plt.imshow(np.abs(spectra),cmap='gray',aspect='auto',interpolation='none')
         plt.colorbar()
-        plt.title('amplitude of complex fringe before Gaussian windowing')
-        plt.subplot(3,2,2)
+        plt.title('amplitude of complex fringe\nbefore Gaussian windowing')
+        plt.xticks([])
+        plt.yticks([])
+        plt.subplot(4,2,2)
         plt.imshow(np.abs(out),cmap='gray',aspect='auto',interpolation='none')
         plt.colorbar()
-        plt.title('amplitude of complex fringe after Gaussian windowing')
+        plt.title('amplitude of complex fringe\nafter Gaussian windowing')
+        plt.xticks([])
+        plt.yticks([])
+
+
+        predc,prebright = get_dc(spectra)
+        postdc,postbright = get_dc(out)
         
-        plt.subplot(3,2,3)
-        plt.imshow(get_dc(spectra),cmap='gray',aspect='auto',interpolation='none')
+        plt.subplot(4,2,3)
+        plt.imshow(predc,cmap='gray',aspect='auto',interpolation='none',clim=np.percentile(predc,(.5,99.5)))
         plt.colorbar()
         plt.title('DC before windowing (dB)')
+        plt.xticks([])
+        plt.yticks([])
         
-        plt.subplot(3,2,4)
-        plt.imshow(get_dc(out),cmap='gray',aspect='auto',interpolation='none')
+        plt.subplot(4,2,4)
+        plt.imshow(postdc,cmap='gray',aspect='auto',interpolation='none',clim=np.percentile(predc,(.5,99.5)))
         plt.colorbar()
         plt.title('DC after windowing (dB)')
+        plt.xticks([])
+        plt.yticks([])
+
+        plt.subplot(4,2,5)
+        plt.imshow(prebright,cmap='gray',aspect='auto',interpolation='none',clim=np.percentile(prebright,(.5,99.5)))
+        plt.colorbar()
+        plt.title('bright band before windowing (dB)')
+        plt.xticks([])
+        plt.yticks([])
         
-        plt.subplot(3,2,5)
+        plt.subplot(4,2,6)
+        plt.imshow(postbright,cmap='gray',aspect='auto',interpolation='none',clim=np.percentile(postbright,(.5,99.5)))
+        plt.colorbar()
+        plt.title('bright band after windowing (dB)')
+        plt.xticks([])
+        plt.yticks([])
+
+        
+        plt.subplot(4,2,7)
         plt.plot(x)
         plt.title('Gaussian window')
         
@@ -707,7 +743,7 @@ def make_angiogram(stack_complex,bulk_correction_threshold=None,phase_variance_t
     stack_amplitude = np.abs(stack_complex)
     stack_log_amplitude = 20*np.log10(stack_amplitude)
     stack_phase = np.angle(stack_complex)
-
+    
     # Inferring this dB threshold from the number of pixels
     # in Justin's mask, since I'm going to skip all the confusing
     # scaling steps.
@@ -744,8 +780,16 @@ def make_angiogram(stack_complex,bulk_correction_threshold=None,phase_variance_t
 
     if diagnostics:
 
+        #plt.figure()
+        #plt.subplot(1,4,1)
+        #plt.imshow(
+
+        
         plt.figure()
+        plt.subplot(1,2,1)
         plt.imshow(mean_log_amplitude_stack,cmap='gray',aspect='auto')
+
+        
         plt.title('diagnostics: log b-scan')
         plt.figure()
         plt.imshow(bulk_correction_mask,cmap='gray',aspect='auto')

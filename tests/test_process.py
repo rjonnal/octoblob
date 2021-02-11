@@ -143,7 +143,6 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
         
             stack_complex = blob.reshape_repeats(bscan_series,n_repeats,x1=bscan_x1,x2=bscan_x2)
 
-
             if do_rigid_registration:
                 ref = stack_complex[:,:,0]
                 for k in range(1,stack_complex.shape[2]):
@@ -209,16 +208,16 @@ def proc(fn):
 flist = sorted(glob.glob(file_search_string))
 
 # to do diagnostics, do something like the following:
-# process(flist[0],diagnostics=True)
-# sys.exit()
+process(flist[0],diagnostics=True)
+sys.exit()
 
 # to do manual dispersion compensation, do something like the following:
 # process(flist[0],diagnostics=False,manual_dispersion=True)
 # sys.exit()
 
 # to do manual mapping, do something like the following:
-process(flist[0],diagnostics=False,manual_mapping=True)
-sys.exit()
+# process(flist[0],diagnostics=False,manual_mapping=True)
+# sys.exit()
 
 # change this to false if it starts causing problems, but it should be stable:
 use_multiprocessing = True
