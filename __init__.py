@@ -651,7 +651,7 @@ def bulk_motion_correct_original(phase_stack,mask,
 def get_phase_jumps(phase_stack,mask,
                     n_bins=pp.bulk_motion_n_bins,
                     resample_factor=pp.bulk_motion_resample_factor,
-                    n_smooth=pp.bulk_motion_n_smooth):
+                    n_smooth=pp.bulk_motion_n_smooth,diagnostics=False):
 
     # Take a stack of B-scan phase arrays, with dimensions
     # (z,x,repeats), and return a bulk-motion corrected
@@ -663,11 +663,44 @@ def get_phase_jumps(phase_stack,mask,
     
     d_phase_d_t = np.diff(phase_stack,axis=2)
 
+    if diagnostics:
+        plt.figure(figsize=(8,8))
+        for rep in range(1,n_reps):
+            plt.subplot(3,n_reps-1,rep)
+            plt.imshow(d_phase_d_t[:,:,rep-1],aspect='auto')
+            if rep==1:
+                plt.ylabel('unmasked')
+            if rep==n_reps-1:
+                plt.colorbar()
+            plt.title(r'$d\theta_{%d,%d}$'%(rep,rep-1))
+            plt.xticks([])
+            plt.yticks([])
+            plt.subplot(3,n_reps-1,rep+(n_reps-1))
+            plt.imshow(mask*d_phase_d_t[:,:,rep-1],aspect='auto')
+            if rep==1:
+                plt.ylabel('masked')
+            if rep==n_reps-1:
+                plt.colorbar()
+            plt.xticks([])
+            plt.yticks([])
+            
     # multiply each frame of the diff array by
     # the mask, so that only valid values remain;
     # Then wrap any values above pi or below -pi into (-pi,pi) interval.
     d_phase_d_t = np.transpose(np.transpose(d_phase_d_t,(2,0,1))*mask,(1,2,0))
     d_phase_d_t = wrap_into_range(d_phase_d_t)
+
+    if diagnostics:
+        for rep in range(1,n_reps):
+            plt.subplot(3,n_reps-1,rep+2*(n_reps-1))
+            plt.imshow(d_phase_d_t[:,:,rep-1],aspect='auto')
+            if rep==1:
+                plt.ylabel(r'masked,wrapped into $[-2\pi,2\pi]$ range')
+            if rep==n_reps-1:
+                plt.colorbar()
+            plt.xticks([])
+            plt.yticks([])
+    
     
     bin_edges = np.linspace(-np.pi,np.pi,n_bins)
     
@@ -687,6 +720,8 @@ def get_phase_jumps(phase_stack,mask,
             bulk_shift = bin_centers[np.argmax(counts)]
             b_jumps[f,r] = bulk_shift
 
+
+    
     # Now unwrap to prevent discontinuities (although this may not impact complex variance)
     b_jumps = np.unwrap(b_jumps,axis=0)
 
@@ -698,7 +733,7 @@ def get_phase_jumps(phase_stack,mask,
 def bulk_motion_correct(phase_stack,mask,
                         n_bins=pp.bulk_motion_n_bins,
                         resample_factor=pp.bulk_motion_resample_factor,
-                        n_smooth=pp.bulk_motion_n_smooth):
+                        n_smooth=pp.bulk_motion_n_smooth,diagnostics=False):
 
     # Take a stack of B-scan phase arrays, with dimensions
     # (z,x,repeats), and return a bulk-motion corrected
@@ -709,18 +744,28 @@ def bulk_motion_correct(phase_stack,mask,
     b_jumps = get_phase_jumps(phase_stack,mask,
                               n_bins=pp.bulk_motion_n_bins,
                               resample_factor=pp.bulk_motion_resample_factor,
-                              n_smooth=pp.bulk_motion_n_smooth)
+                              n_smooth=pp.bulk_motion_n_smooth,diagnostics=diagnostics)
 
     # Now, subtract b_jumps from phase_stack, not including the first repeat
     # Important: this is happening by broadcasting--it requires that the
     # last two dimensions of phase_stack[:,:,1:] be equal in size to the two
     # dimensions of b_jumps
     out = np.copy(phase_stack)
+    if diagnostics:
+        plt.figure()
+        plt.title('phase error relative to 0th scan')
+        
     for rep in range(1,n_reps):
         # for each rep, the total error is the sum of
         # all previous errors
         err = np.sum(b_jumps[:,:rep],axis=1)
         out[:,:,rep] = out[:,:,rep]-err
+        if diagnostics:
+            plt.plot(err,label='scan %d'%rep)
+            
+
+    if diagnostics:
+        plt.legend()
         
     out = wrap_into_range(out)
 
@@ -741,8 +786,10 @@ def phase_variance(data_phase,mask):
 
 def make_angiogram(stack_complex,bulk_correction_threshold=None,phase_variance_threshold=None,diagnostics=False):
     stack_amplitude = np.abs(stack_complex)
-    stack_log_amplitude = 20*np.log10(stack_amplitude)
+    stack_dB = 20*np.log10(stack_amplitude)
     stack_phase = np.angle(stack_complex)
+
+    mean_dB_original = np.mean(stack_dB,2)
     
     # Inferring this dB threshold from the number of pixels
     # in Justin's mask, since I'm going to skip all the confusing
@@ -751,54 +798,95 @@ def make_angiogram(stack_complex,bulk_correction_threshold=None,phase_variance_t
     # so all bets are off about these dB thresholds working;
     # implementing Justin's non-linear scaling for now, but this
     # has to be gotten rid of eventually.
-    maintain_db_units = False
+    maintain_dB_units = False
 
-    # if we wanted to maintain_db_units:
+    # if we wanted to maintain_dB_units:
     #    bulk_correction_threshold = 56.40253 # dB, should give 83081 1's in mask
     #    phase_variance_threshold = 62.76747 # dB, 42488 1's in mask
 
-    CSTD = np.std(np.mean(stack_log_amplitude,2))
-    FMID = np.mean(np.mean(stack_log_amplitude,2))
-    stack_log_amplitude = stack_log_amplitude-(FMID-0.9*CSTD)
+    CSTD = np.std(np.mean(stack_dB,2))
+    FMID = np.mean(np.mean(stack_dB,2))
+
+    if diagnostics:
+        nbins=20
+        plt.figure(figsize=(12,8))
+        plt.subplot(2,4,1)
+        plt.hist(np.ravel(stack_dB),bins=nbins)
+        plt.xlabel('dB (full stack)')
+        plt.axvline(FMID,color='r',label='dB mean')
+        plt.axvspan(FMID,FMID+CSTD,color='m',alpha=0.2)
+        plt.axvspan(FMID-CSTD,FMID,color='y',alpha=0.2)
+        plt.legend()
+        plt.yticks([])
+        
+    stack_dB = stack_dB-(FMID-0.9*CSTD)
     
-    stack_log_amplitude = stack_log_amplitude/stack_log_amplitude.max()
+    if diagnostics:
+        plt.subplot(2,4,2)
+        plt.hist(np.ravel(stack_dB),bins=nbins)
+        plt.xlabel('centered (dB - mean(dB) + 0.9 std(dB))')
+        plt.yticks([])
+        
+    stack_dB = stack_dB/stack_dB.max()
+    
+    if diagnostics:
+        plt.subplot(2,4,3)
+        plt.hist(np.ravel(stack_dB),bins=nbins)
+        plt.xlabel('normalized by max')
+        plt.yticks([])
+
     stack_amplitude = stack_amplitude/stack_amplitude.max()
 
-    stack_log_amplitude[stack_log_amplitude<0] = 0.0
-
+    stack_dB[stack_dB<0] = 0.0
+    
+    if diagnostics:
+        plt.subplot(2,4,4)
+        out = plt.hist(np.ravel(stack_dB),bins=nbins)
+        ymin1 = 0.2
+        ymax1 = 0.45
+        ymin2 = 0.5
+        ymax2 = 0.75
+        plt.xlabel('clipped at 0.0')
+        plt.axvline(bulk_correction_threshold,ymin=ymin1,ymax=ymax1,color='g',label='bulk thresh')
+        plt.axvline(phase_variance_threshold,ymin=ymin2,ymax=ymax2,color='r',label='pv thresh')
+        plt.legend()
+        plt.yticks([])
+        
     if bulk_correction_threshold is None:
         bulk_correction_threshold = pp.bulk_correction_threshold
 
     if phase_variance_threshold is None:
         phase_variance_threshold = pp.phase_variance_threshold
 
-
-    mean_log_amplitude_stack = np.mean(stack_log_amplitude,2)
-    
-    bulk_correction_mask = (mean_log_amplitude_stack>bulk_correction_threshold)
-    phase_variance_mask = (mean_log_amplitude_stack>phase_variance_threshold)
+    mean_dB_stack = np.mean(stack_dB,2)
 
     if diagnostics:
-
-        #plt.figure()
-        #plt.subplot(1,4,1)
-        #plt.imshow(
-
+        plt.subplot(2,4,5)
+        plt.imshow(mean_dB_original,cmap='gray',aspect='auto')
+        plt.colorbar()
+        plt.xlabel('original dB')
         
-        plt.figure()
-        plt.subplot(1,2,1)
-        plt.imshow(mean_log_amplitude_stack,cmap='gray',aspect='auto')
-
+        plt.subplot(2,4,6)
+        plt.imshow(mean_dB_stack,cmap='gray',aspect='auto')
+        plt.colorbar()
+        plt.xlabel('centered, normalized, clipped dB')
+        plt.yticks([])
         
-        plt.title('diagnostics: log b-scan')
-        plt.figure()
+    bulk_correction_mask = (mean_dB_stack>bulk_correction_threshold)
+    phase_variance_mask = (mean_dB_stack>phase_variance_threshold)
+
+    if diagnostics:
+        plt.subplot(2,4,7)
         plt.imshow(bulk_correction_mask,cmap='gray',aspect='auto')
-        plt.title('diagnostics: bulk correction mask')
-        plt.figure()
+        plt.xlabel('bulk correction mask')
+        plt.yticks([])
+        plt.subplot(2,4,8)
         plt.imshow(phase_variance_mask,cmap='gray',aspect='auto')
-        plt.title('diagnostics: phase variance mask')
+        plt.xlabel('phase variance mask')
+        plt.yticks([])
+        plt.suptitle('diagnostics: generation of bulk and pv masks')
 
-    stack_phase = bulk_motion_correct(stack_phase,bulk_correction_mask)
+    stack_phase = bulk_motion_correct(stack_phase,bulk_correction_mask,diagnostics=diagnostics)
     pv = phase_variance(stack_phase,phase_variance_mask)
 
     return pv

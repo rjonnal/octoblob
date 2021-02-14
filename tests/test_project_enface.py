@@ -10,9 +10,6 @@ try:
 except ImportError:
     make_gif = False
 
-
-make_gif = False
-
 if len(sys.argv)<2:
     print('Usage: python test_project_enface.py input_directory (z1) (z2) (black pct) (white pct) (auto)')
     print('       auto can be 1 or 0; if 1, the program interprets z2-z1 as a slab thickness')
@@ -43,6 +40,8 @@ auto_mode = False
 if len(sys.argv)>=7:
     auto_mode = bool(int(sys.argv[6]))
 
+make_gif = make_gif and auto_mode
+    
 try:
     os.makedirs(output_directory,exist_ok=True)
 except Exception as e:
@@ -84,6 +83,9 @@ vol = np.array(vol)
 
 global_clim = np.percentile(vol,(pct_low,pct_high))
 profile = vol.mean(2).mean(0)
+profile[:5] = profile.min()
+profile[-5:] = profile.min()
+
 thresh = profile.min()+profile.std()*0.1
 retina_start = np.where(profile>thresh)[0][0]
 retina_end = np.where(profile>thresh)[0][-1]
@@ -161,7 +163,10 @@ for z1 in slab_starts:
     
     plt.pause(.001)
     
-plt.show()
+if not make_gif:
+    plt.show()
+else:
+    plt.close('all')
 
 if make_gif:
     gif.make()
