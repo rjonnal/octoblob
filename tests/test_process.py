@@ -38,7 +38,7 @@ fft_oversampling_size = 4096
 bscan_z1 = 2900
 bscan_z2 = -100
 bscan_x1 = 0
-bscan_x2 = -100
+bscan_x2 = -20
 
 # parameters for bulk motion correction and phase variance calculation:
 # original values:
@@ -86,6 +86,11 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
         output_directory_png = filename.replace('.unp','')+'_png'
         os.makedirs(output_directory_png,exist_ok=True)
 
+    diagnostics_base = diagnostics
+    if diagnostics_base:
+        diagnostics_directory = filename.replace('.unp','')+'_diagnostics'
+        os.makedirs(diagnostics_directory,exist_ok=True)
+
     src = blob.OCTRawData(filename,n_vol,n_slow,n_fast,n_depth,n_repeats,fbg_position=fbg_position,spectrum_start=spectrum_start,spectrum_end=spectrum_end,bit_shift_right=bit_shift_right,n_skip=n_skip,dtype=dtype)
 
     if manual_dispersion:
@@ -125,6 +130,8 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
         processing_fig = plt.figure(0,figsize=(4,6))
 
     for frame_index in range(n_slow):
+        if diagnostics_base:
+            diagnostics = (diagnostics_directory,frame_index)
         print(frame_index)
         frame = src.get_frame(frame_index,diagnostics=diagnostics)
         frame = blob.dc_subtract(frame,diagnostics=diagnostics)
@@ -197,8 +204,11 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
         if do_angiography:
             np.save(angiogram_out_filename,phase_variance)
 
-        if diagnostics:
-            plt.show()
+        if diagnostics_base:
+            # use plt.close('all') instead of plt.show() if you want to save the diagnostic plots
+            # without seeing them
+            plt.close('all')
+            #plt.show()
 
 
 

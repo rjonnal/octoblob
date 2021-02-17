@@ -165,6 +165,10 @@ class OCTRawData:
             plt.subplot(2,1,2)
             plt.imshow(out,cmap='gray',aspect='auto',interpolation='none')
             plt.title('align_to_fbg: corrected')
+            try:
+                plt.savefig(os.path.join(diagnostics[0],'%05d_fbg_alignment.png'%diagnostics[1]))
+            except:
+                pass
 
         
         return out
@@ -228,6 +232,10 @@ class OCTRawData:
                 plt.imshow(frame,aspect='auto',interpolation='none')
                 plt.colorbar()
                 plt.title('raw data (bit shifted %d bits)'%self.bit_shift_right)
+                try:
+                    plt.savefig(os.path.join(diagnostics[0],'%05d_raw_data.png'%diagnostics[1]))
+                except:
+                    pass
             
             # If there's an fbg, align spectra using the align_to_fbg function
             if self.has_fbg:
@@ -368,6 +376,10 @@ def dispersion_compensate(spectra,coefficients=pp.dispersion_coefficients,diagno
         plt.imshow(after,cmap='gray',aspect='auto',clim=[40,80])
         plt.colorbar()
         plt.title('after disp. comp. (dB)')
+        try:
+            plt.savefig(os.path.join(diagnostics[0],'%05d_dispersion_compensation.png'%diagnostics[1]))
+        except:
+            pass
     return dechirped
     
 
@@ -468,6 +480,10 @@ def spectra_to_bscan(spectra,oversampled_size=None,z1=None,z2=None,x1=None,x2=No
         else:
             plt.axhline(bscan.shape[0]+z2)
         plt.title('diagnostics: cropped region, contrast limited to (40,80) dB')
+        try:
+            plt.savefig(os.path.join(diagnostics[0],'%05d_cropped_region.png'%diagnostics[1]))
+        except:
+            pass
     return bscan[z1:z2]
 
     
@@ -662,11 +678,17 @@ def get_phase_jumps(phase_stack,mask,
     n_reps = phase_stack.shape[2]
     
     d_phase_d_t = np.diff(phase_stack,axis=2)
+    # multiply each frame of the diff array by
+    # the mask, so that only valid values remain;
+    # Then wrap any values above pi or below -pi into (-pi,pi) interval.
+    d_phase_d_t = wrap_into_range(d_phase_d_t)
+
 
     if diagnostics:
-        plt.figure(figsize=(8,8))
+        plt.figure(figsize=(8,6))
+        plt.suptitle('phase shifts between adjacent frames in cluster')
         for rep in range(1,n_reps):
-            plt.subplot(3,n_reps-1,rep)
+            plt.subplot(2,n_reps-1,rep)
             plt.imshow(d_phase_d_t[:,:,rep-1],aspect='auto')
             if rep==1:
                 plt.ylabel('unmasked')
@@ -675,7 +697,7 @@ def get_phase_jumps(phase_stack,mask,
             plt.title(r'$d\theta_{%d,%d}$'%(rep,rep-1))
             plt.xticks([])
             plt.yticks([])
-            plt.subplot(3,n_reps-1,rep+(n_reps-1))
+            plt.subplot(2,n_reps-1,rep+(n_reps-1))
             plt.imshow(mask*d_phase_d_t[:,:,rep-1],aspect='auto')
             if rep==1:
                 plt.ylabel('masked')
@@ -683,25 +705,13 @@ def get_phase_jumps(phase_stack,mask,
                 plt.colorbar()
             plt.xticks([])
             plt.yticks([])
+        try:
+            plt.savefig(os.path.join(diagnostics[0],'%05d_phase_shifts.png'%diagnostics[1]))
+        except:
+            pass
             
-    # multiply each frame of the diff array by
-    # the mask, so that only valid values remain;
-    # Then wrap any values above pi or below -pi into (-pi,pi) interval.
     d_phase_d_t = np.transpose(np.transpose(d_phase_d_t,(2,0,1))*mask,(1,2,0))
-    d_phase_d_t = wrap_into_range(d_phase_d_t)
 
-    if diagnostics:
-        for rep in range(1,n_reps):
-            plt.subplot(3,n_reps-1,rep+2*(n_reps-1))
-            plt.imshow(d_phase_d_t[:,:,rep-1],aspect='auto')
-            if rep==1:
-                plt.ylabel(r'masked,wrapped into $[-2\pi,2\pi]$ range')
-            if rep==n_reps-1:
-                plt.colorbar()
-            plt.xticks([])
-            plt.yticks([])
-    
-    
     bin_edges = np.linspace(-np.pi,np.pi,n_bins)
     
     # The key idea here is from Makita, 2006, where it is well explained. In
@@ -711,15 +721,41 @@ def get_phase_jumps(phase_stack,mask,
     # histogram function do all the work of setting the shifted bin edges.
 
     b_jumps = np.zeros((d_phase_d_t.shape[1:]))
-    
+
+
+    if diagnostics:
+        plt.figure(figsize=(12,6))
+        total_bins = n_bins*resample_factor
+        
+        hist_sets = np.zeros((n_reps-1,n_fast,total_bins))
+        
     for f in range(n_fast):
         valid_idx = mask[:,f]
         for r in range(n_reps-1):
             vals = d_phase_d_t[valid_idx,f,r]
             [counts,bin_centers] = bin_shift_histogram(vals,bin_edges,resample_factor,do_plots=False)
+            if diagnostics:
+                hist_sets[r,f,:] = counts
             bulk_shift = bin_centers[np.argmax(counts)]
             b_jumps[f,r] = bulk_shift
-
+            
+    if diagnostics:
+        for idx,hist_set in enumerate(hist_sets):
+            plt.subplot(1,n_reps-1,idx+1)
+            plt.imshow(hist_set,interpolation='none',aspect='auto',extent=(np.min(bin_centers),np.max(bin_centers),0,n_fast-1),cmap='gray')
+            plt.yticks([])
+            plt.xlabel(r'$d\theta_{%d,%d}$'%(idx+1,idx))
+            if idx==0:
+                plt.ylabel('fast scan index')
+            plt.colorbar()
+            plt.autoscale(False)
+            plt.plot(b_jumps[:,idx],range(n_fast)[::-1],'g.',alpha=0.2)
+        plt.suptitle('oversampled bulk motion histograms (count)')
+        
+        try:
+            plt.savefig(os.path.join(diagnostics[0],'%05d_bulk_motion_histograms.png'%diagnostics[1]))
+        except:
+            pass
 
     
     # Now unwrap to prevent discontinuities (although this may not impact complex variance)
@@ -751,9 +787,25 @@ def bulk_motion_correct(phase_stack,mask,
     # last two dimensions of phase_stack[:,:,1:] be equal in size to the two
     # dimensions of b_jumps
     out = np.copy(phase_stack)
+
     if diagnostics:
-        plt.figure()
-        plt.title('phase error relative to 0th scan')
+        #err_clim = (np.min(np.sum(b_jumps,axis=1)),np.max(np.sum(b_jumps,axis=1)))
+        phase_clim = (-np.pi,np.pi)
+        err_clim = (-np.pi-np.min(-np.sum(b_jumps,axis=1)),np.pi+np.max(-np.sum(b_jumps,axis=1)))
+        plt.figure(figsize=(8,6))
+        plt.subplot(2,n_reps+1,1)
+        plt.imshow(mask*phase_stack[:,:,0],clim=phase_clim,aspect='auto',interpolation='none')
+        plt.xticks([])
+        plt.yticks([])
+        plt.xlabel('frame 0')
+        plt.ylabel('before correction')
+        
+        plt.subplot(2,n_reps+1,n_reps+2)
+        plt.imshow(mask*out[:,:,0],clim=err_clim,aspect='auto',interpolation='none')
+        plt.xticks([])
+        plt.yticks([])
+        plt.xlabel('frame 0')
+        plt.ylabel('after correction')
         
     for rep in range(1,n_reps):
         # for each rep, the total error is the sum of
@@ -761,11 +813,32 @@ def bulk_motion_correct(phase_stack,mask,
         err = np.sum(b_jumps[:,:rep],axis=1)
         out[:,:,rep] = out[:,:,rep]-err
         if diagnostics:
-            plt.plot(err,label='scan %d'%rep)
+            plt.subplot(2,n_reps+1,rep+1)
+            plt.imshow(mask*phase_stack[:,:,rep],clim=phase_clim,aspect='auto',interpolation='none')
+            plt.xlabel('frame %d'%rep)
+            plt.xticks([])
+            plt.yticks([])
+            if rep==n_reps-1:
+                plt.colorbar()
+
+            plt.subplot(2,n_reps+1,n_reps+rep+2)
+            plt.imshow(mask*out[:,:,rep],clim=err_clim,aspect='auto',interpolation='none')
+            plt.xlabel('frame %d'%rep)
+            plt.xticks([])
+            plt.yticks([])
+            if rep==n_reps-1:
+                plt.colorbar()
+                
+            plt.subplot(2,n_reps+1,n_reps+1)
+            plt.plot(err,label='f%d'%rep)
             
 
     if diagnostics:
         plt.legend()
+        try:
+            plt.savefig(os.path.join(diagnostics[0],'%05d_bulk_motion_correction.png'%diagnostics[1]))
+        except:
+            pass
         
     out = wrap_into_range(out)
 
@@ -774,14 +847,43 @@ def bulk_motion_correct(phase_stack,mask,
 def nancount(arr):
     return len(np.where(np.isnan(arr))[0])
 
-def phase_variance(data_phase,mask):
+def phase_variance(data_phase,mask,diagnostics=False):
     # Assumes the temporal dimension is the last, dim 2
     # ddof=1 means delta degrees of freedom = 1,
     # i.e. variance is computed with N-1 in denominator
     pv = np.var(np.exp(1j*data_phase),axis=2,ddof=1)
+    if diagnostics:
+        plt.figure(figsize=(8,4))
+        plt.subplot(1,3,1)
+        plt.imshow(pv,cmap='gray',aspect='auto',interpolation='none')
+        plt.xticks([])
+        plt.yticks([])
+        plt.xlabel('PV before mask')
+        plt.colorbar()
+        
     pv = pv*mask
+    if diagnostics:
+        plt.subplot(1,3,2)
+        plt.imshow(pv,cmap='gray',aspect='auto',interpolation='none')
+        plt.xticks([])
+        plt.yticks([])
+        plt.xlabel('PV masked')
+        plt.colorbar()
+        
     pv[pv>1] = 1.0
     pv[pv<0] = 0.0
+    if diagnostics:
+        plt.subplot(1,3,3)
+        plt.imshow(pv,cmap='gray',aspect='auto',interpolation='none')
+        plt.xticks([])
+        plt.yticks([])
+        plt.xlabel('PV masked and clipped to [0,1]')
+        plt.colorbar()
+        try:
+            plt.savefig(os.path.join(diagnostics[0],'%05d_pv.png'%diagnostics[1]))
+        except:
+            pass
+        
     return pv
 
 def make_angiogram(stack_complex,bulk_correction_threshold=None,phase_variance_threshold=None,diagnostics=False):
@@ -885,9 +987,13 @@ def make_angiogram(stack_complex,bulk_correction_threshold=None,phase_variance_t
         plt.xlabel('phase variance mask')
         plt.yticks([])
         plt.suptitle('diagnostics: generation of bulk and pv masks')
+        try:
+            plt.savefig(os.path.join(diagnostics[0],'%05d_phase_masks.png'%diagnostics[1]))
+        except:
+            pass
 
     stack_phase = bulk_motion_correct(stack_phase,bulk_correction_mask,diagnostics=diagnostics)
-    pv = phase_variance(stack_phase,phase_variance_mask)
+    pv = phase_variance(stack_phase,phase_variance_mask,diagnostics=diagnostics)
 
     return pv
 
