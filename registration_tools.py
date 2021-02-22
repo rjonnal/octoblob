@@ -49,7 +49,9 @@ def rigid_shift(ref,tar,max_shift=None,diagnostics=False,ref_pre_fft=False):
     # use rigid_register above and return a correctly shifted version of target (tar)
     
     dx,dy,xc = rigid_register(ref,tar,max_shift,diagnostics,ref_pre_fft)
-    new_tar = np.ones(tar.shape,dtype=tar.dtype)*np.min(tar)
+    #new_tar = np.ones(tar.shape,dtype=tar.dtype)*np.min(tar)
+    new_tar = np.zeros(tar.shape,dtype=tar.dtype)
+    
     print(dx,dy)
     
     if dx>0:
