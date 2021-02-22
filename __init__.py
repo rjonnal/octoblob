@@ -10,7 +10,7 @@ import scipy.io as sio
 from octoblob import bmp_tools
 
 IPSP = 4.0
-DISPLAY_DPI = 50
+DISPLAY_DPI = 75
 
 class ProcessingParameters:
 
@@ -530,7 +530,6 @@ def centers_to_edges(bin_centers):
     return np.linspace(first_edge,last_edge,len(bin_centers)+1)
 
 def bin_shift_histogram(vals,bin_centers,resample_factor=1,do_plots=False):
-    
     shifts = np.linspace(bin_centers[0]/float(len(bin_centers)),
                           bin_centers[-1]/float(len(bin_centers)),resample_factor)
 
@@ -539,11 +538,11 @@ def bin_shift_histogram(vals,bin_centers,resample_factor=1,do_plots=False):
 
     all_counts = np.zeros((n_shifts,n_bins))
     all_edges = np.zeros((n_shifts,n_bins+1))
-    
+
     for idx,s in enumerate(shifts):
         edges = centers_to_edges(bin_centers+s)
         all_counts[idx,:],all_edges[idx,:] = np.histogram(vals,edges)
-
+        
     all_centers = (all_edges[:,:-1]+all_edges[:,1:])/2.0
     all_counts = all_counts/float(resample_factor)
     all_centers = all_centers
@@ -553,7 +552,7 @@ def bin_shift_histogram(vals,bin_centers,resample_factor=1,do_plots=False):
         bin_width = np.mean(np.diff(bin_edges))
         shift_size = np.mean(np.diff(shifts))
         
-        plt.figure()
+        plt.figure(figsize=(IPSP,IPSP),dpi=DISPLAY_DPI)
         plt.imshow(all_counts)
         plt.title('counts')
         plt.xlabel('bins')
@@ -564,7 +563,7 @@ def bin_shift_histogram(vals,bin_centers,resample_factor=1,do_plots=False):
         plt.gca().set_xticklabels(['%0.1f'%bc for bc in bin_centers])
         plt.colorbar()
 
-        plt.figure()
+        plt.figure(figsize=(IPSP,IPSP),dpi=DISPLAY_DPI)
         plt.imshow(all_centers)
         plt.title('bin centers')
         plt.xlabel('bins')
@@ -578,7 +577,7 @@ def bin_shift_histogram(vals,bin_centers,resample_factor=1,do_plots=False):
         all_counts = all_counts.T
         all_centers = all_centers.T.ravel()
 
-        plt.figure()
+        plt.figure(figsize=(IPSP,2*IPSP),dpi=DISPLAY_DPI)
         plt.subplot(2,1,1)
         plt.hist(vals,bin_edges,width=bin_width*0.8)
         plt.subplot(2,1,2)
@@ -606,66 +605,6 @@ def wrap_into_range(arr,phase_limits=(-np.pi,np.pi)):
     arr[below_range]+=2*np.pi
     return arr
 
-
-def bulk_motion_correct_original(phase_stack,mask,
-                                 n_bins=pp.bulk_motion_n_bins,
-                                 resample_factor=pp.bulk_motion_resample_factor,
-                                 n_smooth=pp.bulk_motion_n_smooth):
-
-    # Take a stack of B-scan phase arrays, with dimensions
-    # (z,x,repeats), and return a bulk-motion corrected
-    # version
-
-    n_depth = phase_stack.shape[0]
-    n_fast = phase_stack.shape[1]
-    n_reps = phase_stack.shape[2]
-    
-    d_phase_d_t = np.diff(phase_stack,axis=2)
-
-    # multiply each frame of the diff array by
-    # the mask, so that only valid values remain;
-    # Then wrap any values above pi or below -pi into (-pi,pi) interval.
-    d_phase_d_t = np.transpose(np.transpose(d_phase_d_t,(2,0,1))*mask,(1,2,0))
-    d_phase_d_t = wrap_into_range(d_phase_d_t)
-    
-    bin_edges = np.linspace(-np.pi,np.pi,n_bins)
-    
-    # The key idea here is from Makita, 2006, where it is well explained. In
-    # addition to using the phase mode, we also do bin-shifting, in order to
-    # smooth the histogram. Again departing from Justin's approach, let's
-    # just specify the top level bins and a resampling factor, and let the
-    # histogram function do all the work of setting the shifted bin edges.
-
-    b_jumps = np.zeros((d_phase_d_t.shape[1:]))
-    
-    for f in range(n_fast):
-        valid_idx = mask[:,f]
-        for r in range(n_reps-1):
-            vals = d_phase_d_t[valid_idx,f,r]
-            [counts,bin_centers] = bin_shift_histogram(vals,bin_edges,resample_factor,do_plots=False)
-            bulk_shift = bin_centers[np.argmax(counts)]
-            b_jumps[f,r] = bulk_shift
-
-    # Now unwrap to prevent discontinuities (although this may not impact complex variance)
-    b_jumps = np.unwrap(b_jumps,axis=0)
-
-    # Smooth by convolution. Don't forget to divide by kernel size!
-    b_jumps = sps.convolve2d(b_jumps,np.ones((n_smooth,1)),mode='same')/float(n_smooth)
-
-    # Now, subtract b_jumps from phase_stack, not including the first repeat
-    # Important: this is happening by broadcasting--it requires that the
-    # last two dimensions of phase_stack[:,:,1:] be equal in size to the two
-    # dimensions of b_jumps
-    out = np.copy(phase_stack)
-    for rep in range(1,n_reps):
-        # for each rep, the total error is the sum of
-        # all previous errors
-        err = np.sum(b_jumps[:,:rep],axis=1)
-        out[:,:,rep] = out[:,:,rep]-err
-        
-    out = wrap_into_range(out)
-
-    return out
 
 def get_phase_jumps(phase_stack,mask,
                     n_bins=pp.bulk_motion_n_bins,
@@ -725,15 +664,13 @@ def get_phase_jumps(phase_stack,mask,
 
     b_jumps = np.zeros((d_phase_d_t.shape[1:]))
 
-
     if diagnostics:
         plt.figure(figsize=((n_reps-1)*IPSP,1*IPSP),dpi=DISPLAY_DPI)
         total_bins = n_bins*resample_factor
-        
         hist_sets = np.zeros((n_reps-1,n_fast,total_bins))
-        
+
     for f in range(n_fast):
-        valid_idx = mask[:,f]
+        valid_idx = np.where(mask[:,f])[0]
         for r in range(n_reps-1):
             vals = d_phase_d_t[valid_idx,f,r]
             [counts,bin_centers] = bin_shift_histogram(vals,bin_edges,resample_factor,do_plots=False)
@@ -741,7 +678,7 @@ def get_phase_jumps(phase_stack,mask,
                 hist_sets[r,f,:] = counts
             bulk_shift = bin_centers[np.argmax(counts)]
             b_jumps[f,r] = bulk_shift
-            
+
     if diagnostics:
         for idx,hist_set in enumerate(hist_sets):
             plt.subplot(1,n_reps-1,idx+1)
@@ -781,9 +718,10 @@ def bulk_motion_correct(phase_stack,mask,
     n_reps = phase_stack.shape[2]
 
     b_jumps = get_phase_jumps(phase_stack,mask,
-                              n_bins=pp.bulk_motion_n_bins,
-                              resample_factor=pp.bulk_motion_resample_factor,
-                              n_smooth=pp.bulk_motion_n_smooth,diagnostics=diagnostics)
+                              n_bins=n_bins,
+                              resample_factor=resample_factor,
+                              n_smooth=n_smooth,
+                              diagnostics=diagnostics)
 
     # Now, subtract b_jumps from phase_stack, not including the first repeat
     # Important: this is happening by broadcasting--it requires that the
@@ -1001,4 +939,64 @@ def make_angiogram(stack_complex,bulk_correction_threshold=None,phase_variance_t
     return pv
 
 
+
+# def bulk_motion_correct_original(phase_stack,mask,
+#                                  n_bins=pp.bulk_motion_n_bins,
+#                                  resample_factor=pp.bulk_motion_resample_factor,
+#                                  n_smooth=pp.bulk_motion_n_smooth):
+
+#     # Take a stack of B-scan phase arrays, with dimensions
+#     # (z,x,repeats), and return a bulk-motion corrected
+#     # version
+
+#     n_depth = phase_stack.shape[0]
+#     n_fast = phase_stack.shape[1]
+#     n_reps = phase_stack.shape[2]
+    
+#     d_phase_d_t = np.diff(phase_stack,axis=2)
+
+#     # multiply each frame of the diff array by
+#     # the mask, so that only valid values remain;
+#     # Then wrap any values above pi or below -pi into (-pi,pi) interval.
+#     d_phase_d_t = np.transpose(np.transpose(d_phase_d_t,(2,0,1))*mask,(1,2,0))
+#     d_phase_d_t = wrap_into_range(d_phase_d_t)
+    
+#     bin_edges = np.linspace(-np.pi,np.pi,n_bins)
+    
+#     # The key idea here is from Makita, 2006, where it is well explained. In
+#     # addition to using the phase mode, we also do bin-shifting, in order to
+#     # smooth the histogram. Again departing from Justin's approach, let's
+#     # just specify the top level bins and a resampling factor, and let the
+#     # histogram function do all the work of setting the shifted bin edges.
+
+#     b_jumps = np.zeros((d_phase_d_t.shape[1:]))
+    
+#     for f in range(n_fast):
+#         valid_idx = mask[:,f]
+#         for r in range(n_reps-1):
+#             vals = d_phase_d_t[valid_idx,f,r]
+#             [counts,bin_centers] = bin_shift_histogram(vals,bin_edges,resample_factor,do_plots=True)
+#             bulk_shift = bin_centers[np.argmax(counts)]
+#             b_jumps[f,r] = bulk_shift
+
+#     # Now unwrap to prevent discontinuities (although this may not impact complex variance)
+#     b_jumps = np.unwrap(b_jumps,axis=0)
+
+#     # Smooth by convolution. Don't forget to divide by kernel size!
+#     b_jumps = sps.convolve2d(b_jumps,np.ones((n_smooth,1)),mode='same')/float(n_smooth)
+
+#     # Now, subtract b_jumps from phase_stack, not including the first repeat
+#     # Important: this is happening by broadcasting--it requires that the
+#     # last two dimensions of phase_stack[:,:,1:] be equal in size to the two
+#     # dimensions of b_jumps
+#     out = np.copy(phase_stack)
+#     for rep in range(1,n_reps):
+#         # for each rep, the total error is the sum of
+#         # all previous errors
+#         err = np.sum(b_jumps[:,:rep],axis=1)
+#         out[:,:,rep] = out[:,:,rep]-err
+        
+#     out = wrap_into_range(out)
+
+#     return out
 
