@@ -609,7 +609,7 @@ def wrap_into_range(arr,phase_limits=(-np.pi,np.pi)):
 def get_phase_jumps(phase_stack,mask,
                     n_bins=pp.bulk_motion_n_bins,
                     resample_factor=pp.bulk_motion_resample_factor,
-                    n_smooth=pp.bulk_motion_n_smooth,diagnostics=False):
+                    n_smooth=pp.bulk_motion_n_smooth,polynomial_smoothing=True,diagnostics=False):
 
     # Take a stack of B-scan phase arrays, with dimensions
     # (z,x,repeats), and return a bulk-motion corrected
@@ -663,6 +663,7 @@ def get_phase_jumps(phase_stack,mask,
     # histogram function do all the work of setting the shifted bin edges.
 
     b_jumps = np.zeros((d_phase_d_t.shape[1:]))
+    bin_counts = np.zeros((d_phase_d_t.shape[1:]))
 
     if diagnostics:
         plt.figure(figsize=((n_reps-1)*IPSP,1*IPSP),dpi=DISPLAY_DPI)
@@ -677,8 +678,13 @@ def get_phase_jumps(phase_stack,mask,
             if diagnostics:
                 hist_sets[r,f,:] = counts
             bulk_shift = bin_centers[np.argmax(counts)]
+            bin_count = np.max(counts)
             b_jumps[f,r] = bulk_shift
+            bin_counts[f,r] = bin_count
 
+    if polynomial_smoothing:
+        polynomial_smooth_phase(bin_counts,b_jumps)
+            
     if diagnostics:
         for idx,hist_set in enumerate(hist_sets):
             plt.subplot(1,n_reps-1,idx+1)
@@ -701,10 +707,83 @@ def get_phase_jumps(phase_stack,mask,
     # Now unwrap to prevent discontinuities (although this may not impact complex variance)
     b_jumps = np.unwrap(b_jumps,axis=0)
 
+
+    # Smooth by polynomial fitting into wrapped 2pi range
+    b_jumps = wrapped_phase_fit(b_jumps)
+    
     # Smooth by convolution. Don't forget to divide by kernel size!
     b_jumps = sps.convolve2d(b_jumps,np.ones((n_smooth,1)),mode='same')/float(n_smooth)
 
     return b_jumps
+
+
+
+def polynomial_smooth_phase(counts,shifts):
+    import scipy.optimize as spo
+    n_reps = shifts.shape[1]
+    t = np.arange(shifts.shape[0])
+
+    def objective_helper(complex_data,coefs,weights=None):
+        x = np.arange(len(data))
+        phase_fit = np.polyval(coefs,x)
+        complex_fit = 1.0*np.exp(-1j*phase_fit)
+        sqerr = np.abs((complex_data-complex_fit)**2)
+        if weights is not None:
+            sqerr = sqerr*weights
+        out = np.sqrt(np.sum(sqerr))
+        print(out)
+        return out
+
+        
+    for rep in range(n_reps):
+        data = shifts[:,rep]
+        complex_data = 1.0*np.exp(-1j*data)
+        objective = lambda coefs: objective_helper(complex_data,coefs,weights=counts[:,rep]**0.5)
+        coefs0 = [0.0,0.0]
+        res = spo.minimize(objective,coefs0)
+        coefs = res.x
+
+        plt.plot(t,np.real(complex_data),'k.')
+        plt.plot(t,np.real(1.0*np.exp(-1j*np.polyval(coefs,t))),'b-')
+        plt.show()
+        print(res)
+        sys.exit()
+
+def polynomial_smooth_phase0(counts,shifts):
+    import scipy.optimize as spo
+    
+    t = np.arange(shifts.shape[0])
+    def objective_helper(data,coefs,weights=None):
+        x = np.arange(len(data))
+        order = len(coefs)-1
+        fit = np.polyval(coefs,x)
+        fit = (fit%(np.pi*2))-np.pi
+        sqerr = ((x-fit)**2)
+        if weights is not None:
+            sqerr = sqerr*weights
+        out = np.sqrt(np.sum(sqerr))
+        print(out)
+        return out
+        
+    n_reps = shifts.shape[1]
+
+    for rep in range(n_reps):
+        data = shifts[:,rep]
+        weights = counts[:,rep] # consider squaring this
+        objective = lambda coefs: objective_helper(data,coefs,None)
+        x0 = [-1.0/25.0,-50.0]
+        res = spo.minimize(objective,x0)
+        print(res.x)
+
+        
+        manual_fit = np.polyval(x0,t)%(2*np.pi)-np.pi
+        auto_fit = np.polyval(res.x,t)%(2*np.pi)-np.pi
+        plt.plot(t,data,'ks')
+        plt.plot(t,manual_fit,'b-')
+        plt.plot(t,auto_fit,'r-')
+        plt.show()
+        print(res)
+        sys.exit()
 
 def bulk_motion_correct(phase_stack,mask,
                         n_bins=pp.bulk_motion_n_bins,
