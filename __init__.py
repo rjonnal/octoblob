@@ -682,8 +682,8 @@ def get_phase_jumps(phase_stack,mask,
             b_jumps[f,r] = bulk_shift
             bin_counts[f,r] = bin_count
 
-    if polynomial_smoothing:
-        polynomial_smooth_phase(bin_counts,b_jumps)
+    #if polynomial_smoothing:
+    #    polynomial_smooth_phase(bin_counts,b_jumps)
             
     if diagnostics:
         for idx,hist_set in enumerate(hist_sets):
@@ -707,10 +707,6 @@ def get_phase_jumps(phase_stack,mask,
     # Now unwrap to prevent discontinuities (although this may not impact complex variance)
     b_jumps = np.unwrap(b_jumps,axis=0)
 
-
-    # Smooth by polynomial fitting into wrapped 2pi range
-    b_jumps = wrapped_phase_fit(b_jumps)
-    
     # Smooth by convolution. Don't forget to divide by kernel size!
     b_jumps = sps.convolve2d(b_jumps,np.ones((n_smooth,1)),mode='same')/float(n_smooth)
 
