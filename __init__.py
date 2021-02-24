@@ -11,6 +11,7 @@ from octoblob import bmp_tools
 
 IPSP = 4.0
 DISPLAY_DPI = 75
+PRINT_DPI = 75
 
 class ProcessingParameters:
 
@@ -82,10 +83,6 @@ class OCTRawData:
         self.n_skip = n_skip
         self.fbg_sign = fbg_sign
 
-
-
-
-        
         self.saturation_value = np.iinfo(self.dtype).max
         
         if spectrum_start is None:
@@ -168,10 +165,7 @@ class OCTRawData:
             plt.subplot(2,1,2)
             plt.imshow(out,cmap='gray',aspect='auto',interpolation='none')
             plt.title('align_to_fbg: corrected')
-            try:
-                plt.savefig(os.path.join(diagnostics[0],'%05d_fbg_alignment.png'%diagnostics[1]))
-            except:
-                pass
+            save_diagnostics(diagnostics,'fbg_alignment')
 
         
         return out
@@ -232,13 +226,10 @@ class OCTRawData:
 
             if diagnostics:
                 plt.figure(figsize=(IPSP,IPSP),dpi=DISPLAY_DPI)
-                plt.imshow(frame,aspect='auto',interpolation='none')
+                plt.imshow(frame,aspect='auto',interpolation='none',cmap='gray')
                 plt.colorbar()
                 plt.title('raw data (bit shifted %d bits)'%self.bit_shift_right)
-                try:
-                    plt.savefig(os.path.join(diagnostics[0],'%05d_raw_data.png'%diagnostics[1]))
-                except:
-                    pass
+                save_diagnostics(diagnostics,'raw_data')
             
             # If there's an fbg, align spectra using the align_to_fbg function
             if self.has_fbg:
@@ -267,6 +258,19 @@ class Resampler:
         return k_interpolator(self.k_out)
 
 
+def save_diagnostics(diagnostics,tag):
+    # if diagnostics is a tuple containing a directory and a frame index,
+    # save them to a subdirectory, named by index
+    # if not, return
+    try:
+        directory = diagnostics[0]
+        index = diagnostics[1]
+        subdir = os.path.join(directory,tag)
+        os.makedirs(subdir,exist_ok=True)
+    except:
+        return
+    plt.savefig(os.path.join(subdir,'%05d.png'%index),dpi=PRINT_DPI)
+    
     
 def dc_subtract(spectra,diagnostics=False):
     """Estimate DC by averaging spectra spatially (dimension 1),
@@ -379,10 +383,7 @@ def dispersion_compensate(spectra,coefficients=pp.dispersion_coefficients,diagno
         plt.imshow(after,cmap='gray',aspect='auto',clim=[40,80])
         plt.colorbar()
         plt.title('after disp. comp. (dB)')
-        try:
-            plt.savefig(os.path.join(diagnostics[0],'%05d_dispersion_compensation.png'%diagnostics[1]))
-        except:
-            pass
+        save_diagnostics(diagnostics,'dispersion_compensation')
     return dechirped
     
 
@@ -483,10 +484,7 @@ def spectra_to_bscan(spectra,oversampled_size=None,z1=None,z2=None,x1=None,x2=No
         else:
             plt.axhline(bscan.shape[0]+z2)
         plt.title('diagnostics: cropped region, contrast limited to (40,80) dB')
-        try:
-            plt.savefig(os.path.join(diagnostics[0],'%05d_cropped_region.png'%diagnostics[1]))
-        except:
-            pass
+        save_diagnostics(diagnostics,'cropped_region')
     return bscan[z1:z2]
 
     
@@ -647,10 +645,7 @@ def get_phase_jumps(phase_stack,mask,
                 plt.colorbar()
             plt.xticks([])
             plt.yticks([])
-        try:
-            plt.savefig(os.path.join(diagnostics[0],'%05d_phase_shifts.png'%diagnostics[1]))
-        except:
-            pass
+        save_diagnostics(diagnostics,'phase_shifts')
             
     d_phase_d_t = np.transpose(np.transpose(d_phase_d_t,(2,0,1))*mask,(1,2,0))
 
@@ -697,11 +692,7 @@ def get_phase_jumps(phase_stack,mask,
             plt.autoscale(False)
             plt.plot(b_jumps[:,idx],range(n_fast)[::-1],'g.',alpha=0.2)
         plt.suptitle('oversampled bulk motion histograms (count)')
-        
-        try:
-            plt.savefig(os.path.join(diagnostics[0],'%05d_bulk_motion_histograms.png'%diagnostics[1]))
-        except:
-            pass
+        save_diagnostics(diagnostics,'bulk_motion_histograms')
 
     
     # Now unwrap to prevent discontinuities (although this may not impact complex variance)
@@ -822,11 +813,13 @@ def bulk_motion_correct(phase_stack,mask,
         plt.yticks([])
         plt.xlabel('frame 0')
         plt.ylabel('after correction')
-        
+
+    errs = []
     for rep in range(1,n_reps):
         # for each rep, the total error is the sum of
         # all previous errors
         err = np.sum(b_jumps[:,:rep],axis=1)
+        errs.append(err)
         out[:,:,rep] = out[:,:,rep]-err
         if diagnostics:
             plt.subplot(2,n_reps+1,rep+1)
@@ -844,17 +837,13 @@ def bulk_motion_correct(phase_stack,mask,
             plt.yticks([])
             if rep==n_reps-1:
                 plt.colorbar()
-                
-            plt.subplot(2,n_reps+1,n_reps+1)
-            plt.plot(err,label='f%d'%rep)
-            
 
     if diagnostics:
+        plt.subplot(2,n_reps+1,n_reps+1)
+        for idx,err in enumerate(errs):
+            plt.plot(err,label='f%d'%(idx+1))
         plt.legend()
-        try:
-            plt.savefig(os.path.join(diagnostics[0],'%05d_bulk_motion_correction.png'%diagnostics[1]))
-        except:
-            pass
+        save_diagnostics(diagnostics,'bulk_motion_correction')
         
     out = wrap_into_range(out)
 
@@ -895,10 +884,7 @@ def phase_variance(data_phase,mask,diagnostics=False):
         plt.yticks([])
         plt.xlabel('PV masked and clipped to [0,1]')
         plt.colorbar()
-        try:
-            plt.savefig(os.path.join(diagnostics[0],'%05d_pv.png'%diagnostics[1]))
-        except:
-            pass
+        save_diagnostics(diagnostics,'phase_variance')
         
     return pv
 
@@ -1003,10 +989,7 @@ def make_angiogram(stack_complex,bulk_correction_threshold=None,phase_variance_t
         plt.xlabel('phase variance mask')
         plt.yticks([])
         plt.suptitle('diagnostics: generation of bulk and pv masks')
-        try:
-            plt.savefig(os.path.join(diagnostics[0],'%05d_phase_masks.png'%diagnostics[1]))
-        except:
-            pass
+        save_diagnostics(diagnostics,'phase_masks')
 
     stack_phase = bulk_motion_correct(stack_phase,bulk_correction_mask,diagnostics=diagnostics)
     pv = phase_variance(stack_phase,phase_variance_mask,diagnostics=diagnostics)

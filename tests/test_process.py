@@ -193,8 +193,6 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
 
             plt.savefig(png_out_filename,dpi=150)
             
-            plt.pause(.1)
-
         if do_angiography:
             # here we're saving the complex stack--could abs and average them first if we need to save disk space
             np.save(bscan_out_filename,stack_complex)
@@ -210,6 +208,9 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
             plt.close('all')
             #plt.show()
 
+        if show_processed_data:
+            plt.pause(.001)
+
 
 
 def proc(fn):
@@ -218,7 +219,7 @@ def proc(fn):
 flist = sorted(glob.glob(file_search_string))
 
 # to do diagnostics, do something like the following:
-process(flist[0],diagnostics=True)
+process(flist[0],diagnostics=True,show_processed_data=False)
 sys.exit()
 
 # to do manual dispersion compensation, do something like the following:
