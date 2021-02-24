@@ -269,7 +269,11 @@ def save_diagnostics(diagnostics,tag):
         os.makedirs(subdir,exist_ok=True)
     except:
         return
-    plt.savefig(os.path.join(subdir,'%05d.png'%index),dpi=PRINT_DPI)
+    
+    try:
+        plt.savefig(os.path.join(subdir,'%05d.png'%index),dpi=PRINT_DPI)
+    except Exception as e:
+        print('save_diagnostics error: %s'%e)
     
     
 def dc_subtract(spectra,diagnostics=False):
@@ -798,7 +802,9 @@ def bulk_motion_correct(phase_stack,mask,
     if diagnostics:
         #err_clim = (np.min(np.sum(b_jumps,axis=1)),np.max(np.sum(b_jumps,axis=1)))
         phase_clim = (-np.pi,np.pi)
-        err_clim = (-np.pi-np.min(-np.sum(b_jumps,axis=1)),np.pi+np.max(-np.sum(b_jumps,axis=1)))
+        err_clim = [-np.pi-np.min(-np.sum(b_jumps,axis=1)),np.pi+np.max(-np.sum(b_jumps,axis=1))]
+        if err_clim[1]<err_clim[0]:
+            err_clim = [-ec for ec in err_clim]
         plt.figure(figsize=((n_reps-1)*IPSP,2*IPSP),dpi=DISPLAY_DPI)
         plt.subplot(2,n_reps+1,1)
         plt.imshow(mask*phase_stack[:,:,0],clim=phase_clim,aspect='auto',interpolation='none')
