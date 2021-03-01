@@ -157,14 +157,26 @@ class OCTRawData:
             out[:,x] = np.roll(frame[:,x],-max_rise_index[x])
             
         if diagnostics:
-            plt.figure(figsize=(1*IPSP,2*IPSP),dpi=DISPLAY_DPI)
-            plt.subplot(2,1,1)
+            plt.figure(figsize=(2*IPSP,2*IPSP),dpi=DISPLAY_DPI)
+            plt.subplot(2,2,1)
             plt.imshow(frame,cmap='gray',aspect='auto',interpolation='none')
-            plt.axhspan(z1,z2,alpha=0.1)
+            plt.axhline(z1,alpha=0.5)
+            plt.axhline(z2,alpha=0.5)
             plt.title('align_to_fbg: uncorrected and search region')
-            plt.subplot(2,1,2)
+            plt.subplot(2,2,2)
+            plt.plot(frame.mean(1))
+            plt.xlim((z1-10,z2+10))
+            plt.axvline(z1,alpha=0.5)
+            plt.axvline(z2,alpha=0.5)
+            plt.title('uncorrected average')
+            
+            plt.subplot(2,2,3)
             plt.imshow(out,cmap='gray',aspect='auto',interpolation='none')
             plt.title('align_to_fbg: corrected')
+            plt.subplot(2,2,4)
+            plt.plot(out.mean(1))
+            plt.xlim((z1-10,z2+10))
+            plt.title('corrected average')
             save_diagnostics(diagnostics,'fbg_alignment')
 
         
