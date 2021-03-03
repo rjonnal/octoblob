@@ -168,7 +168,8 @@ class OCTRawData:
 
             plt.subplot(2,3,2)
             for f in range(0,frame.shape[1],sample_interval):
-                plt.plot(frame[:,f],label='spectrum %d'%f)
+                plt.plot(frame[:,f],label='%d'%f)
+            plt.legend(fontsize=6)
                 
             plt.xlim((z1-10,z2+10))
             plt.axvline(z1,alpha=0.5)
@@ -189,7 +190,8 @@ class OCTRawData:
 
             plt.subplot(2,3,5)
             for f in range(0,out.shape[1],sample_interval):
-                plt.plot(out[:,f],label='spectrum %d'%f)
+                plt.plot(out[:,f],label='%d'%f)
+            plt.legend(fontsize=6)
             plt.xlim((z1-10,z2+10))
             plt.title('sample corrected spectra')
 
