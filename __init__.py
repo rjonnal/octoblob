@@ -157,23 +157,43 @@ class OCTRawData:
             out[:,x] = np.roll(frame[:,x],-max_rise_index[x])
             
         if diagnostics:
-            plt.figure(figsize=(2*IPSP,2*IPSP),dpi=DISPLAY_DPI)
-            plt.subplot(2,2,1)
+            n_samples = 10
+            sample_interval = int(float(out.shape[1])/float(n_samples))
+            plt.figure(figsize=(3*IPSP,2*IPSP),dpi=DISPLAY_DPI)
+            plt.subplot(2,3,1)
             plt.imshow(frame,cmap='gray',aspect='auto',interpolation='none')
             plt.axhline(z1,alpha=0.5)
             plt.axhline(z2,alpha=0.5)
             plt.title('align_to_fbg: uncorrected and search region')
-            plt.subplot(2,2,2)
+
+            plt.subplot(2,3,2)
+            for f in range(0,frame.shape[1],sample_interval):
+                plt.plot(frame[:,f],label='spectrum %d'%f)
+                
+            plt.xlim((z1-10,z2+10))
+            plt.axvline(z1,alpha=0.5)
+            plt.axvline(z2,alpha=0.5)
+            plt.title('sample uncorrected spectra')
+
+            plt.subplot(2,3,3)
             plt.plot(frame.mean(1))
             plt.xlim((z1-10,z2+10))
             plt.axvline(z1,alpha=0.5)
             plt.axvline(z2,alpha=0.5)
             plt.title('uncorrected average')
             
-            plt.subplot(2,2,3)
+            plt.subplot(2,3,4)
             plt.imshow(out,cmap='gray',aspect='auto',interpolation='none')
             plt.title('align_to_fbg: corrected')
-            plt.subplot(2,2,4)
+
+
+            plt.subplot(2,3,5)
+            for f in range(0,out.shape[1],sample_interval):
+                plt.plot(out[:,f],label='spectrum %d'%f)
+            plt.xlim((z1-10,z2+10))
+            plt.title('sample corrected spectra')
+
+            plt.subplot(2,3,6)
             plt.plot(out.mean(1))
             plt.xlim((z1-10,z2+10))
             plt.title('corrected average')
