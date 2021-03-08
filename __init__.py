@@ -112,7 +112,7 @@ class OCTRawData:
         print('n_vol\t\t%d\nn_slow\t\t%d\nn_repeats\t%d\nn_fast\t\t%d\nn_depth\t\t%d\nbytes_per_pixel\t%d\ntotal_expected_size\t%d'%(self.n_vol,self.n_slow,self.n_repeats,self.n_fast,self.n_depth,self.bytes_per_pixel,self.n_bytes))
 
 
-    def align_to_fbg(self,frame,region_height=48,smoothing_size=5,sign=1,diagnostics=False):
+    def align_to_fbg(self,frame,region_height=48,smoothing_size=5,sign=1,use_cross_correlation=False,diagnostics=False):
         # The algorithm here is copied from Justin Migacz's MATLAB prototype; one
         # key difference is that Justin cats 5 sets of spectra together, such that
         # they share the same k-axis; this step is performed on a "compound" frame,
@@ -120,30 +120,46 @@ class OCTRawData:
         if not self.has_fbg:
             return frame
         z1 = self.fbg_position-region_height//2
-        z2 = self.fbg_position+region_height//2-1
+        z2 = self.fbg_position+region_height//2
 
         # crop the relevant region:
         fbg_region = np.zeros((z2-z1,frame.shape[1]))
         fbg_region[:,:] = frame[z1:z2,:]
 
-        # smooth with a kernel of 1x2 pixels
-        # use valid region (MATLAB default) to avoid huge gradients
-        # at edges
-        fbg_region = sps.convolve2d(fbg_region,np.ones((smoothing_size,1)),mode='valid')
-        
-        # do the vertical derivative:
-        fbg_region_derivative = sign*np.diff(fbg_region,axis=0)
 
-        # find the index of maximum rise for each column in the derivative:
-        # the +1 at the end is just to square this with Justin's code;
-        # ideally, get rid of the +1 here and add back the zero-centering below
-        max_rise_index = np.argsort(fbg_region_derivative,axis=0)[-1,:].astype(np.int)+1
+        if not use_cross_correlation:
 
-        # zero-center the max_rise_index to avoid rolling more than we need to;
-        # this departs a bit from Justin's approach, but not consequentially
-        # consider adding this back in after the code has been thoroughly checked
-        # max_rise_index = max_rise_index - int(np.round(np.mean(max_rise_index)))
+            # smooth with a kernel of 1x2 pixels
+            # use valid region (MATLAB default) to avoid huge gradients
+            # at edges
+            fbg_region = sps.convolve2d(fbg_region,np.ones((smoothing_size,1)),mode='valid')
 
+            # do the vertical derivative:
+            fbg_region_derivative = sign*np.diff(fbg_region,axis=0)
+
+            # find the index of maximum rise for each column in the derivative:
+            # the +1 at the end is just to square this with Justin's code;
+            # ideally, get rid of the +1 here and add back the zero-centering below
+
+            position = np.argsort(fbg_region_derivative,axis=0)[-1,:].astype(np.int)+1
+
+            # zero-center the position to avoid rolling more than we need to;
+            # this departs a bit from Justin's approach, but not consequentially
+            # consider adding this back in after the code has been thoroughly checked
+            # position = position - int(np.round(np.mean(position)))
+
+
+        else:
+
+            ftar = np.fft.fft(fbg_region,axis=0)
+            fref = ftar[:,ftar.shape[1]//2]
+            xc = np.abs(np.fft.ifft((ftar.T*np.conj(fref)).T,axis=0))
+            
+            position = np.argmax(xc,axis=0)
+            position = position - int(np.round(np.mean(position)))
+
+
+        posrms = position.std()
         # roll the columns to align
         # Notes:
         # 1. After testing, replace this with an in-place operation,
@@ -154,19 +170,28 @@ class OCTRawData:
 
         out = np.zeros(frame.shape)
         for x in range(frame.shape[1]):
-            out[:,x] = np.roll(frame[:,x],-max_rise_index[x])
+            out[:,x] = np.roll(frame[:,x],-position[x])
             
         if diagnostics:
             n_samples = 10
             sample_interval = int(float(out.shape[1])/float(n_samples))
-            plt.figure(figsize=(3*IPSP,2*IPSP),dpi=DISPLAY_DPI)
-            plt.subplot(2,3,1)
+            plt.figure(figsize=(4*IPSP,2*IPSP),dpi=DISPLAY_DPI)
+            plt.subplot(2,4,1)
             plt.imshow(frame,cmap='gray',aspect='auto',interpolation='none')
             plt.axhline(z1,alpha=0.5)
             plt.axhline(z2,alpha=0.5)
-            plt.title('align_to_fbg: uncorrected and search region')
+            plt.title('uncorrected and search region')
 
-            plt.subplot(2,3,2)
+
+            plt.subplot(2,4,2)
+            plt.imshow(frame,cmap='gray',aspect='auto',interpolation='none')
+            plt.axhline(z1,alpha=0.75,linewidth=2)
+            plt.axhline(z2,alpha=0.75,linewidth=2)
+            plt.ylim((z2+20,z1-20))
+            plt.title('(zoomed)')
+
+            
+            plt.subplot(2,4,3)
             for f in range(0,frame.shape[1],sample_interval):
                 plt.plot(frame[:,f],label='%d'%f)
             plt.legend(fontsize=6)
@@ -176,32 +201,38 @@ class OCTRawData:
             plt.axvline(z2,alpha=0.5)
             plt.title('sample uncorrected spectra')
 
-            plt.subplot(2,3,3)
+
+            plt.subplot(2,4,4)
             plt.plot(frame.mean(1))
             plt.xlim((z1-10,z2+10))
             plt.axvline(z1,alpha=0.5)
             plt.axvline(z2,alpha=0.5)
             plt.title('uncorrected average')
             
-            plt.subplot(2,3,4)
+            plt.subplot(2,4,5)
             plt.imshow(out,cmap='gray',aspect='auto',interpolation='none')
-            plt.title('align_to_fbg: corrected')
+            plt.title('corrected ($\sigma_z=%0.1fpx$)'%posrms)
+
+            plt.subplot(2,4,6)
+            plt.imshow(out,cmap='gray',aspect='auto',interpolation='none')
+            plt.ylim((z2+20,z1-20))
+            plt.title('(zoomed)')
 
 
-            plt.subplot(2,3,5)
+            plt.subplot(2,4,7)
             for f in range(0,out.shape[1],sample_interval):
                 plt.plot(out[:,f],label='%d'%f)
             plt.legend(fontsize=6)
             plt.xlim((z1-10,z2+10))
             plt.title('sample corrected spectra')
 
-            plt.subplot(2,3,6)
+            plt.subplot(2,4,8)
             plt.plot(out.mean(1))
             plt.xlim((z1-10,z2+10))
             plt.title('corrected average')
-            save_diagnostics(diagnostics,'fbg_alignment')
 
-        
+            plt.suptitle('align_to_fbg diagnostics')
+            save_diagnostics(diagnostics,'fbg_alignment')
         return out
 
     
