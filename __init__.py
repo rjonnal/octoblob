@@ -176,14 +176,14 @@ class OCTRawData:
             n_samples = 10
             sample_interval = int(float(out.shape[1])/float(n_samples))
             plt.figure(figsize=(4*IPSP,2*IPSP),dpi=DISPLAY_DPI)
-            plt.subplot(2,4,1)
+            plt.subplot(2,5,1)
             plt.imshow(frame,cmap='gray',aspect='auto',interpolation='none')
             plt.axhline(z1,alpha=0.5)
             plt.axhline(z2,alpha=0.5)
             plt.title('uncorrected and search region')
 
 
-            plt.subplot(2,4,2)
+            plt.subplot(2,5,2)
             plt.imshow(frame,cmap='gray',aspect='auto',interpolation='none')
             plt.axhline(z1,alpha=0.75,linewidth=2)
             plt.axhline(z2,alpha=0.75,linewidth=2)
@@ -191,7 +191,7 @@ class OCTRawData:
             plt.title('(zoomed)')
 
             
-            plt.subplot(2,4,3)
+            plt.subplot(2,5,3)
             for f in range(0,frame.shape[1],sample_interval):
                 plt.plot(frame[:,f],label='%d'%f)
             plt.legend(fontsize=6)
@@ -202,35 +202,55 @@ class OCTRawData:
             plt.title('sample uncorrected spectra')
 
 
-            plt.subplot(2,4,4)
+            plt.subplot(2,5,4)
             plt.plot(frame.mean(1))
             plt.xlim((z1-10,z2+10))
             plt.axvline(z1,alpha=0.5)
             plt.axvline(z2,alpha=0.5)
             plt.title('uncorrected average')
+
+
+            mid = frame.shape[1]//2
+            freq = np.fft.fftfreq(frame.shape[1],1.0)[5:mid]
+            spec = np.mean(np.abs(np.fft.fft(frame,axis=1)),axis=0)[5:mid]
+            spec = spec**2
+            plt.subplot(2,5,5)
+            plt.semilogy(freq,spec)
+            spec_ylim = plt.ylim()
+            plt.title('modulation power spectrum')
+            spec_ax = plt.gca()
             
-            plt.subplot(2,4,5)
+            plt.subplot(2,5,6)
             plt.imshow(out,cmap='gray',aspect='auto',interpolation='none')
             plt.title('corrected ($\sigma_z=%0.1fpx$)'%posrms)
 
-            plt.subplot(2,4,6)
+            plt.subplot(2,5,7)
             plt.imshow(out,cmap='gray',aspect='auto',interpolation='none')
             plt.ylim((z2+20,z1-20))
             plt.title('(zoomed)')
 
-
-            plt.subplot(2,4,7)
+            plt.subplot(2,5,8)
             for f in range(0,out.shape[1],sample_interval):
                 plt.plot(out[:,f],label='%d'%f)
             plt.legend(fontsize=6)
             plt.xlim((z1-10,z2+10))
             plt.title('sample corrected spectra')
 
-            plt.subplot(2,4,8)
+            plt.subplot(2,5,9)
             plt.plot(out.mean(1))
             plt.xlim((z1-10,z2+10))
             plt.title('corrected average')
 
+            outspec = np.mean(np.abs(np.fft.fft(out,axis=1)),axis=0)[5:mid]
+            outspec = outspec**2
+            plt.subplot(2,5,10)
+            plt.semilogy(freq,outspec)
+            outspec_ylim = plt.ylim()
+            plt.title('corrected power spectrum')
+            plt.xlabel('freq (x scan rate)')
+            global_ylim = (min(spec_ylim[0],outspec_ylim[0]),max(spec_ylim[1],outspec_ylim[1]))
+            plt.ylim(global_ylim)
+            spec_ax.set_ylim(global_ylim)
             plt.suptitle('align_to_fbg diagnostics')
             save_diagnostics(diagnostics,'fbg_alignment')
         return out
@@ -366,7 +386,7 @@ def dc_subtract(spectra,diagnostics=False):
         plt.hist(np.ravel(out),bins=range(-1000,1010,10))
         plt.xlabel('DC corrected amplitude')
         plt.ylabel('count')
-        
+        save_diagnostics(diagnostics,'dc_subtraction')
     return out
 
 
