@@ -616,7 +616,7 @@ def centers_to_edges(bin_centers):
     last_edge = bin_centers[-1]+half_width
     return np.linspace(first_edge,last_edge,len(bin_centers)+1)
 
-def bin_shift_histogram(vals,bin_centers,resample_factor=1,do_plots=False):
+def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=False):
     shifts = np.linspace(bin_centers[0]/float(len(bin_centers)),
                           bin_centers[-1]/float(len(bin_centers)),resample_factor)
 
@@ -634,42 +634,35 @@ def bin_shift_histogram(vals,bin_centers,resample_factor=1,do_plots=False):
     all_counts = all_counts/float(resample_factor)
     all_centers = all_centers
 
-    if do_plots:
+    if diagnostics:
         bin_edges = centers_to_edges(bin_centers)
         bin_width = np.mean(np.diff(bin_edges))
         shift_size = np.mean(np.diff(shifts))
         
-        plt.figure(figsize=(IPSP,IPSP),dpi=DISPLAY_DPI)
+        plt.figure(figsize=(3*IPSP,IPSP),dpi=DISPLAY_DPI)
+        plt.subplot(1,3,1)
         plt.imshow(all_counts)
         plt.title('counts')
         plt.xlabel('bins')
         plt.ylabel('shifts')
-        plt.gca().set_yticks(np.arange(n_shifts))
-        plt.gca().set_yticklabels(['%0.1f'%s for s in shifts])
-        plt.gca().set_xticks(np.arange(n_bins))
-        plt.gca().set_xticklabels(['%0.1f'%bc for bc in bin_centers])
-        plt.colorbar()
+        
+        plt.gca().set_yticks(np.arange(0,n_shifts,3))
+        plt.gca().set_yticklabels(['%0.2f'%s for s in shifts])
 
-        plt.figure(figsize=(IPSP,IPSP),dpi=DISPLAY_DPI)
-        plt.imshow(all_centers)
-        plt.title('bin centers')
-        plt.xlabel('bins')
-        plt.ylabel('shifts')
-        plt.gca().set_yticks(np.arange(n_shifts))
-        plt.gca().set_yticklabels(['%0.1f'%s for s in shifts])
-        plt.gca().set_xticks(np.arange(n_bins))
-        plt.gca().set_xticklabels(['%0.1f'%bc for bc in bin_centers])
+        plt.gca().set_xticks(np.arange(0,n_bins,3))
+        plt.gca().set_xticklabels(['%0.2f'%bc for bc in bin_centers])
         plt.colorbar()
 
         all_counts = all_counts.T
         all_centers = all_centers.T.ravel()
 
-        plt.figure(figsize=(IPSP,2*IPSP),dpi=DISPLAY_DPI)
-        plt.subplot(2,1,1)
+        plt.subplot(1,3,2)
         plt.hist(vals,bin_edges,width=bin_width*0.8)
-        plt.subplot(2,1,2)
+        plt.title('standard histogram')
+        plt.subplot(1,3,3)
         plt.bar(all_centers.ravel(),all_counts.ravel(),width=shift_size*0.8)
-        plt.show()
+        plt.title('bin shifted histogram')
+        save_diagnostics(diagnostics,'bin_shift_histogram')
 
     return all_counts.T.ravel(),all_centers.T.ravel()
 
@@ -758,7 +751,13 @@ def get_phase_jumps(phase_stack,mask,
         valid_idx = np.where(mask[:,f])[0]
         for r in range(n_reps-1):
             vals = d_phase_d_t[valid_idx,f,r]
-            [counts,bin_centers] = bin_shift_histogram(vals,bin_edges,resample_factor,do_plots=False)
+            
+            # if it's the first rep of the first frame, and diagnostics are requested, print the histogram diagnostics
+            if f==0 and r==0:
+                [counts,bin_centers] = bin_shift_histogram(vals,bin_edges,resample_factor,diagnostics=diagnostics)
+            else:
+                [counts,bin_centers] = bin_shift_histogram(vals,bin_edges,resample_factor,diagnostics=False)
+                
             if diagnostics:
                 hist_sets[r,f,:] = counts
             bulk_shift = bin_centers[np.argmax(counts)]

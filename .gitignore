@@ -1,0 +1,15 @@
+# Compiled source #
+###################
+*.pyc
+__pycache__/
+
+# Logs and databases #
+######################
+*.log
+log/
+
+# Obsolete files #
+##################
+obs/
+
+sample.npy
