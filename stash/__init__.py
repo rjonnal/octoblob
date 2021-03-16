@@ -112,7 +112,7 @@ class OCTRawData:
         print('n_vol\t\t%d\nn_slow\t\t%d\nn_repeats\t%d\nn_fast\t\t%d\nn_depth\t\t%d\nbytes_per_pixel\t%d\ntotal_expected_size\t%d'%(self.n_vol,self.n_slow,self.n_repeats,self.n_fast,self.n_depth,self.bytes_per_pixel,self.n_bytes))
 
 
-    def align_to_fbg(self,frame,region_height=48,smoothing_size=5,sign=1,use_cross_correlation=False,diagnostics=False):
+    def align_to_fbg(self,frame,region_height=48,smoothing_size=5,sign=1,diagnostics=False):
         # The algorithm here is copied from Justin Migacz's MATLAB prototype; one
         # key difference is that Justin cats 5 sets of spectra together, such that
         # they share the same k-axis; this step is performed on a "compound" frame,
@@ -120,46 +120,30 @@ class OCTRawData:
         if not self.has_fbg:
             return frame
         z1 = self.fbg_position-region_height//2
-        z2 = self.fbg_position+region_height//2
+        z2 = self.fbg_position+region_height//2-1
 
         # crop the relevant region:
         fbg_region = np.zeros((z2-z1,frame.shape[1]))
         fbg_region[:,:] = frame[z1:z2,:]
 
+        # smooth with a kernel of 1x2 pixels
+        # use valid region (MATLAB default) to avoid huge gradients
+        # at edges
+        fbg_region = sps.convolve2d(fbg_region,np.ones((smoothing_size,1)),mode='valid')
+        
+        # do the vertical derivative:
+        fbg_region_derivative = sign*np.diff(fbg_region,axis=0)
 
-        if not use_cross_correlation:
+        # find the index of maximum rise for each column in the derivative:
+        # the +1 at the end is just to square this with Justin's code;
+        # ideally, get rid of the +1 here and add back the zero-centering below
+        max_rise_index = np.argsort(fbg_region_derivative,axis=0)[-1,:].astype(np.int)+1
 
-            # smooth with a kernel of 1x2 pixels
-            # use valid region (MATLAB default) to avoid huge gradients
-            # at edges
-            fbg_region = sps.convolve2d(fbg_region,np.ones((smoothing_size,1)),mode='valid')
+        # zero-center the max_rise_index to avoid rolling more than we need to;
+        # this departs a bit from Justin's approach, but not consequentially
+        # consider adding this back in after the code has been thoroughly checked
+        # max_rise_index = max_rise_index - int(np.round(np.mean(max_rise_index)))
 
-            # do the vertical derivative:
-            fbg_region_derivative = sign*np.diff(fbg_region,axis=0)
-
-            # find the index of maximum rise for each column in the derivative:
-            # the +1 at the end is just to square this with Justin's code;
-            # ideally, get rid of the +1 here and add back the zero-centering below
-
-            position = np.argsort(fbg_region_derivative,axis=0)[-1,:].astype(np.int)+1
-
-            # zero-center the position to avoid rolling more than we need to;
-            # this departs a bit from Justin's approach, but not consequentially
-            # consider adding this back in after the code has been thoroughly checked
-            # position = position - int(np.round(np.mean(position)))
-
-
-        else:
-
-            ftar = np.fft.fft(fbg_region,axis=0)
-            fref = ftar[:,ftar.shape[1]//2]
-            xc = np.abs(np.fft.ifft((ftar.T*np.conj(fref)).T,axis=0))
-            
-            position = np.argmax(xc,axis=0)
-            position = position - int(np.round(np.mean(position)))
-
-
-        posrms = position.std()
         # roll the columns to align
         # Notes:
         # 1. After testing, replace this with an in-place operation,
@@ -170,89 +154,20 @@ class OCTRawData:
 
         out = np.zeros(frame.shape)
         for x in range(frame.shape[1]):
-            out[:,x] = np.roll(frame[:,x],-position[x])
+            out[:,x] = np.roll(frame[:,x],-max_rise_index[x])
             
         if diagnostics:
-            n_samples = 10
-            sample_interval = int(float(out.shape[1])/float(n_samples))
-            plt.figure(figsize=(4*IPSP,2*IPSP),dpi=DISPLAY_DPI)
-            plt.subplot(2,5,1)
+            plt.figure(figsize=(1*IPSP,2*IPSP),dpi=DISPLAY_DPI)
+            plt.subplot(2,1,1)
             plt.imshow(frame,cmap='gray',aspect='auto',interpolation='none')
-            plt.axhline(z1,alpha=0.5)
-            plt.axhline(z2,alpha=0.5)
-            plt.title('uncorrected and search region')
-
-
-            plt.subplot(2,5,2)
-            plt.imshow(frame,cmap='gray',aspect='auto',interpolation='none')
-            plt.axhline(z1,alpha=0.75,linewidth=2)
-            plt.axhline(z2,alpha=0.75,linewidth=2)
-            plt.ylim((z2+20,z1-20))
-            plt.title('(zoomed)')
-
-            
-            plt.subplot(2,5,3)
-            for f in range(0,frame.shape[1],sample_interval):
-                plt.plot(frame[:,f],label='%d'%f)
-            plt.legend(fontsize=6)
-                
-            plt.xlim((z1-10,z2+10))
-            plt.axvline(z1,alpha=0.5)
-            plt.axvline(z2,alpha=0.5)
-            plt.title('sample uncorrected spectra')
-
-
-            plt.subplot(2,5,4)
-            plt.plot(frame.mean(1))
-            plt.xlim((z1-10,z2+10))
-            plt.axvline(z1,alpha=0.5)
-            plt.axvline(z2,alpha=0.5)
-            plt.title('uncorrected average')
-
-
-            mid = frame.shape[1]//2
-            freq = np.fft.fftfreq(frame.shape[1],1.0)[5:mid]
-            spec = np.mean(np.abs(np.fft.fft(frame,axis=1)),axis=0)[5:mid]
-            spec = spec**2
-            plt.subplot(2,5,5)
-            plt.semilogy(freq,spec)
-            spec_ylim = plt.ylim()
-            plt.title('modulation power spectrum')
-            spec_ax = plt.gca()
-            
-            plt.subplot(2,5,6)
+            plt.axhspan(z1,z2,alpha=0.1)
+            plt.title('align_to_fbg: uncorrected and search region')
+            plt.subplot(2,1,2)
             plt.imshow(out,cmap='gray',aspect='auto',interpolation='none')
-            plt.title('corrected ($\sigma_z=%0.1fpx$)'%posrms)
-
-            plt.subplot(2,5,7)
-            plt.imshow(out,cmap='gray',aspect='auto',interpolation='none')
-            plt.ylim((z2+20,z1-20))
-            plt.title('(zoomed)')
-
-            plt.subplot(2,5,8)
-            for f in range(0,out.shape[1],sample_interval):
-                plt.plot(out[:,f],label='%d'%f)
-            plt.legend(fontsize=6)
-            plt.xlim((z1-10,z2+10))
-            plt.title('sample corrected spectra')
-
-            plt.subplot(2,5,9)
-            plt.plot(out.mean(1))
-            plt.xlim((z1-10,z2+10))
-            plt.title('corrected average')
-
-            outspec = np.mean(np.abs(np.fft.fft(out,axis=1)),axis=0)[5:mid]
-            outspec = outspec**2
-            plt.subplot(2,5,10)
-            plt.semilogy(freq,outspec)
-            outspec_ylim = plt.ylim()
-            plt.title('corrected power spectrum')
-            plt.xlabel('freq (x scan rate)')
-            global_ylim = (min(spec_ylim[0],outspec_ylim[0]),max(spec_ylim[1],outspec_ylim[1]))
-            plt.ylim(global_ylim)
-            spec_ax.set_ylim(global_ylim)
-            plt.suptitle('align_to_fbg diagnostics')
+            plt.title('align_to_fbg: corrected')
             save_diagnostics(diagnostics,'fbg_alignment')
+
+        
         return out
 
     
@@ -386,7 +301,7 @@ def dc_subtract(spectra,diagnostics=False):
         plt.hist(np.ravel(out),bins=range(-1000,1010,10))
         plt.xlabel('DC corrected amplitude')
         plt.ylabel('count')
-        save_diagnostics(diagnostics,'dc_subtraction')
+        
     return out
 
 
@@ -616,7 +531,7 @@ def centers_to_edges(bin_centers):
     last_edge = bin_centers[-1]+half_width
     return np.linspace(first_edge,last_edge,len(bin_centers)+1)
 
-def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=False):
+def bin_shift_histogram(vals,bin_centers,resample_factor=1,do_plots=False):
     shifts = np.linspace(bin_centers[0]/float(len(bin_centers)),
                           bin_centers[-1]/float(len(bin_centers)),resample_factor)
 
@@ -634,35 +549,42 @@ def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=False):
     all_counts = all_counts/float(resample_factor)
     all_centers = all_centers
 
-    if diagnostics:
+    if do_plots:
         bin_edges = centers_to_edges(bin_centers)
         bin_width = np.mean(np.diff(bin_edges))
         shift_size = np.mean(np.diff(shifts))
         
-        plt.figure(figsize=(3*IPSP,IPSP),dpi=DISPLAY_DPI)
-        plt.subplot(1,3,1)
+        plt.figure(figsize=(IPSP,IPSP),dpi=DISPLAY_DPI)
         plt.imshow(all_counts)
         plt.title('counts')
         plt.xlabel('bins')
         plt.ylabel('shifts')
-        
-        #plt.gca().set_yticks(np.arange(0,n_shifts,3))
-        #plt.gca().set_yticklabels(['%0.2f'%s for s in shifts])
+        plt.gca().set_yticks(np.arange(n_shifts))
+        plt.gca().set_yticklabels(['%0.1f'%s for s in shifts])
+        plt.gca().set_xticks(np.arange(n_bins))
+        plt.gca().set_xticklabels(['%0.1f'%bc for bc in bin_centers])
+        plt.colorbar()
 
-        #plt.gca().set_xticks(np.arange(0,n_bins,3))
-        #plt.gca().set_xticklabels(['%0.2f'%bc for bc in bin_centers])
+        plt.figure(figsize=(IPSP,IPSP),dpi=DISPLAY_DPI)
+        plt.imshow(all_centers)
+        plt.title('bin centers')
+        plt.xlabel('bins')
+        plt.ylabel('shifts')
+        plt.gca().set_yticks(np.arange(n_shifts))
+        plt.gca().set_yticklabels(['%0.1f'%s for s in shifts])
+        plt.gca().set_xticks(np.arange(n_bins))
+        plt.gca().set_xticklabels(['%0.1f'%bc for bc in bin_centers])
         plt.colorbar()
 
         all_counts = all_counts.T
         all_centers = all_centers.T.ravel()
 
-        plt.subplot(1,3,2)
+        plt.figure(figsize=(IPSP,2*IPSP),dpi=DISPLAY_DPI)
+        plt.subplot(2,1,1)
         plt.hist(vals,bin_edges,width=bin_width*0.8)
-        plt.title('standard histogram')
-        plt.subplot(1,3,3)
+        plt.subplot(2,1,2)
         plt.bar(all_centers.ravel(),all_counts.ravel(),width=shift_size*0.8)
-        plt.title('bin shifted histogram')
-        save_diagnostics(diagnostics,'bin_shift_histogram')
+        plt.show()
 
     return all_counts.T.ravel(),all_centers.T.ravel()
 
@@ -751,13 +673,7 @@ def get_phase_jumps(phase_stack,mask,
         valid_idx = np.where(mask[:,f])[0]
         for r in range(n_reps-1):
             vals = d_phase_d_t[valid_idx,f,r]
-            
-            # if it's the first rep of the first frame, and diagnostics are requested, print the histogram diagnostics
-            if f==0 and r==0:
-                [counts,bin_centers] = bin_shift_histogram(vals,bin_edges,resample_factor,diagnostics=diagnostics)
-            else:
-                [counts,bin_centers] = bin_shift_histogram(vals,bin_edges,resample_factor,diagnostics=False)
-                
+            [counts,bin_centers] = bin_shift_histogram(vals,bin_edges,resample_factor,do_plots=False)
             if diagnostics:
                 hist_sets[r,f,:] = counts
             bulk_shift = bin_centers[np.argmax(counts)]
@@ -787,7 +703,7 @@ def get_phase_jumps(phase_stack,mask,
     b_jumps = np.unwrap(b_jumps,axis=0)
 
     # Smooth by convolution. Don't forget to divide by kernel size!
-    b_jumps = sps.convolve2d(b_jumps,np.ones((n_smooth,1)),mode='same')/float(n_smooth)
+    #b_jumps = sps.convolve2d(b_jumps,np.ones((n_smooth,1)),mode='same')/float(n_smooth)
 
     return b_jumps
 
