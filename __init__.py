@@ -646,11 +646,11 @@ def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=False):
         plt.xlabel('bins')
         plt.ylabel('shifts')
         
-        plt.gca().set_yticks(np.arange(0,n_shifts,3))
-        plt.gca().set_yticklabels(['%0.2f'%s for s in shifts])
+        #plt.gca().set_yticks(np.arange(0,n_shifts,3))
+        #plt.gca().set_yticklabels(['%0.2f'%s for s in shifts])
 
-        plt.gca().set_xticks(np.arange(0,n_bins,3))
-        plt.gca().set_xticklabels(['%0.2f'%bc for bc in bin_centers])
+        #plt.gca().set_xticks(np.arange(0,n_bins,3))
+        #plt.gca().set_xticklabels(['%0.2f'%bc for bc in bin_centers])
         plt.colorbar()
 
         all_counts = all_counts.T
