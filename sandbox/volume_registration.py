@@ -46,13 +46,13 @@ I_x0 = (S_Nx-I_Nx)//2
 I_y0 = (S_Ny-I_Ny)//2
 I_z0 = (S_Nz-I_Nz)//2
 
-dt = 1e-3
+dt = 1e-4
 t_vec = np.arange(0,10,dt)
 
 # acceleration standard deviations
-ddx_std = 20*dt
-ddy_std = 20*dt
-ddz_std = 20*dt
+ddx_std = 5000*dt
+ddy_std = 5000*dt
+ddz_std = 5000*dt
 
 # initial accelerations
 ddx0 = 0.0
@@ -82,7 +82,7 @@ z,dz,ddz = z0,dz0,ddz0
 
 def move(p,dp,ddp,ddp_std,dt):
     # acceleration is always a new normally distributed value, with a slight bias toward zero (fixation)
-    ddp = ddp + dt*(np.random.randn()*ddp_std - np.sign(p)*.1*ddp_std)
+    ddp = dt*(np.random.randn()*ddp_std - np.sign(p)*.1*ddp_std)
     dp = dp + ddp
     p = p + dp
     return p,dp,ddp
@@ -113,9 +113,8 @@ for ky in range(I_Ny):
         I[:,ky,kx] = line
         t = t + scan_time
 
-for y in range(I.shape[1]):
     plt.cla()
-    plt.imshow(I[:,y,:])
+    plt.imshow(I[:,ky,:])
     plt.pause(.00001)
 
         

@@ -779,10 +779,81 @@ def get_phase_jumps(phase_stack,mask,
             plt.colorbar()
             plt.autoscale(False)
             plt.plot(b_jumps[:,idx],range(n_fast)[::-1],'g.',alpha=0.2)
-        plt.suptitle('oversampled bulk motion histograms (count)')
+        plt.suptitle('shifted bulk motion histograms (count)')
         save_diagnostics(diagnostics,'bulk_motion_histograms')
 
-    
+        # now let's show some examples of big differences between adjacent A-scans
+        legendfontsize = 8
+        lblfmt = 'r%d,x%d'
+        pts_per_example = 10
+        max_examples = 16
+        dtheta_threshold = np.pi/2.0
+        fig = plt.figure(figsize=(IPSP*4,IPSP*4))
+        example_count = 0
+        for rep_idx,hist_set in enumerate(hist_sets):
+            temp = np.diff(b_jumps[:,rep_idx])
+            worrisome_indices = np.where(np.abs(temp)>dtheta_threshold)[0]
+            # index n in the diff means the phase correction difference between
+            # scans n+1 and n
+            for bad_idx,scan_idx in enumerate(worrisome_indices):
+                example_count = example_count + 1
+                if example_count>max_examples:
+                    break
+                plt.subplot(4,4,example_count)
+                mask_line = mask[:,scan_idx]
+                voffset = False
+                vals = np.where(mask_line)[0][:pts_per_example]
+                plt.plot(phase_stack[vals,scan_idx,rep_idx],'rs',label=lblfmt%(rep_idx,scan_idx))
+                plt.xticks([])
+                plt.plot(phase_stack[vals,scan_idx,rep_idx+1]+voffset*2*np.pi,'gs',label=lblfmt%(rep_idx+1,scan_idx))
+                plt.xticks([])
+                plt.plot(phase_stack[vals,scan_idx+1,rep_idx]+voffset*4*np.pi,'bs',label=lblfmt%(rep_idx,scan_idx+1))
+                plt.xticks([])
+                plt.plot(phase_stack[vals,scan_idx+1,rep_idx+1]+voffset*6*np.pi,'ks',label=lblfmt%(rep_idx+1,scan_idx+1))
+                plt.xticks([])
+                plt.legend(bbox_to_anchor=(0,-0.2,1,0.2), loc="upper left",
+                           mode="expand", borderaxespad=0, ncol=4, fontsize=legendfontsize)
+                plt.title(r'$d\theta=%0.1f$ rad'%temp[scan_idx])
+            if example_count>=max_examples:
+                break
+        plt.suptitle('scans involved in each mode jump')
+        save_diagnostics(diagnostics,'histogram_mode_examples_bad')
+
+
+        # now let's show some examples of small differences between adjacent A-scans
+        dtheta_threshold = np.pi/20.0
+        fig = plt.figure(figsize=(IPSP*4,IPSP*4))
+        example_count = 0
+        for rep_idx,hist_set in enumerate(hist_sets):
+            temp = np.diff(b_jumps[:,rep_idx])
+            good_indices = np.where(np.abs(temp)<dtheta_threshold)[0]
+            # index n in the diff means the phase correction difference between
+            # scans n+1 and n
+            for bad_idx,scan_idx in enumerate(good_indices):
+                example_count = example_count + 1
+                if example_count>max_examples:
+                    break
+                plt.subplot(4,4,example_count)
+                mask_line = mask[:,scan_idx]
+                voffset = False
+                vals = np.where(mask_line)[0][:pts_per_example]
+                plt.plot(phase_stack[vals,scan_idx,rep_idx],'rs',label=lblfmt%(rep_idx,scan_idx))
+                plt.xticks([])
+                plt.plot(phase_stack[vals,scan_idx,rep_idx+1]+voffset*2*np.pi,'gs',label=lblfmt%(rep_idx+1,scan_idx))
+                plt.xticks([])
+                plt.plot(phase_stack[vals,scan_idx+1,rep_idx]+voffset*4*np.pi,'bs',label=lblfmt%(rep_idx,scan_idx+1))
+                plt.xticks([])
+                plt.plot(phase_stack[vals,scan_idx+1,rep_idx+1]+voffset*6*np.pi,'ks',label=lblfmt%(rep_idx+1,scan_idx+1))
+                plt.xticks([])
+                plt.legend(bbox_to_anchor=(0,-0.2,1,0.2), loc="upper left",
+                           mode="expand", borderaxespad=0, ncol=4, fontsize=legendfontsize)
+                plt.title(r'$d\theta=%0.1f$ rad'%temp[scan_idx])
+            if example_count>=max_examples:
+                break
+        plt.suptitle('scans involved in each mode jump')
+        save_diagnostics(diagnostics,'histogram_mode_examples_good')
+        
+        
     # Now unwrap to prevent discontinuities (although this may not impact complex variance)
     b_jumps = np.unwrap(b_jumps,axis=0)
 

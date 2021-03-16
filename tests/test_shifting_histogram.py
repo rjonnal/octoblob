@@ -21,8 +21,8 @@ def make_distribution(N,phase_mean,phase_standard_deviation):
 
     return vals
 
-phase_mean = 2.5 # radians
-phase_standard_deviation = 5.1*np.pi
+phase_mean = 0.5 # radians
+phase_standard_deviation = 0.5*np.pi
 N = 1000
 
 dist = make_distribution(N,phase_mean,phase_standard_deviation)
