@@ -132,7 +132,7 @@ class OCTRawData:
             # smooth with a kernel of 1x2 pixels
             # use valid region (MATLAB default) to avoid huge gradients
             # at edges
-            fbg_region = sps.convolve2d(fbg_region,np.ones((smoothing_size,1)),mode='valid')
+            #fbg_region = sps.convolve2d(fbg_region,np.ones((smoothing_size,1)),mode='valid')
 
             # do the vertical derivative:
             fbg_region_derivative = sign*np.diff(fbg_region,axis=0)
