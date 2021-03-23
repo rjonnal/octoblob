@@ -785,6 +785,7 @@ def get_phase_jumps(phase_stack,mask,
             
     d_phase_d_t = np.transpose(np.transpose(d_phase_d_t,(2,0,1))*mask,(1,2,0))
 
+    
     bin_edges = np.linspace(-np.pi,np.pi,n_bins)
     
     # The key idea here is from Makita, 2006, where it is well explained. In
