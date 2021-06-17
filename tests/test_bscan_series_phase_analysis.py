@@ -55,6 +55,13 @@ plt.xlabel('time (s)')
 plt.ylabel('phase variance')
 plt.title('without bulk motion correction')
 
+plt.show()
+
+
+# bulk motion correction is giving very strange results
+# need to look into it further
+# therefore, exit now
+sys.exit()
 
 # step 3: track the phase variance as a function of time, with bulk motion correction
 ref = np.load(filename_list[0])[z1:z2,:]
