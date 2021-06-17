@@ -15,10 +15,6 @@ def rigid_register(ref,tar,max_shift=None,diagnostics=False,ref_pre_fft=False):
     fprod = ftar*fref
     xc = np.abs(np.fft.ifft2(fprod))
 
-    if diagnostics:
-        plt.cla()
-        plt.imshow(xc)
-        
     if not max_shift is None:
         sy,sx = ref.shape
         XX,YY = np.meshgrid(np.arange(sx),np.arange(sy))
@@ -29,6 +25,11 @@ def rigid_register(ref,tar,max_shift=None,diagnostics=False,ref_pre_fft=False):
         mask[np.where(rad<=max_shift)]=1.0
         mask = np.fft.fftshift(mask)
         xc = xc * mask
+        
+    if diagnostics:
+        plt.figure()
+        plt.cla()
+        plt.imshow(xc,cmap='gray',aspect='auto')
         
     peaky,peakx = np.unravel_index(np.argmax(xc),xc.shape)
     xc_peak = xc[peaky,peakx]
@@ -83,11 +84,14 @@ def rigid_shift(ref,tar,max_shift=None,diagnostics=False,ref_pre_fft=False):
     
     if diagnostics:
         plt.figure()
-        plt.subplot(1,2,1)
+        plt.imshow(np.abs(ref),aspect='auto')
+        plt.title('reference')
+        plt.figure()
         plt.imshow(np.abs(tar),aspect='auto')
-        plt.subplot(1,2,2)
+        plt.title('original target')
+        plt.figure()
         plt.imshow(np.abs(new_tar),aspect='auto')
-        plt.title('rigid shift')
+        plt.title('shifted target')
         
     return new_tar
     
