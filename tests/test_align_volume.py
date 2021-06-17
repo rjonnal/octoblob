@@ -4,6 +4,8 @@ import sys,os,glob
 from octoblob.registration_tools import rigid_register
 import scipy.signal as sps
 
+align_x = True
+
 # If the python command has less than 2 arguments, print the instructions and call it quits.
 if len(sys.argv)<2:
     print('Usage: python test_project_enface.py input_directory')
@@ -160,7 +162,9 @@ except Exception as e:
         
         # Do rigid register  using normalized BM-scans with cropping included and limiting the shift to100 pixels (1/4 of a B-scan). The function outputs shift in dx and dz plus the xcorr value.
         x,y,xc=rigid_register(norm(tar)[crop_top:-crop_bottom,:],norm(ref)[crop_top:-crop_bottom,:],max_shift=maximum_allowable_shift,diagnostics=False)
-        plt.show()
+
+        if not align_x:
+            x = 0
         print(k,x,y)
         
         # Add the x/y displacements to the dx/dz vectors.
