@@ -4,7 +4,7 @@ import sys,os,glob
 from octoblob.registration_tools import rigid_register
 import scipy.signal as sps
 
-align_x = True
+align_x = False
 
 # If the python command has less than 2 arguments, print the instructions and call it quits.
 if len(sys.argv)<2:
@@ -26,7 +26,7 @@ if len(sys.argv)<2:
 input_directory = sys.argv[1]
 
 #  Create subfolder to the input directory to save the aligned data and not overwrite data.
-output_directory = os.path.join(input_directory,'registered')
+output_directory = os.path.join(input_directory,'aligned')
 
 # Another subfolder for whatever info we want to store (dx/dx/xcorr).
 info_directory = os.path.join(output_directory,'info')
@@ -43,7 +43,7 @@ fitting_order = 3
 
 # should we redo the registration each time this is run, or try to read
 # cached values?
-redo = False
+redo = True
 
 # cache the volume so it doesn't always have to be reloaded?
 cache_volume = True
