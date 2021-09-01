@@ -132,12 +132,7 @@ class OCTRawData:
             # smooth with a kernel of 1x2 pixels
             # use valid region (MATLAB default) to avoid huge gradients
             # at edges
-            # RSJ 23 March 2021: smoothing here may create a problem, viz.
-            # a +/- 1 pixel uncertainty about the location of the
-            # FBG edge; this may have caused the high-frequency (A-scan rate)
-            # movements of the bulk phase mode observed in the histograms.
-            # Removing this line for now:
-            # fbg_region = sps.convolve2d(fbg_region,np.ones((smoothing_size,1)),mode='valid')
+            #fbg_region = sps.convolve2d(fbg_region,np.ones((smoothing_size,1)),mode='valid')
 
             # do the vertical derivative:
             fbg_region_derivative = sign*np.diff(fbg_region,axis=0)
@@ -364,56 +359,7 @@ def save_diagnostics(diagnostics,tag):
         plt.savefig(os.path.join(subdir,'%05d.png'%index),dpi=PRINT_DPI)
     except Exception as e:
         print('save_diagnostics error: %s'%e)
-
-def log_diagnostics(diagnostics,tag,header,data,fmt=None,clobber=False):
-    # if diagnostics is a tuple containing a directory and a frame index,
-    # save them to a subdirectory, named by index
-    # if not, return
-    try:
-        directory = diagnostics[0]
-        index = diagnostics[1]
-        subdir = os.path.join(directory,tag)
-        os.makedirs(subdir,exist_ok=True)
-    except:
-        return
-
-    try:
-        assert len(header)==len(data)
-    except AssertionError:
-        print('log_diagnostics received header and data of different lengths')
-        print('header:')
-        print(header)
-        print('data:')
-        print(data)
-
-    if fmt is None:
-        fmt = ['%0.3f']*len(header)
-    elif len(fmt)==1:
-        fmt = fmt*len(header)
-    else:
-        try:
-            assert len(fmt)==len(data)
-        except AssertionError:
-            print('log_diagnostics received fmt and data of different lengths')
-            print('fmt:')
-            print(fmt)
-            print('data:')
-            print(data)
-        
-    try:
-        log_fn = os.path.join(subdir,'%05d.csv'%index)
-        data_string = ','.join([f%d for f,d in zip(fmt,data)])+'\n'
-        if os.path.exists(log_fn) and not clobber:
-            with open(log_fn,'a') as fid:
-                fid.write(data_string)
-        else:
-            header_string = ','.join([h for h in header])+'\n'
-            with open(log_fn,'w') as fid:
-                fid.write(header_string)
-                fid.write(data_string)
-    except Exception as e:
-        print('log_diagnostics error: %s'%e)
-
+    
     
 def dc_subtract(spectra,diagnostics=False):
     """Estimate DC by averaging spectra spatially (dimension 1),
@@ -671,14 +617,11 @@ def centers_to_edges(bin_centers):
     return np.linspace(first_edge,last_edge,len(bin_centers)+1)
 
 def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=False):
+    
     shifts = np.linspace(bin_centers[0]/float(len(bin_centers)),
                           bin_centers[-1]/float(len(bin_centers)),resample_factor)
 
-    print('shifts:')
     print(shifts)
-
-    print('bin centers:')
-    print(bin_centers)
     
     n_shifts = len(shifts)
     n_bins = len(bin_centers)
@@ -688,7 +631,6 @@ def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=False):
 
     for idx,s in enumerate(shifts):
         edges = centers_to_edges(bin_centers+s)
-        print('edges (with shift %0.1f'%s)
         print(edges)
         all_counts[idx,:],all_edges[idx,:] = np.histogram(vals,edges)
 
@@ -794,7 +736,6 @@ def get_phase_jumps(phase_stack,mask,
             
     d_phase_d_t = np.transpose(np.transpose(d_phase_d_t,(2,0,1))*mask,(1,2,0))
 
-    
     bin_edges = np.linspace(-np.pi,np.pi,n_bins)
     
     # The key idea here is from Makita, 2006, where it is well explained. In
@@ -815,22 +756,6 @@ def get_phase_jumps(phase_stack,mask,
         valid_idx = np.where(mask[:,f])[0]
         for r in range(n_reps-1):
             vals = d_phase_d_t[valid_idx,f,r]
-
-            if diagnostics:
-                # RSJ, 23 March 2020:
-                # We'll add a simple diagnostic here--a printout of the number of samples and the
-                # interquartile range. These can be used to determine the optimal bin width, following
-                # Makita et al. 2006 "Optical coherence angiography" eq. 3.
-                q75,q25 = np.percentile(vals,(75,25))
-                IQ = q75-q25
-                m = float(len(vals))
-                h = 2*IQ*m**(-1/3)
-                n_bins = np.ceil(2*np.pi/h)
-                bscan_indices = '%01d-%01d'%(r,r+1)
-                log_diagnostics(diagnostics,'histogram_optimal_bin_width',
-                                header=['bscan indices','ascan index','IQ','m','h','n_bins'],
-                                data=[bscan_indices,f,IQ,m,h,n_bins],
-                                fmt=['%s','%d','%0.3f','%d','%0.3f','%d'],clobber=f==0)
             
             # if it's the first rep of the first frame, and diagnostics are requested, print the histogram diagnostics
             if f==0 and r==0:

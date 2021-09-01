@@ -30,7 +30,8 @@ if test_type=='angio':
 bit_shift_right = 4
 dtype=np.uint16
 
-fbg_position = 148
+# set fbg_position to None to skip fbg alignment
+fbg_position = None
 spectrum_start = 159
 spectrum_end = 1459
 
@@ -220,7 +221,6 @@ flist = sorted(glob.glob(file_search_string))
 
 # to do diagnostics, do something like the following:
 process(flist[0],diagnostics=True,show_processed_data=False)
-sys.exit()
 
 # to do manual dispersion compensation, do something like the following:
 # process(flist[0],diagnostics=False,manual_dispersion=True)

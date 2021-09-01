@@ -16,11 +16,15 @@ def rigid_register(ref,tar,max_shift=None,diagnostics=False,ref_pre_fft=False):
     xc = np.abs(np.fft.ifft2(fprod))
 
     if diagnostics:
+        plt.subplot(1,2,1)
         plt.cla()
-        plt.imshow(xc)
-        
+        # use fftshift to put the peak in the middle for easier inspection
+        plt.imshow(np.fft.fftshift(xc),interpolation='none')
+        plt.title('cross corr fftshifted in image')
+
+    
+    sy,sx = ref.shape
     if not max_shift is None:
-        sy,sx = ref.shape
         XX,YY = np.meshgrid(np.arange(sx),np.arange(sy))
         XX = XX-sx//2
         YY = YY-sy//2
@@ -33,15 +37,22 @@ def rigid_register(ref,tar,max_shift=None,diagnostics=False,ref_pre_fft=False):
     peaky,peakx = np.unravel_index(np.argmax(xc),xc.shape)
     xc_peak = xc[peaky,peakx]
     
-    if diagnostics:
-        plt.plot(peakx,peaky,'ro')
-        plt.pause(.001)
-        
     if peaky>xc.shape[0]//2:
         peaky=peaky-xc.shape[0]
     if peakx>xc.shape[1]//2:
         peakx=peakx-xc.shape[1]
 
+    if diagnostics:
+        plt.subplot(1,2,2)
+        plt.cla()
+        plt.imshow(np.fft.fftshift(xc),interpolation='none',aspect='auto')
+        disp_x,disp_y = peakx+sx//2,peaky+sy//2
+        plt.plot(disp_x,disp_y,'rx',alpha=0.2)
+        plt.xlim((disp_x-15,disp_x+15))
+        plt.ylim((disp_y-15,disp_y+15))
+        plt.title('masked cross corr peak at (%d,%d)\nfftshifted in image'%(peaky,peakx))
+        plt.pause(.001)
+        
     return peakx,peaky,xc
 
 
