@@ -51,7 +51,7 @@ bscan_x2 = -20
 
 Issue:
 
-```python estimate_mapping_and_dispersion.py```
+```python estimate_mapping_and_dispersion.py data/oct_test_set.unp```
 
 The resulting interactive plots will allow you to set first the mapping and then the dispersion coefficients. Your last click determines the values that are printed to the terminal, and these should be copied and pasted into ```parameters.py```, e.g.:
 
@@ -61,4 +61,23 @@ dispersion_coefficients = [7.2e-09, -7.2e-05, 0.0, 0.0]
 ```
 
 We sometimes use zeros for mapping coefficients even if other values make the image look slightly better, for simplicity. Non-zero mapping coefficients can generate artifacts in some cases.
+
+#### Processing the data
+
+To silently generate complex-valued ```.npy``` B-scan files:
+
+```python process_bscans.py data/oct_test_set.unp data/oct_test_set.unp```
+
+To generate complex-valued ```.npy``` B-scan files and PNG files:
+
+```python process_bscans.py data/oct_test_set.unp data/oct_test_set.unp show```
+
+To generate complex-valued ```.npy``` B-scan files and diagnostics:
+
+```python process_bscans.py data/oct_test_set.unp data/oct_test_set.unp diagnostics```
+
+To generate complex-valued ```.npy``` B-scan files, PNG files, and diagnostics:
+
+```python process_bscans.py data/oct_test_set.unp data/oct_test_set.unp diagnostics show```
+
 

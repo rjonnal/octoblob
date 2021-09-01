@@ -44,9 +44,13 @@ def process(filename):
                                                'Select mapping coefficients; results of final click will be printed.')
 
     winner = -1
-    m2,m3 = points[winner][0],points[winner][1]
-    print('Last clicked mapping coefficients:')
-    print('mapping_coefficients = [%0.1e, %0.1e, 0.0, 0.0]'%(points[-1][0],points[-1][1]))
+    try:
+        m2,m3 = points[winner][0],points[winner][1]
+        print('Last clicked mapping coefficients:')
+    except:
+        m2,m3 = 0.0,0.0
+        print('Default mapping coefficients:')
+    print('mapping_coefficients = [%0.1e, %0.1e, 0.0, 0.0]'%(m3,m2))
     #mapping_coefficients = [m3,m2,0.0,0.0]
     mapping_coefficients = [0.0,0.0,0.0,0.0]
 
@@ -58,8 +62,14 @@ def process(filename):
 
 
     winner = -1
-    c2,c3 = points[winner][0],points[winner][1]
-    print('Last clicked dispersion coefficients:')
+    try:
+        c2,c3 = points[winner][0],points[winner][1]
+        print('Last clicked dispersion coefficients:')
+    except:
+        c2,c3 = 0.0,0.0
+        print('Default dispersion coefficients:')
+        
     print('dispersion_coefficients = [%0.1e, %0.1e, 0.0, 0.0]'%(c3,c2))
-    print('Saving brightest coefficients to dispersion.txt')
     dispersion_coefficients = [c3,c2,0.0,0.0]
+
+process(unp_filename)
