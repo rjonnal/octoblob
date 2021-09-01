@@ -8,6 +8,7 @@ import scipy.signal as sps
 import scipy.interpolate as spi
 import scipy.io as sio
 from octoblob import bmp_tools
+from octoblob import registration_tools
 
 IPSP = 4.0
 DISPLAY_DPI = 75
@@ -815,23 +816,25 @@ def get_phase_jumps(phase_stack,mask,
         valid_idx = np.where(mask[:,f])[0]
         for r in range(n_reps-1):
             vals = d_phase_d_t[valid_idx,f,r]
-
             if diagnostics:
                 # RSJ, 23 March 2020:
                 # We'll add a simple diagnostic here--a printout of the number of samples and the
                 # interquartile range. These can be used to determine the optimal bin width, following
                 # Makita et al. 2006 "Optical coherence angiography" eq. 3.
-                q75,q25 = np.percentile(vals,(75,25))
-                IQ = q75-q25
-                m = float(len(vals))
-                h = 2*IQ*m**(-1/3)
-                n_bins = np.ceil(2*np.pi/h)
-                bscan_indices = '%01d-%01d'%(r,r+1)
-                log_diagnostics(diagnostics,'histogram_optimal_bin_width',
-                                header=['bscan indices','ascan index','IQ','m','h','n_bins'],
-                                data=[bscan_indices,f,IQ,m,h,n_bins],
-                                fmt=['%s','%d','%0.3f','%d','%0.3f','%d'],clobber=f==0)
-            
+                try:
+                    q75,q25 = np.percentile(vals,(75,25))
+                    IQ = q75-q25
+                    m = float(len(vals))
+                    h = 2*IQ*m**(-1/3)
+                    n_bins = np.ceil(2*np.pi/h)
+                    bscan_indices = '%01d-%01d'%(r,r+1)
+                    log_diagnostics(diagnostics,'histogram_optimal_bin_width',
+                                    header=['bscan indices','ascan index','IQ','m','h','n_bins'],
+                                    data=[bscan_indices,f,IQ,m,h,n_bins],
+                                    fmt=['%s','%d','%0.3f','%d','%0.3f','%d'],clobber=f==0)
+                except IndexError:
+                    pass
+                
             # if it's the first rep of the first frame, and diagnostics are requested, print the histogram diagnostics
             if f==0 and r==0:
                 [counts,bin_centers] = bin_shift_histogram(vals,bin_edges,resample_factor,diagnostics=diagnostics)
@@ -938,7 +941,7 @@ def get_phase_jumps(phase_stack,mask,
     b_jumps = np.unwrap(b_jumps,axis=0)
 
     # Smooth by convolution. Don't forget to divide by kernel size!
-    b_jumps = sps.convolve2d(b_jumps,np.ones((n_smooth,1)),mode='same')/float(n_smooth)
+    # b_jumps = sps.convolve2d(b_jumps,np.ones((n_smooth,1)),mode='same')/float(n_smooth)
 
     return b_jumps
 

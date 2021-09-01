@@ -4,6 +4,8 @@ import sys,os,glob
 from octoblob.registration_tools import rigid_register
 import scipy.signal as sps
 
+align_x = False
+
 # If the python command has less than 2 arguments, print the instructions and call it quits.
 if len(sys.argv)<2:
     print('Usage: python test_project_enface.py input_directory')
@@ -24,7 +26,7 @@ if len(sys.argv)<2:
 input_directory = sys.argv[1]
 
 #  Create subfolder to the input directory to save the aligned data and not overwrite data.
-output_directory = os.path.join(input_directory,'registered')
+output_directory = os.path.join(input_directory,'aligned')
 
 # Another subfolder for whatever info we want to store (dx/dx/xcorr).
 info_directory = os.path.join(output_directory,'info')
@@ -41,7 +43,7 @@ fitting_order = 3
 
 # should we redo the registration each time this is run, or try to read
 # cached values?
-redo = False
+redo = True
 
 # cache the volume so it doesn't always have to be reloaded?
 cache_volume = True
@@ -160,7 +162,9 @@ except Exception as e:
         
         # Do rigid register  using normalized BM-scans with cropping included and limiting the shift to100 pixels (1/4 of a B-scan). The function outputs shift in dx and dz plus the xcorr value.
         x,y,xc=rigid_register(norm(tar)[crop_top:-crop_bottom,:],norm(ref)[crop_top:-crop_bottom,:],max_shift=maximum_allowable_shift,diagnostics=False)
-        plt.show()
+
+        if not align_x:
+            x = 0
         print(k,x,y)
         
         # Add the x/y displacements to the dx/dz vectors.
