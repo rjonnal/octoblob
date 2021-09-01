@@ -16,15 +16,15 @@ dispersion_2_min = -dispersion_2_max
 
 #dispersion_2_multiplier = 1e-10
 #dispersion_2_multiplier = 1e-4
-dispersion_2_multiplier = 1e-5
+dispersion_2_multiplier = 1e-4
 
-c3min = dispersion_3_min*dispersion_3_multiplier
-c3max = dispersion_3_max*dispersion_3_multiplier
-c2min = dispersion_2_min*dispersion_2_multiplier
-c2max = dispersion_2_max*dispersion_2_multiplier
+c3min_default = dispersion_3_min*dispersion_3_multiplier
+c3max_default = dispersion_3_max*dispersion_3_multiplier
+c2min_default = dispersion_2_min*dispersion_2_multiplier
+c2max_default = dispersion_2_max*dispersion_2_multiplier
 
-c3range = c3max-c3min
-c2range = c2max-c2min
+c3range = c3max_default-c3min_default
+c2range = c2max_default-c2min_default
 
 auto_n_points = 6
 
@@ -32,7 +32,7 @@ def max(im):
     return np.max(np.max(im,axis=0))
     #return np.max(im)
 
-def dispersion_ui(raw_data,func,c3min=c3min,c3max=c3max,c2min=c2min,c2max=c2max):
+def dispersion_ui(raw_data,func,c3min=c3min_default,c3max=c3max_default,c2min=c2min_default,c2max=c2max_default,title=''):
 
     markersize = 8.0
     
@@ -42,6 +42,7 @@ def dispersion_ui(raw_data,func,c3min=c3min,c3max=c3max,c2min=c2min,c2max=c2max)
     imins=[]
     
     fig,(ax1,ax2) = plt.subplots(1,2)
+    plt.suptitle(title)
 
     
     
@@ -96,6 +97,7 @@ def dispersion_ui(raw_data,func,c3min=c3min,c3max=c3max,c2min=c2min,c2max=c2max)
             points.append((xnewclick,ynewclick))
 
             im = np.abs(func(raw_data,ynewclick,xnewclick))
+            #print(np.max(im),np.min(im),np.mean(im))
             # get the max value before scaling
             imax = max(im)
             imaxes.append(imax)

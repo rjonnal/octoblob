@@ -92,7 +92,7 @@ class OCTRawData:
             self.spectrum_start = spectrum_start
             
         if spectrum_end is None:
-            self.spectrum_end = 0
+            self.spectrum_end = self.n_depth
         else:
             self.spectrum_end = spectrum_end
         
