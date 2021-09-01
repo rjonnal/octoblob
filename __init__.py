@@ -689,11 +689,8 @@ def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=False):
 
     for idx,s in enumerate(shifts):
         edges = centers_to_edges(bin_centers+s)
-        print('edges (with shift %0.1f'%s)
-        print(edges)
         all_counts[idx,:],all_edges[idx,:] = np.histogram(vals,edges)
 
-    sys.exit()
     all_centers = (all_edges[:,:-1]+all_edges[:,1:])/2.0
     all_counts = all_counts/float(resample_factor)
     all_centers = all_centers

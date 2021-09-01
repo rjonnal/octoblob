@@ -15,7 +15,6 @@ def rigid_register(ref,tar,max_shift=None,diagnostics=False,ref_pre_fft=False):
     fprod = ftar*fref
     xc = np.abs(np.fft.ifft2(fprod))
 
-<<<<<<< HEAD
     if diagnostics:
         plt.subplot(1,2,1)
         plt.cla()
@@ -25,8 +24,6 @@ def rigid_register(ref,tar,max_shift=None,diagnostics=False,ref_pre_fft=False):
 
     
     sy,sx = ref.shape
-=======
->>>>>>> fc0a28adf6000c12af0af65ed404d5b5e0781bdd
     if not max_shift is None:
         XX,YY = np.meshgrid(np.arange(sx),np.arange(sy))
         XX = XX-sx//2

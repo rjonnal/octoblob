@@ -139,7 +139,6 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
         frame = blob.k_resample(frame,mapping_coefficients,diagnostics=diagnostics)
         frame = blob.dispersion_compensate(frame,dispersion_coefficients,diagnostics=diagnostics)
         frame = blob.gaussian_window(frame,0.9,diagnostics=diagnostics)
-
         
         bscan_series = blob.spectra_to_bscan(frame,oversampled_size=fft_oversampling_size,z1=bscan_z1,z2=bscan_z2,diagnostics=diagnostics)
 
@@ -156,6 +155,8 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
                 for k in range(1,stack_complex.shape[2]):
                     tar = stack_complex[:,:,k]
                     stack_complex[:,:,k] = rigid_shift(ref,tar,max_shift=10,diagnostics=False)
+
+                    
 
             bscan_out_filename = os.path.join(output_directory_bscans,'complex_bscan_stack_%05d.npy'%frame_index)
             bscan = np.mean(np.abs(stack_complex),2)
