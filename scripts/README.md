@@ -85,8 +85,9 @@ To start from scratch, first delete ```parameters.py``` and copy ```parameters_t
 
 ```cp parameters_template.py parameters.py```
 
-Next, you will run ```parameters_helper.py``` twice. The first time will help you to enter values for ```spectrum_start``` and ```spectrum_end```, and the second time will use these values to give a B-scan which will help you to set the B-scan cropping parameters.
+Next, you will run ```parameters_helper.py``` twice. The first time will help you to enter values for ```fbg_position```, ```spectrum_start``` and ```spectrum_end```, and the second time will use these values to give a B-scan which will help you to set the B-scan cropping parameters.
 
+Note: The ```fbg_position``` is relative to the top of the **uncropped** spectra. In other words, use the absolute position of the FBG trough in the first figure to note the approximate FBG location.
 
 #### Estimating mapping and dispersion coefficients
 

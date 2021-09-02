@@ -301,7 +301,7 @@ class OCTRawData:
                 plt.hist(frame,bins=100)
                 plt.title('before %d bit shift'%self.bit_shift_right)
                 
-            # Bit-shift if necessary, e.g. for Axsun data
+            # Bit-shift if necessary, e.g. for Axsun/Alazar data
             if self.bit_shift_right:
                 frame = np.right_shift(frame,self.bit_shift_right)
 
