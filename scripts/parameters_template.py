@@ -40,9 +40,9 @@ use_multiprocessing = False
 # Spectrum parameters:
 # set fbg_position to None to skip fbg alignment
 
-fbg_position = None
-spectrum_start = 159
-spectrum_end = 1459
+#fbg_position = None
+#spectrum_start = 159
+#spectrum_end = 1459
 
 ##############################################
 
@@ -51,10 +51,10 @@ spectrum_end = 1459
 # B-scan cropping parameters:
 # cropping parameters: negative numbers mean counting from the end of the array:
 
-bscan_z1 = 1000
-bscan_z2 = 1200
-bscan_x1 = 0
-bscan_x2 = -20
+#bscan_z1 = 1000
+#bscan_z2 = 1200
+#bscan_x1 = 0
+#bscan_x2 = -20
 
 ##############################################
 

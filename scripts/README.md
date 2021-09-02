@@ -11,9 +11,21 @@ The ```octoblob/scripts``` folder contains an example dataset in ```octoblob/scr
 You must start with a ```parameters.py``` file with at least the following parameters defined:
 
 ```python
+###############################################
+# Critical parameters; must be set in all cases:
 bit_shift_right = 4
 dtype=np.uint16
-fft_oversampling_size = 4096
+fft_oversampling_size = None
+
+# Parameter estimation limits
+# To use the parameter estimation UI for dispersion compensation and
+# mapping parameters, you have to set the limits for the coefficients
+# in the display. If you are using the UIs and find either that the
+# optimal parameters are very close to the center or very close to the
+# edge of the window, these can be adjusted to modify the search space.
+# In both dispersion and mapping, the third order coefficients are in the
+# y-dimension in the window and the second order coefficients in the x.
+
 # dispersion compensation limits
 c3max = 1e-8
 c3min = -1e-8
@@ -25,27 +37,56 @@ m3max = 1e-8
 m3min = -2e-7
 m2max = 1e-5
 m2min = -1e-5
+
+# Leave n_skip at 0 unless you have orphaned angiography
+# BM scans at the start of the file (FDML issue only)
+n_skip = 0
+
+# Leave this False for now
+use_multiprocessing = False
+##############################################
 ```
 
 #### Adjusting parameters in ```parameters.py```
 
 Issue:
 
-```python set_parameters.py data/oct_test_set.unp```
+```python parameters_helper.py data/oct_test_set.unp```
 
 The resulting plots will assist you to adjust the following parameters; your exact values may differ slightly.
 
 ```python
+##############################################
+# Spectrum parameters:
+# set fbg_position to None to skip fbg alignment
+
 fbg_position = None
 spectrum_start = 159
 spectrum_end = 1459
 
+##############################################
+
+
+##############################################
+# B-scan cropping parameters:
 # cropping parameters: negative numbers mean counting from the end of the array:
-bscan_z1 = 3100
-bscan_z2 = -100
+
+bscan_z1 = 1000
+bscan_z2 = 1200
 bscan_x1 = 0
 bscan_x2 = -20
+
+##############################################
 ```
+
+#### Starting with fresh settings in ```parameters.py```
+
+To start from scratch, first delete ```parameters.py``` and copy ```parameters_template.py``` to ```parameters.py```:
+
+```cp parameters_template.py parameters.py```
+
+Next, you will run ```parameters_helper.py``` twice. The first time will help you to enter values for ```spectrum_start``` and ```spectrum_end```, and the second time will use these values to give a B-scan which will help you to set the B-scan cropping parameters.
+
 
 #### Estimating mapping and dispersion coefficients
 

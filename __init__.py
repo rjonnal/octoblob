@@ -65,7 +65,7 @@ pp = ProcessingParameters()
 class OCTRawData:
 
     def __init__(self,filename,n_vol,n_slow,n_fast,n_depth,
-                 n_repeats=1,dtype=np.uint16,dc_crop=50,
+                 n_repeats=1,dtype=np.uint16,
                  fbg_position=None,spectrum_start=None,spectrum_end=None,
                  bit_shift_right=0,n_skip=0,fbg_sign=1):
         
@@ -617,7 +617,11 @@ def spectra_to_bscan(spectra,oversampled_size=None,z1=None,z2=None,x1=None,x2=No
     # We can leave these as Nones if that's what's passed in, because
     # None as a slice index defaults to the original start/end indices
     #return np.fft.fft(spectra,axis=0,n=oversampled_size)[z1:z2]
+    #if oversampled_size is not None:
     bscan = np.fft.fft(spectra,axis=0,n=oversampled_size)
+    #else:
+    #    bscan = np.fft.fft(spectra,axis=0)
+
     if diagnostics:
         plt.figure(figsize=(1*IPSP,1*IPSP),dpi=DISPLAY_DPI)
         plt.imshow(20*np.log10(np.abs(bscan)),cmap='gray',clim=[40,80],aspect='auto')
