@@ -12,14 +12,36 @@ import glob
 import multiprocessing as mp
 from octoblob.registration_tools import rigid_shift
 import parameters as params
+from octoblob.bmp_tools import add_colorbar
 
 unp_filename = sys.argv[1]
 
 flags = [t.lower() for t in sys.argv[2:]]
 
+end_frame = np.inf
+for f in flags:
+    try:
+        end_frame = int(f)
+    except:
+        pass
+
+
+
 diagnostics = 'diagnostics' in flags
 show_processed_data = 'show' in flags
 
+try:
+    png_aspect_ratio = params.png_aspect_ratio
+except:
+    png_aspect_ratio = 1.0
+
+try:
+    png_dB_clim = params.png_dB_clim
+except:
+    png_dB_clim = (40,90)
+
+
+    
 def process(filename,diagnostics=diagnostics,show_processed_data=show_processed_data):
     # setting diagnostics to True will plot/show a bunch of extra information to help
     # you understand why things don't look right, and then quit after the first loop
@@ -33,6 +55,7 @@ def process(filename,diagnostics=diagnostics,show_processed_data=show_processed_
     n_repeats = cfg['n_bm_scans']
     n_fast = cfg['n_fast']
     n_depth = cfg['n_depth']
+
 
     # some conversions to comply with old conventions:
     n_slow = n_slow//n_repeats
@@ -56,9 +79,11 @@ def process(filename,diagnostics=diagnostics,show_processed_data=show_processed_
     src = blob.OCTRawData(filename,n_vol,n_slow,n_fast,n_depth,n_repeats,fbg_position=params.fbg_position,spectrum_start=params.spectrum_start,spectrum_end=params.spectrum_end,bit_shift_right=params.bit_shift_right,n_skip=params.n_skip,dtype=params.dtype)
 
     if show_processed_data:
-        processing_fig = plt.figure(0,figsize=(4,6))
+        processing_fig = plt.figure(0)
 
     for frame_index in range(n_slow):
+        if frame_index==end_frame:
+            break
         if diagnostics_base:
             diagnostics = (diagnostics_directory,frame_index)
         print(frame_index)
@@ -75,10 +100,9 @@ def process(filename,diagnostics=diagnostics,show_processed_data=show_processed_
             png_out_filename = os.path.join(output_directory_png,'bscan_%05d.png'%frame_index)
             
             plt.figure(0)
-
-            plt.clf()
-            plt.imshow(20*np.log10(np.abs(bscan)),aspect='auto',cmap='gray',clim=(40,90))
-            plt.colorbar()
+            processing_fig.clear()
+            im = plt.imshow(20*np.log10(np.abs(bscan)),aspect=png_aspect_ratio,cmap='gray',clim=png_dB_clim)
+            plt.colorbar(im,fraction=0.03)
             plt.title('bscan dB')
             plt.xticks([])
             plt.yticks([])

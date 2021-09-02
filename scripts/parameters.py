@@ -41,8 +41,8 @@ use_multiprocessing = False
 # set fbg_position to None to skip fbg alignment
 
 fbg_position = None
-spectrum_start = 159
-spectrum_end = 1459
+spectrum_start = 20
+spectrum_end = -20
 
 ##############################################
 
@@ -51,10 +51,10 @@ spectrum_end = 1459
 # B-scan cropping parameters:
 # cropping parameters: negative numbers mean counting from the end of the array:
 
-bscan_z1 = 1000
-bscan_z2 = 1200
-bscan_x1 = 0
-bscan_x2 = -20
+bscan_z1 = 85
+bscan_z2 = 235
+bscan_x1 = 45
+bscan_x2 = 299
 
 ##############################################
 
@@ -62,7 +62,9 @@ bscan_x2 = -20
 ##############################################
 # Processing coefficients
 mapping_coefficients = [0.0e-10,0.0e-6,0.0,0.0]
-dispersion_coefficients = [7.2e-09, -7.2e-05, 0.0, 0.0]
+
+#dispersion_coefficients = [7.2e-09, -7.2e-05, 0.0, 0.0]
+dispersion_coefficients = [4.1e-09, -9.4e-06, 0.0, 0.0]
 ##############################################
 
 
@@ -79,6 +81,14 @@ dispersion_coefficients = [7.2e-09, -7.2e-05, 0.0, 0.0]
 #bulk_correction_threshold = 0.5
 #phase_variance_threshold = 0.5
 ##############################################
+
+##############################################
+# Optional display parameters:
+
+png_aspect_ratio = 1.5
+png_dB_clim = (40,90)
+##############################################
+
 
 
 

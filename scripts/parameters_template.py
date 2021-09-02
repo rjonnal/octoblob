@@ -80,6 +80,12 @@ dispersion_coefficients = [7.2e-09, -7.2e-05, 0.0, 0.0]
 #phase_variance_threshold = 0.5
 ##############################################
 
+##############################################
+# Optional display parameters:
+
+png_aspect_ratio = 0.5
+png_dB_clim = (40,90)
+##############################################
 
 
 
