@@ -34,11 +34,6 @@ def rigid_register(ref,tar,max_shift=None,diagnostics=False,ref_pre_fft=False):
         mask = np.fft.fftshift(mask)
         xc = xc * mask
         
-    if diagnostics:
-        plt.figure()
-        plt.cla()
-        plt.imshow(xc,cmap='gray',aspect='auto')
-        
     peaky,peakx = np.unravel_index(np.argmax(xc),xc.shape)
     xc_peak = xc[peaky,peakx]
     
@@ -56,7 +51,6 @@ def rigid_register(ref,tar,max_shift=None,diagnostics=False,ref_pre_fft=False):
         plt.xlim((disp_x-15,disp_x+15))
         plt.ylim((disp_y-15,disp_y+15))
         plt.title('masked cross corr peak at (%d,%d)\nfftshifted in image'%(peaky,peakx))
-        plt.pause(.001)
         
     return peakx,peaky,xc
 
@@ -275,7 +269,5 @@ def point_register(ref,tar,max_shift=None,diagnostics=False):
     sy0,sx0 = ref.shape
 
     sy,sx = sy+abs(dy),sx+abs(dx)
-
-    ref
     
     
