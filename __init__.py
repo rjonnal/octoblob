@@ -10,7 +10,7 @@ import scipy.io as sio
 from octoblob import bmp_tools
 from octoblob import registration_tools
 
-IPSP = 4.0
+IPSP = 2.0
 DISPLAY_DPI = 75
 PRINT_DPI = 75
 
@@ -679,11 +679,11 @@ def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=False):
     shifts = np.linspace(bin_centers[0]/float(len(bin_centers)),
                           bin_centers[-1]/float(len(bin_centers)),resample_factor)
 
-    print('shifts:')
-    print(shifts)
+    #print('shifts:')
+    #print(shifts)
 
-    print('bin centers:')
-    print(bin_centers)
+    #print('bin centers:')
+    #print(bin_centers)
     
     n_shifts = len(shifts)
     n_bins = len(bin_centers)
