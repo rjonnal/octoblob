@@ -104,22 +104,37 @@ dispersion_coefficients = [7.2e-09, -7.2e-05, 0.0, 0.0]
 
 We sometimes use zeros for mapping coefficients even if other values make the image look slightly better, for simplicity. Non-zero mapping coefficients can generate artifacts in some cases.
 
-#### Processing the data
+#### Generating B-scans
 
 To silently generate complex-valued ```.npy``` B-scan files:
 
-```python process_bscans.py data/oct_test_set.unp data/oct_test_set.unp```
+```python process_bscans.py data/oct_test_set.unp```
 
 To generate complex-valued ```.npy``` B-scan files and PNG files:
 
-```python process_bscans.py data/oct_test_set.unp data/oct_test_set.unp show```
+```python process_bscans.py data/oct_test_set.unp show```
 
 To generate complex-valued ```.npy``` B-scan files and diagnostics:
 
-```python process_bscans.py data/oct_test_set.unp data/oct_test_set.unp diagnostics```
+```python process_bscans.py data/oct_test_set.unp diagnostics```
 
 To generate complex-valued ```.npy``` B-scan files, PNG files, and diagnostics:
 
-```python process_bscans.py data/oct_test_set.unp data/oct_test_set.unp diagnostics show```
+```python process_bscans.py data/oct_test_set.unp diagnostics show```
 
+
+#### Phase analysis of B-scans
+
+This script moves through the processed B-scans in overlapping blocks, e.g. frames 0-4, 1-5, 2-6, etc.. In each block, the frames are rigid-body registered, bulk-phase corrected to the first B-scan in the block, and then the phase change over the block is computed for each pixel. Two thresholds have to be set, for bulk-motion correction and computing the signal. Both are expressed as fractions of the B-scan's maximum amplitude. More pixels should be used for histogram-based bulk motion correction (i.e., higher threshold) than phase ramp computation.
+
+Three parameters to adjust near the top of the script are:
+
+```python
+block_size = 5
+histogram_threshold_fraction = 0.2
+signal_threshold_fraction = 0.05
+```
+To run the phase analysis:
+
+```python phase_analysis.py data/oct_test_set.unp```
 
