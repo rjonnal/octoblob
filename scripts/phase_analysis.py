@@ -21,7 +21,11 @@ logging.basicConfig(
     ]
 )
 
-PHASE_CLIM = (0,2*np.pi)
+block_size = 5
+histogram_threshold_fraction = 0.2
+signal_threshold_fraction = 0.05
+
+phase_clim = (0,2*np.pi)
 
 # setup parameters
 unp_filename = sys.argv[1]
@@ -53,8 +57,11 @@ flist = sorted(glob.glob(filter_string))
 n_files = len(flist)
 
 
-output_directory = unp_filename.replace('.unp','')+'_phase_ramps'
-os.makedirs(output_directory,exist_ok=True)
+npy_output_directory = unp_filename.replace('.unp','')+'_phase_ramps'
+png_output_directory = unp_filename.replace('.unp','')+'_phase_ramps'
+
+os.makedirs(npy_output_directory,exist_ok=True)
+os.makedirs(png_output_directory,exist_ok=True)
 
 
 logging.info('Searched %s; found %d files.'%(filter_string,n_files))
@@ -102,7 +109,6 @@ def strip_align_pair(a,b,n_strips,diagnostics=False):
         new_b.append(b_strip)
     return np.hstack(new_b)
 
-block_size = 5
 block_start = 0
 oversample_factor = (1,1)
 
@@ -136,8 +142,8 @@ while block_start+block_size<=n_files:
     average_bscan = np.mean(np.abs(block),axis=2)
     histogram_mask = np.zeros(average_bscan.shape)
     signal_mask = np.zeros(average_bscan.shape)
-    histogram_threshold = np.max(average_bscan)*0.2
-    signal_threshold = np.max(average_bscan)*0.05
+    histogram_threshold = np.max(average_bscan)*histogram_threshold_fraction
+    signal_threshold = np.max(average_bscan)*signal_threshold_fraction
     
     histogram_mask[average_bscan>histogram_threshold] = 1
     signal_mask[average_bscan>signal_threshold] = 1
@@ -160,8 +166,10 @@ while block_start+block_size<=n_files:
     plt.imshow(phase_slope,cmap='jet',alpha=0.33,aspect='auto')
     plt.colorbar()
     plt.title(r'phase ramp (d$\theta$/dt), frames %02d-%02d (t = %0.3f, %0.3f)'%(block_start,block_start+block_size-1,dt*block_start,dt*(block_start+block_size-1)))
-    outfn = os.path.join(output_directory,'phase_ramp_frames_%02d-%02d.png'%(block_start,block_start+block_size-1))
-    plt.savefig(outfn,dpi=100)
+    png_outfn = os.path.join(png_output_directory,'phase_ramp_frames_%02d-%02d.png'%(block_start,block_start+block_size-1))
+    npy_outfn = os.path.join(npy_output_directory,'phase_ramp_frames_%02d-%02d.npy'%(block_start,block_start+block_size-1))
+    plt.savefig(png_outfn,dpi=100)
+    np.save(npy_outfn,phase_slope)
     plt.pause(.0001)
 
 
