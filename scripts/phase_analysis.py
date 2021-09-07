@@ -134,22 +134,26 @@ while block_start+block_size<=n_files:
     block = np.transpose(block,(1,2,0))
 
     average_bscan = np.mean(np.abs(block),axis=2)
-    mask = np.zeros(average_bscan.shape)
-    threshold = np.max(average_bscan)*0.1
-    mask[average_bscan>threshold] = 1
+    histogram_mask = np.zeros(average_bscan.shape)
+    signal_mask = np.zeros(average_bscan.shape)
+    histogram_threshold = np.max(average_bscan)*0.2
+    signal_threshold = np.max(average_bscan)*0.05
+    
+    histogram_mask[average_bscan>histogram_threshold] = 1
+    signal_mask[average_bscan>signal_threshold] = 1
     
     block_phase = np.angle(block)
 
-    corrected_block_phase = blob.bulk_motion_correct(block_phase,mask,diagnostics=False)
+    corrected_block_phase = blob.bulk_motion_correct(block_phase,histogram_mask,diagnostics=False)
 
-    corrected_block_phase = np.transpose(np.transpose(corrected_block_phase,(2,0,1))*mask,(1,2,0))
+    corrected_block_phase = np.transpose(np.transpose(corrected_block_phase,(2,0,1))*signal_mask,(1,2,0))
     
     corrected_block_phase = np.unwrap(corrected_block_phase,axis=2)
     corrected_block_phase = corrected_block_phase%(2*np.pi)
 
     block_dphase = np.diff(corrected_block_phase,axis=2)
     phase_slope = np.mean(block_dphase,axis=2)
-    phase_slope[np.where(mask==0)] = np.nan
+    phase_slope[np.where(signal_mask==0)] = np.nan
     
     plt.clf()
     plt.imshow(20*np.log10(average_bscan),cmap='gray',aspect='auto')
