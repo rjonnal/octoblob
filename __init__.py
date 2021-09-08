@@ -9,10 +9,12 @@ import scipy.interpolate as spi
 import scipy.io as sio
 from octoblob import bmp_tools
 from octoblob import registration_tools
+from octoblob import volume_tools
 
 IPSP = 2.0
 DISPLAY_DPI = 75
 PRINT_DPI = 75
+
 
 class ProcessingParameters:
 
