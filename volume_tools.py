@@ -325,8 +325,13 @@ class VolumeSeries:
         # create accumulators
         sum_array = np.zeros((ymax+1,zmax+max_n_depth+1,xmax+1))
         counter_array = np.zeros((ymax+1,zmax+max_n_depth+1,xmax+1))
+
+        y_slices = []
+        x_slices = []
+        z_slices = []
         
         for v in self.volumes:
+            temp = np.ones(sum_array.shape)*np.nan
             vol = v.get_volume()
             sy,sz,sx = vol.shape
             for y in range(sy):
@@ -335,14 +340,42 @@ class VolumeSeries:
                     ypos = v.coordinates.y[y,x]
                     xpos = v.coordinates.x[y,x]
                     zpos = v.coordinates.z[y,x]
-                    sum_array[ypos,zpos:zpos+sz,xpos]+=self.summing_function(ascan)
+                    temp[ypos,zpos:zpos+sz,xpos]=self.summing_function(ascan)
                     counter_array[ypos,zpos:zpos+sz,xpos]+=1
+                    
+            sum_array+=temp
+            # store some slices of temp for debugging:
+            temp = np.abs(temp)
+            if False:
+                y_slices.append(temp[temp.shape[0]//2,:,:])
+                x_slices.append(temp[:,:,temp.shape[2]//2])
+                z_slices.append(temp[:,temp.shape[1]//2,:])
+            else:
+                y_slices.append(np.nanmax(temp,axis=0))
+                x_slices.append(np.nanmax(temp,axis=2))
+                z_slices.append(np.nanmax(temp,axis=1))
                     
         sum_array[counter_array==0]=np.nan
         av = sum_array/counter_array
 
         if diagnostics:
-            dB_clim = (40,80)
+            dB_clim = None#(40,80)
+
+            for idx,(ys,zs,xs) in enumerate(zip(y_slices,z_slices,x_slices)):
+                plt.figure()
+                plt.suptitle('volume %d'%idx)
+                plt.subplot(1,3,1)
+                plt.imshow(ys,cmap='gray',aspect='equal')
+                plt.title('x-z')
+                plt.subplot(1,3,2)
+                plt.imshow(zs,cmap='gray',aspect='equal')
+                plt.title('x-y')
+                plt.subplot(1,3,3)
+                plt.imshow(xs,cmap='gray',aspect='equal')
+                plt.title('y-z')
+            plt.show()
+                            
+            
             plt.figure()
             plt.suptitle('full volume projections')
             plt.subplot(1,3,1)
@@ -373,18 +406,19 @@ class VolumeSeries:
             plt.colorbar()
             plt.title('y-z')
 
-            
-            plt.figure()
-            for k in range(av.shape[0]):
-                plt.cla()
-                plt.imshow(av[k,:,:])
-                plt.pause(.1)
+            if False:
+                plt.figure()
+                for k in range(av.shape[0]):
+                    plt.cla()
+                    plt.imshow(av[k,:,:])
+                    plt.pause(.1)
             plt.show()
 
 
 class SyntheticVolume:
 
-    def __init__(self,n_slow,n_depth,n_fast,diagnostics=False):
+    def __init__(self,n_slow,n_depth,n_fast,diagnostics=False,sphere_diameter=11,motion=None,rpower=10000):
+        # rpower: higher numbers = sparser objects 50000 creates just a few
         self.dzf = 0.0
         self.dyf = 0.0
         self.dxf = 0.0
@@ -397,6 +431,8 @@ class SyntheticVolume:
         self.ystd = 0.08
         self.xstd = 0.1
 
+        self.motion = motion
+        
         self.n_fast = n_fast
         self.n_slow = n_slow
         self.n_depth = n_depth
@@ -406,7 +442,7 @@ class SyntheticVolume:
         
         cache_dir = '.synthetic_volume_cache'
         os.makedirs(cache_dir,exist_ok=True)
-        rpower = 10000 # higher numbers = sparser objects 50000 creates just a few
+
         cache_fn = os.path.join(cache_dir,'%d_%d_%d_synthetic_source_%d.npy'%(n_slow,n_depth,n_fast,rpower))
 
         try:
@@ -420,18 +456,17 @@ class SyntheticVolume:
             for z in range(0,n_depth*2,layer_thickness*2):
                 self.source[:,z:z+layer_thickness,:] = 0
 
-            self.source = self.source*2000
+            self.source = self.source*rpower
             
-
-            sphere_size = 11
-            sphere = np.zeros((sphere_size,sphere_size,sphere_size))
-            XX,YY,ZZ = np.meshgrid(np.arange(sphere_size),np.arange(sphere_size),np.arange(sphere_size))
+            sphere_diameter = 11
+            sphere = np.zeros((sphere_diameter,sphere_diameter,sphere_diameter))
+            XX,YY,ZZ = np.meshgrid(np.arange(sphere_diameter),np.arange(sphere_diameter),np.arange(sphere_diameter))
             v = -1
-            XX = XX-(sphere_size+v)/2.0
-            YY = YY-(sphere_size+v)/2.0
-            ZZ = ZZ-(sphere_size+v)/2.0
+            XX = XX-(sphere_diameter+v)/2.0
+            YY = YY-(sphere_diameter+v)/2.0
+            ZZ = ZZ-(sphere_diameter+v)/2.0
             rad = np.sqrt(XX**2+YY**2+ZZ**2)
-            sphere[rad<=sphere_size/2-1] = 1
+            sphere[rad<sphere_diameter/2-1] = 1
 
             self.source = spn.convolve(self.source,sphere).astype(np.complex128)
 
@@ -444,7 +479,9 @@ class SyntheticVolume:
             for k in range(self.source.shape[0]):
                 plt.cla()
                 plt.imshow(self.source[k,:,:])
-                plt.pause(.00001)
+                plt.pause(1)
+            sys.exit()
+                
         
         #self.history = [(self.dy,self.dz,self.dx)]
         self.history = []
@@ -452,19 +489,25 @@ class SyntheticVolume:
     def step(self,volume_rigid=False):
 
         self.history.append((self.dy,self.dz,self.dx))
-        
-        self.dzf = self.dzf + np.random.randn()*self.zstd
-        self.dyf = self.dyf + np.random.randn()*self.ystd
-        self.dxf = self.dxf + np.random.randn()*self.xstd
 
-        limit = 10
-        
-        if np.abs(self.dzf)>limit:
-            self.dzf = 0.0
-        if np.abs(self.dxf)>limit:
-            self.dxf = 0.0
-        if np.abs(self.dyf)>limit:
-            self.dyf = 0.0
+        if self.motion is None:
+            self.dzf = self.dzf + np.random.randn()*self.zstd*self.motion_factor
+            self.dyf = self.dyf + np.random.randn()*self.ystd*self.motion_factor
+            self.dxf = self.dxf + np.random.randn()*self.xstd*self.motion_factor
+
+            limit = 10
+
+            if np.abs(self.dzf)>limit:
+                self.dzf = 0.0
+            if np.abs(self.dxf)>limit:
+                self.dxf = 0.0
+            if np.abs(self.dyf)>limit:
+                self.dyf = 0.0
+
+        else:
+            self.dzf = self.dzf + self.motion[1]
+            self.dyf = self.dyf + self.motion[0]
+            self.dxf = self.dxf + self.motion[2]
 
         #if not volume_rigid or (self.xscanner==(self.n_fast-1) and self.yscanner==(self.n_slow-1)):
         if not volume_rigid or (self.xscanner==0 and self.yscanner==0):
@@ -526,4 +569,32 @@ class SyntheticVolume:
     def save_volumes(self,directory_root,n,diagnostics=False,volume_rigid=False):
         for k in range(n):
             self.save_volume('%s_%03d'%(directory_root,k),diagnostics,volume_rigid)
+            
+
+
+def make_simple_volume_series(folder_name):
+    sx = 7
+    sy = 6
+    sz = 5
+
+    x,y,z = 2,1,1
+    width = 1
+
+    n_vol = 3
+
+    src = np.random.random((sy,sz,sx))*100
+
+    for v in range(n_vol):
+        out = np.copy(src)
+        out[y+v:y+v+width,z+v:z+v+width,x+v:x+v+width] = 1000
+        out_folder = os.path.join(folder_name,'synthetic_%02d'%v)
+        os.makedirs(out_folder,exist_ok=True)
+        for ny in range(sy):
+            bscan = out[ny,:,:].astype(np.complex128)
+            plt.cla()
+            plt.imshow(np.abs(bscan),clim=(0,5000))
+            plt.title('%d, %d'%(v,ny))
+            plt.pause(.1)
+            outfn = os.path.join(out_folder,'complex_bscan_stack_%05d.npy'%ny)
+            np.save(outfn,bscan)
             
