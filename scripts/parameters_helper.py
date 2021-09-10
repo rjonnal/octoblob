@@ -53,10 +53,21 @@ def preliminary_visualizations(filename):
     plt.imshow(test_cropped,aspect='auto')
     plt.title('Cropped spectra. Used to generate B-scan in Fig. 3.')
 
-    test_cropped = (test_cropped.T-np.mean(test_cropped,axis=1)).T
-    bscan = 20*np.log10(np.abs(np.fft.fft(test_cropped,axis=0,n=params.fft_oversampling_size)))
+
+    # load and average a sample of of spectra, so axial eye movements are evident:
+    counter = 0.0
+    for k in range(0,n_slow,10):
+        test_cropped = src_cropped.get_frame(k).astype(np.float)
+        test_cropped = (test_cropped.T-np.mean(test_cropped,axis=1)).T
+        try:
+            bscan = bscan + np.abs(np.fft.fft(test_cropped,axis=0,n=params.fft_oversampling_size))
+        except:
+            bscan = np.abs(np.fft.fft(test_cropped,axis=0,n=params.fft_oversampling_size))
+        counter = counter + 1.0
+            
+    log_bscan = 20*np.log10(bscan/counter)
     plt.figure()
-    plt.imshow(bscan,aspect='auto',cmap='gray',clim=(40,80))
+    plt.imshow(log_bscan,aspect='auto',cmap='gray',clim=(40,80))
     plt.colorbar()
     plt.title('Note region of interest (bscan_z1, bscan_z2, bscan_x1, bscan_x2).')
     plt.show()

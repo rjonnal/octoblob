@@ -1,4 +1,6 @@
-### Instructions for using the simplified octoblob scripts
+## Instructions for using the simplified octoblob scripts
+
+### Part 1: generic OCT post-processing
 
 In general, these scripts should be copied to the folder containing the data files (or the parent folder, if data with identical parameters are organized in subfolders. Scripts are invoked as follows:
 
@@ -53,7 +55,7 @@ Issue:
 
 ```python parameters_helper.py data/oct_test_set.unp```
 
-The resulting plots will assist you to adjust the following parameters; your exact values may differ slightly.
+The resulting plots will assist you to adjust the following parameters; your exact values may differ slightly. The plot assisting with B-scan cropping shows an average of every 10th B-scan in the series, which will assist with cropping in the presence of axial eye movements.
 
 ```python
 ##############################################
@@ -122,6 +124,7 @@ To generate complex-valued ```.npy``` B-scan files, PNG files, and diagnostics:
 
 ```python process_bscans.py data/oct_test_set.unp diagnostics show```
 
+### Part 2: analyzing phase changes
 
 #### Phase analysis of B-scans
 
@@ -134,7 +137,7 @@ block_size = 5
 histogram_threshold_fraction = 0.2
 signal_threshold_fraction = 0.05
 ```
-To run the phase analysis:
+To run the phase analysis, pass the folder containing the B-scans to the script:
 
-```python phase_analysis.py data/oct_test_set.unp```
+```python phase_analysis.py data/oct_test_set_bscans```
 

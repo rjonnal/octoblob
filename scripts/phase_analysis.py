@@ -40,10 +40,21 @@ def phase_to_nm(phase):
     return phase/(4*np.pi*1.38)*1050.0
 
 # setup parameters
-unp_filename = sys.argv[1]
+bscan_folder = sys.argv[1]
 flags = [t.lower() for t in sys.argv[2:]]
 
-cfg = config_reader.get_configuration(unp_filename.replace('.unp','.xml'))
+
+found_xml = False
+temp = bscan_folder
+
+while not found_xml:
+    xml_filename = temp+'.xml'
+    found_xml = os.path.exists(xml_filename)
+    if found_xml:
+        break
+    temp = temp[:-1]
+
+cfg = config_reader.get_configuration(xml_filename)
 
 n_vol = cfg['n_vol']
 n_slow = cfg['n_slow']
@@ -65,18 +76,16 @@ logging.info('B-scan interval: %0.1f ms; B-scan rate: %0.1f Hz'%(dt*1000,1/dt))
 block_size = int(round(stationary_duration/dt))
 logging.info('Setting block size to %d, assuming retina is stationary for %d ms.'%(block_size,stationary_duration*1000))
 
-folder_name = '%s_bscans'%unp_filename.replace('.unp','')
-filter_string = os.path.join(folder_name,'complex*.npy')
+filter_string = os.path.join(bscan_folder,'complex*.npy')
 flist = sorted(glob.glob(filter_string))
 n_files = len(flist)
 
 
-npy_output_directory = unp_filename.replace('.unp','')+'_phase_ramps'
-png_output_directory = unp_filename.replace('.unp','')+'_phase_ramps'
+npy_output_directory = os.path.join(bscan_folder,'phase_ramps_npy')
+png_output_directory = os.path.join(bscan_folder,'phase_ramps_png')
 
 os.makedirs(npy_output_directory,exist_ok=True)
 os.makedirs(png_output_directory,exist_ok=True)
-
 
 logging.info('Searched %s; found %d files.'%(filter_string,n_files))
 

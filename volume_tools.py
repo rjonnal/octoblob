@@ -10,7 +10,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.FileHandler("debug.log"),
+        logging.FileHandler("volume_tools_debug.log"),
         logging.StreamHandler()
     ]
 )
@@ -232,26 +232,27 @@ class Volume:
 
         if volume is None:
             volume = self.get_volume()
-        
+
         # Ugh this is going to be so slow. I'm too stupid to vectorize it.
-        for yget in range(b.y1,b.y2):
-            for xget in range(b.x1,b.x2):
-                yput,xput = np.where((xc==xget)*(yc==yget))
-                if len(yput):
-                    zput1 = zc[yget,xget]
-                    zput2 = zput1+self.n_depth
-                    zget1 = 0
-                    zget2 = self.n_depth
-                    while zput1<0:
-                        zput1+=1
+        for yput in range(b.y1,b.y2):
+            for xput in range(b.x1,b.x2):
+                yget,xget = np.where((xc==xput)*(yc==yput))
+                if len(yget):
+                    zget1 = zc[yput,xput]
+                    zget2 = zget1+self.n_depth
+                    zput1 = 0
+                    zput2 = self.n_depth
+                    while zget1<0:
                         zget1+=1
-                    while zput2>self.n_depth:
-                        zput2-=1
+                        zput1+=1
+                    while zget2>self.n_depth:
                         zget2-=1
-                    block[yget,zget1:zget2,xget] = volume[yput,zput1:zput2,xput]
+                        zput2-=1
+                    block[yput,zget1:zget2,xput] = volume[yget,zput1:zput2,xget]
+        print(zget1,zget2,zput1,zput2)
 
         plt.figure()
-        plt.imshow(np.nanmax(np.abs(block),axis=0))
+        plt.imshow(np.abs(block[b.shape[0]//2,:,:]))
 
     def register_to(self,reference_volume,downsample=1,diagnostics=False):
         nxc = nxc3d(reference_volume.get_volume(),self.get_volume(),downsample=downsample,diagnostics=diagnostics)
@@ -342,15 +343,37 @@ class VolumeSeries:
 
         if diagnostics:
             dB_clim = (40,80)
+            plt.figure()
+            plt.suptitle('full volume projections')
             plt.subplot(1,3,1)
             plt.imshow(20*np.log10(np.nanmean(av,0)),clim=dB_clim,aspect='auto',cmap='gray')
             plt.colorbar()
+            plt.title('x-z')
             plt.subplot(1,3,2)
             plt.imshow(20*np.log10(np.nanmean(av,1)),clim=dB_clim,aspect='auto',cmap='gray')
             plt.colorbar()
+            plt.title('x-y')
             plt.subplot(1,3,3)
             plt.imshow(20*np.log10(np.nanmean(av,2)).T,clim=dB_clim,aspect='auto',cmap='gray')
             plt.colorbar()
+            plt.title('y-z')
+
+            plt.figure()
+            plt.suptitle('central slices')
+            plt.subplot(1,3,1)
+            plt.imshow(20*np.log10(av[av.shape[0]//2,:,:]),clim=dB_clim,aspect='auto',cmap='gray')
+            plt.colorbar()
+            plt.title('x-z')
+            plt.subplot(1,3,2)
+            plt.imshow(20*np.log10(av[:,av.shape[1]//2,:]),clim=dB_clim,aspect='auto',cmap='gray')
+            plt.colorbar()
+            plt.title('x-y')
+            plt.subplot(1,3,3)
+            plt.imshow(20*np.log10(av[:,:,av.shape[2]//2].T),clim=dB_clim,aspect='auto',cmap='gray')
+            plt.colorbar()
+            plt.title('y-z')
+
+            
             plt.figure()
             for k in range(av.shape[0]):
                 plt.cla()
@@ -383,14 +406,15 @@ class SyntheticVolume:
         
         cache_dir = '.synthetic_volume_cache'
         os.makedirs(cache_dir,exist_ok=True)
-        cache_fn = os.path.join(cache_dir,'%d_%d_%d_synthetic_source.npy'%(n_slow,n_depth,n_fast))
+        rpower = 10000 # higher numbers = sparser objects 50000 creates just a few
+        cache_fn = os.path.join(cache_dir,'%d_%d_%d_synthetic_source_%d.npy'%(n_slow,n_depth,n_fast,rpower))
 
         try:
             self.source = np.load(cache_fn)
         except FileNotFoundError:
             source_dims = (n_slow*2,n_depth*2,n_fast*2)
 
-            self.source = np.random.random(source_dims)**1000
+            self.source = np.random.random(source_dims)**rpower
             self.source[np.where(self.source<0.5)] = 0
             layer_thickness = 10
             for z in range(0,n_depth*2,layer_thickness*2):
@@ -422,10 +446,13 @@ class SyntheticVolume:
                 plt.imshow(self.source[k,:,:])
                 plt.pause(.00001)
         
-        self.history = [(self.dy,self.dz,self.dx)]
-
+        #self.history = [(self.dy,self.dz,self.dx)]
+        self.history = []
+        
     def step(self,volume_rigid=False):
 
+        self.history.append((self.dy,self.dz,self.dx))
+        
         self.dzf = self.dzf + np.random.randn()*self.zstd
         self.dyf = self.dyf + np.random.randn()*self.ystd
         self.dxf = self.dxf + np.random.randn()*self.xstd
@@ -439,30 +466,31 @@ class SyntheticVolume:
         if np.abs(self.dyf)>limit:
             self.dyf = 0.0
 
+        #if not volume_rigid or (self.xscanner==(self.n_fast-1) and self.yscanner==(self.n_slow-1)):
         if not volume_rigid or (self.xscanner==0 and self.yscanner==0):
             self.dz = int(round(self.dzf))
             self.dy = int(round(self.dyf))
             self.dx = int(round(self.dxf))
-
+            
         self.xscanner = (self.xscanner+1)%self.n_fast
         if self.xscanner==0:
-            self.yscanner = (self.yscanner+1)%self.n_fast
+            self.yscanner = (self.yscanner+1)%self.n_slow
         
-        self.history.append((self.dy,self.dz,self.dx))
-        
+
 
     def get_bscan(self,diagnostics=False,volume_rigid=False):
         ascans = []
             
         for k in range(self.n_fast):
+            self.step(volume_rigid)
             x = (self.xscanner-self.n_fast//2)+self.source.shape[2]//2+self.dx
             y = (self.yscanner-self.n_slow//2)+self.source.shape[0]//2+self.dy
             z1 = -self.n_depth//2+self.source.shape[1]//2+self.dz
             z2 = z1+self.n_depth
-            
             ascans.append(self.source[y,z1:z2,x])
-            self.step(volume_rigid)
+            
         bscan = np.array(ascans).T
+        logging.info('xscanner: %d, yscanner: %d, dx: %d, dy: %d, dz: %d'%(self.xscanner,self.yscanner,self.dx,self.dy,self.dz))
         if diagnostics:
             plt.cla()
             plt.imshow(np.abs(bscan))
