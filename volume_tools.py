@@ -291,6 +291,7 @@ class VolumeSeries:
         large_integer = 10000000000
         ymin,zmin,xmin = large_integer,large_integer,large_integer
 
+        # find the global min for each dimension, for min-subtraction
         for v in self.volumes:
             if v.coordinates.z.min()<zmin:
                 zmin = v.coordinates.z.min()
@@ -298,14 +299,18 @@ class VolumeSeries:
                 ymin = v.coordinates.y.min()
             if v.coordinates.x.min()<xmin:
                 xmin = v.coordinates.x.min()
-                
+
+        # shift the coordinates for all volumes by the same amounts,
+        # keeping them aligned
         for v in self.volumes:
             v.coordinates.z-=zmin
             v.coordinates.y-=ymin
             v.coordinates.x-=xmin
 
+        # find the maximum depth
         max_n_depth = np.max([v.n_depth for v in self.volumes])
 
+        # find the new max in each dimension
         ymax,zmax,xmax = -large_integer,-large_integer,-large_integer
 
         for v in self.volumes:
@@ -316,6 +321,7 @@ class VolumeSeries:
             if v.coordinates.x.max()>xmax:
                 xmax = v.coordinates.x.max()
 
+        # create accumulators
         sum_array = np.zeros((ymax+1,zmax+max_n_depth+1,xmax+1))
         counter_array = np.zeros((ymax+1,zmax+max_n_depth+1,xmax+1))
         
