@@ -121,6 +121,21 @@ class Coordinates:
 
         self.z[y1:y2,x1:x2]+=dz
 
+
+class Boundaries:
+
+    def __init__(self,y1,y2,z1,z2,x1,x2):
+        sy = y2-y1
+        sz = z2-z1
+        sx = x2-x1
+        self.x1 = x1
+        self.x2 = x2
+        self.y1 = y1
+        self.y2 = y2
+        self.z1 = z1
+        self.z2 = z2
+        self.shape = (sy,sz,sx)
+        
         
 class Volume:
 
@@ -196,6 +211,48 @@ class Volume:
         self.coordinates.move_x(shifts[2])
 
 
+    def get_block(self,b,volume=None):
+        # given boundaries b, return a subvolume of my volume
+        # using my coordinates
+        # use case:
+        # The registration script will step through the reference coordinate system,
+        # e.g., by slices, using unshifted coordinates (e.g., bscans 0-9, 10-19, etc.).
+        # For each of these, it will create a boundary object, and pass it to this
+        # object. This object will then have to use its coordinates object to determine
+        # where to pull the block from.
+        # One problem is that the requested block may wind up being the wrong size, if
+        # this object's coordinates say so. For now, we'll arbitrarily pad or truncate
+        # the block to match the requested size, but this may have to be revisited later.
+        # (This may only happen if in a multiscale approach, the block size is increased.
+        # If the block size is always reduced, it shouldn't?)
+        block = np.ones(b.shape)*np.nan
+        xc = np.copy(self.coordinates.x)
+        yc = np.copy(self.coordinates.y)
+        zc = np.copy(self.coordinates.z)
+
+        if volume is None:
+            volume = self.get_volume()
+        
+        # Ugh this is going to be so slow. I'm too stupid to vectorize it.
+        for yget in range(b.y1,b.y2):
+            for xget in range(b.x1,b.x2):
+                yput,xput = np.where((xc==xget)*(yc==yget))
+                if len(yput):
+                    zput1 = zc[yget,xget]
+                    zput2 = zput1+self.n_depth
+                    zget1 = 0
+                    zget2 = self.n_depth
+                    while zput1<0:
+                        zput1+=1
+                        zget1+=1
+                    while zput2>self.n_depth:
+                        zput2-=1
+                        zget2-=1
+                    block[yget,zget1:zget2,xget] = volume[yput,zput1:zput2,xput]
+
+        plt.figure()
+        plt.imshow(np.nanmax(np.abs(block),axis=0))
+
     def register_to(self,reference_volume,downsample=1,diagnostics=False):
         nxc = nxc3d(reference_volume.get_volume(),self.get_volume(),downsample=downsample,diagnostics=diagnostics)
         reg_coords = list(np.unravel_index(np.argmax(nxc),nxc.shape))
@@ -222,6 +279,9 @@ class VolumeSeries:
     def __init__(self,summing_function=np.abs):
         self.volumes = []
         self.summing_function = summing_function
+
+    def __getitem__(self,n):
+        return self.volumes[n]
 
     def add(self,volume):
         self.volumes.append(volume)

@@ -16,8 +16,8 @@ fft_oversampling_size = None
 # y-dimension in the window and the second order coefficients in the x.
 
 # dispersion compensation limits
-c3max = 1e-8
-c3min = -1e-8
+c3max = 1e-7
+c3min = -1e-7
 c2max = 1e-4
 c2min = -1e-4
 
@@ -41,8 +41,8 @@ use_multiprocessing = False
 # set fbg_position to None to skip fbg alignment
 
 fbg_position = None
-spectrum_start = 20
-spectrum_end = -20
+spectrum_start = 30
+spectrum_end = -30
 
 ##############################################
 
@@ -51,10 +51,10 @@ spectrum_end = -20
 # B-scan cropping parameters:
 # cropping parameters: negative numbers mean counting from the end of the array:
 
-bscan_z1 = 85
-bscan_z2 = 235
-bscan_x1 = 45
-bscan_x2 = 299
+bscan_z1 = 1130
+bscan_z2 = 1330
+bscan_x1 = 10
+bscan_x2 = 370
 
 ##############################################
 
@@ -64,7 +64,8 @@ bscan_x2 = 299
 mapping_coefficients = [0.0e-10,0.0e-6,0.0,0.0]
 
 #dispersion_coefficients = [7.2e-09, -7.2e-05, 0.0, 0.0]
-dispersion_coefficients = [4.1e-09, -9.4e-06, 0.0, 0.0]
+#dispersion_coefficients = [4.1e-09, -9.4e-06, 0.0, 0.0]
+dispersion_coefficients = [-1.7e-08, 1.4e-05, 0.0, 0.0]
 ##############################################
 
 
