@@ -31,44 +31,109 @@ class Space:
         pass
 
 def norm(im):
-    return (im - im.mean())/im.std()
+    return (im - np.nanmean(im)/np.nanstd(im))
 
-def nxc3d(ref,tar,downsample=1,diagnostics=False):
+
+def show3d(vol,mode='center'):
+    sy,sz,sx = vol.shape
+    temp = np.abs(vol)
+    
+    if mode=='center':
+        plt.subplot(1,3,1)
+        plt.imshow(temp[sy//2,:,:],cmap='gray',aspect='auto')
+        plt.title('z-x')
+        plt.subplot(1,3,2)
+        plt.imshow(temp[:,sz//2,:],cmap='gray',aspect='auto')
+        plt.title('y-x')
+        plt.subplot(1,3,3)
+        plt.imshow(temp[:,:,sx//2].T,cmap='gray',aspect='auto')
+        plt.title('z-y')
+    elif mode=='average':
+        plt.subplot(1,3,1)
+        plt.imshow(temp.mean(0),cmap='gray',aspect='auto')
+        plt.title('z-x')
+        plt.subplot(1,3,2)
+        plt.imshow(temp.mean(1),cmap='gray',aspect='auto')
+        plt.title('y-x')
+        plt.subplot(1,3,3)
+        plt.imshow(temp.mean(2).T,cmap='gray',aspect='auto')
+        plt.title('z-y')
+    elif mode=='nxc':
+        reg_coords = list(np.unravel_index(np.argmax(vol),vol.shape))
+        plt.subplot(1,3,1)
+        plt.imshow(temp[reg_coords[0],:,:],cmap='gray',aspect='auto')
+        plt.plot(reg_coords[2],reg_coords[1],'g+')
+        plt.title('z-x')
+        plt.subplot(1,3,2)
+        plt.imshow(temp[:,reg_coords[1],:],cmap='gray',aspect='auto')
+        plt.plot(reg_coords[2],reg_coords[0],'g+')
+        plt.title('y-x')
+        plt.subplot(1,3,3)
+        plt.imshow(temp[:,:,reg_coords[2]].T,cmap='gray',aspect='auto')
+        plt.plot(reg_coords[0],reg_coords[1],'g+')
+        plt.title('z-y')
+        
+        
+        
+        
+
+def nxc3d(ref,tar,downsample=1,diagnostics=False,border_size=0):
     ref = norm(ref)
     tar = norm(tar)
 
-    n_slow,n_depth,n_fast = ref.shape
+    pref = np.zeros(ref.shape,dtype=ref.dtype)
+    ptar = np.zeros(tar.shape,dtype=tar.dtype)
+
+    if border_size:
+        pref[border_size:-border_size,border_size:-border_size,border_size:-border_size] = ref[border_size:-border_size,border_size:-border_size,border_size:-border_size]
+        ptar[border_size:-border_size,border_size:-border_size,border_size:-border_size] = tar[border_size:-border_size,border_size:-border_size,border_size:-border_size]
+    else:
+        pref = ref
+        ptar = tar
+
+    if diagnostics:
+        plt.figure()
+        show3d(pref)
+        plt.figure()
+        show3d(ptar)
+        plt.show()
+        
+    # default behavior for NaN values:
+    pref[np.isnan(pref)] = 0.0
+    ptar[np.isnan(ptar)] = 0.0
+        
+    n_slow,n_depth,n_fast = pref.shape
 
     logging.info('Registering volumes of shape %dx%dx%d (slow x depth x fast).'%(n_slow,n_depth,n_fast))
     t0 = tick()
     
-    if diagnostics:
-        plt.figure()
-        plt.subplot(4,2,1)
-        plt.imshow(np.mean(ref,axis=1))
-        plt.subplot(4,2,2)
-        plt.imshow(np.mean(tar,axis=1))
-        plt.subplot(4,2,5)
-        plt.imshow(np.mean(ref,axis=0))
-        plt.subplot(4,2,6)
-        plt.imshow(np.mean(tar,axis=0))
+    # if diagnostics:
+    #     plt.figure()
+    #     plt.subplot(4,2,1)
+    #     plt.imshow(np.mean(np.abs(pref),axis=1))
+    #     plt.subplot(4,2,2)
+    #     plt.imshow(np.mean(np.abs(ptar),axis=1))
+    #     plt.subplot(4,2,5)
+    #     plt.imshow(np.mean(np.abs(pref),axis=0))
+    #     plt.subplot(4,2,6)
+    #     plt.imshow(np.mean(np.abs(ptar),axis=0))
         
-    ref = ref[::downsample,::downsample,::downsample]
-    tar = tar[::downsample,::downsample,::downsample]
+    pref = pref[::downsample,::downsample,::downsample]
+    ptar = ptar[::downsample,::downsample,::downsample]
 
-    if diagnostics:
-        plt.subplot(4,2,3)
-        plt.imshow(np.mean(ref,axis=1))
-        plt.subplot(4,2,4)
-        plt.imshow(np.mean(tar,axis=1))
-        plt.subplot(4,2,7)
-        plt.imshow(np.mean(ref,axis=0))
-        plt.subplot(4,2,8)
-        plt.imshow(np.mean(tar,axis=0))
+    # if diagnostics:
+    #     plt.subplot(4,2,3)
+    #     plt.imshow(np.mean(np.abs(pref),axis=1))
+    #     plt.subplot(4,2,4)
+    #     plt.imshow(np.mean(np.abs(ptar),axis=1))
+    #     plt.subplot(4,2,7)
+    #     plt.imshow(np.mean(np.abs(pref),axis=0))
+    #     plt.subplot(4,2,8)
+    #     plt.imshow(np.mean(np.abs(ptar),axis=0))
 
     
-    rsx,rsz,rsy = ref.shape
-    tsx,tsz,tsy = tar.shape
+    rsx,rsz,rsy = pref.shape
+    tsx,tsz,tsy = ptar.shape
     
     sx = max(rsx,tsx)
     sz = max(rsz,tsz)
@@ -76,8 +141,8 @@ def nxc3d(ref,tar,downsample=1,diagnostics=False):
     
     t0 = tick()
     s = (sx,sz,sy)
-    fref = np.fft.fftn(ref,s=s)
-    ftar = np.fft.fftn(tar,s=s)
+    fref = np.fft.fftn(pref,s=s)
+    ftar = np.fft.fftn(ptar,s=s)
     dt = tock(t0)
     logging.info('Registration took %0.3f sec with downsampling of %d.'%(dt,downsample))
     
@@ -91,35 +156,14 @@ class Coordinates:
         self.z = np.zeros(self.x.shape,dtype=np.int)
         self.sy,self.sx = self.z.shape
         
-    def move_x(self,dx,y1=None,y2=None,x1=None,x2=None):
-        if y1 is None or y2 is None:
-            y1 = 0
-            y2 = self.sy
-        if x1 is None or x2 is None:
-            x1 = 0
-            x2 = self.sx
+    def move_x(self,dx,boundaries):
+        self.x[boundaries.y1:boundaries.y2,boundaries.x1:boundaries.x2]+=dx
 
-        self.x[y1:y2,x1:x2]+=dx
+    def move_y(self,dy,boundaries):
+        self.y[boundaries.y1:boundaries.y2,boundaries.x1:boundaries.x2]+=dy
 
-    def move_y(self,dy,y1=None,y2=None,x1=None,x2=None):
-        if y1 is None or y2 is None:
-            y1 = 0
-            y2 = self.sy
-        if x1 is None or x2 is None:
-            x1 = 0
-            x2 = self.sx
-
-        self.y[y1:y2,x1:x2]+=dy
-
-    def move_z(self,dz,y1=None,y2=None,x1=None,x2=None):
-        if y1 is None or y2 is None:
-            y1 = 0
-            y2 = self.sy
-        if x1 is None or x2 is None:
-            x1 = 0
-            x2 = self.sx
-
-        self.z[y1:y2,x1:x2]+=dz
+    def move_z(self,dz,boundaries):
+        self.z[boundaries.y1:boundaries.y2,boundaries.x1:boundaries.x2]+=dz
 
 
 class Boundaries:
@@ -139,7 +183,7 @@ class Boundaries:
         
 class Volume:
 
-    def __init__(self,bscan_directory,initial_coords=None,cache=True,diagnostics=False):
+    def __init__(self,bscan_directory,cache=True,diagnostics=False,hold_volume_in_ram=True):
         t0 = tick()
         
         self.bscan_directory = bscan_directory
@@ -152,14 +196,16 @@ class Volume:
 
         # set default coordinates:
         self.coordinates = Coordinates(self.n_slow,self.n_depth,self.n_fast)
-        if initial_coords is not None:
-            self.coordinates.move_x(initial_coords[2])
-            self.coordinates.move_y(initial_coords[0])
-            self.coordinates.move_z(initial_coords[1])
 
+        self.moved = False
+        
         self.cache = cache
         self.cache_dir = os.path.join(self.bscan_directory,'volume')
         os.makedirs(self.cache_dir,exist_ok=True)
+
+        self.hold_volume_in_ram = hold_volume_in_ram
+        if self.hold_volume_in_ram:
+            self.volume = self.build_volume()
 
     def build_volume(self,diagnostics=False):
         t0 = tick()
@@ -187,31 +233,35 @@ class Volume:
     
         
     def get_volume(self,diagnostics=False):
-        
-        if self.cache:
-            vol_fn = os.path.join(self.cache_dir,'volume.npy')
+        if self.hold_volume_in_ram:
+            logging.info('get_volume returning volume in RAM.')
+            return self.volume
+        else:
+            if self.cache:
+                vol_fn = os.path.join(self.cache_dir,'volume.npy')
 
-            if os.path.exists(vol_fn):
-                t0 = tick()
-                out_vol = np.load(vol_fn)
-                logging.info('Using cached version at %s; took %0.3f sec.'%(vol_fn,tock(t0)))
-                return out_vol
+                if os.path.exists(vol_fn):
+                    t0 = tick()
+                    out_vol = np.load(vol_fn)
+                    logging.info('Using cached version at %s; took %0.3f sec.'%(vol_fn,tock(t0)))
+                    return out_vol
 
+                else:
+                    out_vol = self.build_volume(diagnostics=diagnostics)
+                    np.save(vol_fn,out_vol)
+                    return out_vol
             else:
                 out_vol = self.build_volume(diagnostics=diagnostics)
                 return out_vol
 
-        else:
-            out_vol = self.build_volume(diagnostics=diagnostics)
-            return out_vol
-
-    def move(self,shifts):
-        self.coordinates.move_y(shifts[0])
-        self.coordinates.move_z(shifts[1])
-        self.coordinates.move_x(shifts[2])
+    def move(self,shifts,boundaries):
+        self.coordinates.move_y(shifts[0],boundaries)
+        self.coordinates.move_z(shifts[1],boundaries)
+        self.coordinates.move_x(shifts[2],boundaries)
+        self.moved = True
 
 
-    def get_block(self,b,volume=None):
+    def get_block(self,b,volume=None,diagnostics=False):
         # given boundaries b, return a subvolume of my volume
         # using my coordinates
         # use case:
@@ -225,7 +275,8 @@ class Volume:
         # the block to match the requested size, but this may have to be revisited later.
         # (This may only happen if in a multiscale approach, the block size is increased.
         # If the block size is always reduced, it shouldn't?)
-        block = np.ones(b.shape)*np.nan
+
+        t0 = tick()
         xc = np.copy(self.coordinates.x)
         yc = np.copy(self.coordinates.y)
         zc = np.copy(self.coordinates.z)
@@ -233,29 +284,70 @@ class Volume:
         if volume is None:
             volume = self.get_volume()
 
-        # Ugh this is going to be so slow. I'm too stupid to vectorize it.
-        for yput in range(b.y1,b.y2):
-            for xput in range(b.x1,b.x2):
-                yget,xget = np.where((xc==xput)*(yc==yput))
-                if len(yget):
-                    zget1 = zc[yput,xput]
-                    zget2 = zget1+self.n_depth
-                    zput1 = 0
-                    zput2 = self.n_depth
-                    while zget1<0:
-                        zget1+=1
-                        zput1+=1
-                    while zget2>self.n_depth:
-                        zget2-=1
-                        zput2-=1
-                    block[yput,zget1:zget2,xput] = volume[yget,zput1:zput2,xget]
-        print(zget1,zget2,zput1,zput2)
+        # quickly check if this is a reference volume for quicker block assembly:
+        if not self.moved:
+            block = volume[b.y1:b.y2,b.z1:b.z2,b.x1:b.x2]
+        else:
+            block = np.ones(b.shape,dtype=volume.dtype)*np.nan
+            # Ugh this is going to be so slow. I'm too stupid to vectorize it.
+            for yput in range(b.y1,b.y2):
+                for xput in range(b.x1,b.x2):
+                    yget,xget = np.where((xc==xput)*(yc==yput))
+                    if len(yget):
+                        yget = yget[0]
+                        xget = xget[0]
+                        zget1 = zc[yput,xput]
+                        zget2 = zget1+self.n_depth
+                        zput1 = 0
+                        zput2 = self.n_depth
+                        while zget1<0:
+                            zget1+=1
+                            zput1+=1
+                        while zget2>self.n_depth:
+                            zget2-=1
+                            zput2-=1
+                        block[yput-b.y1,zget1:zget2,xput-b.x1] = volume[yget,zput1:zput2,xget]
+                        
+        if diagnostics:
+            plt.figure()
+            plt.imshow(np.abs(block[b.shape[0]//2,:,:]))
 
-        plt.figure()
-        plt.imshow(np.abs(block[b.shape[0]//2,:,:]))
+        t1 = tock(t0)
+        logging.info('get_block took %0.3f s'%t1)
 
-    def register_to(self,reference_volume,downsample=1,diagnostics=False):
-        nxc = nxc3d(reference_volume.get_volume(),self.get_volume(),downsample=downsample,diagnostics=diagnostics)
+        return block
+
+    def register_to(self,reference_volume,boundaries,limits=(np.inf,np.inf,np.inf),downsample=1,diagnostics=False,border_size=0):
+        t0 = tick()
+        rvol = reference_volume.get_block(boundaries,diagnostics=diagnostics)
+        tvol = self.get_block(boundaries,diagnostics=diagnostics)
+
+
+        nxc = nxc3d(rvol,tvol,downsample=downsample,diagnostics=diagnostics,border_size=border_size)
+        reg_coords = list(np.unravel_index(np.argmax(nxc),nxc.shape))
+        for idx in range(len(nxc.shape)):
+            if reg_coords[idx]>nxc.shape[idx]//2:
+                reg_coords[idx] = reg_coords[idx]-nxc.shape[idx]
+
+
+                
+        upsampled_reg_coords = [rc*downsample for rc in reg_coords]
+
+        limited_coords = []
+        for c,limit in zip(upsampled_reg_coords,limits):
+            if np.abs(c)>limit:
+                limited_coords.append(0)
+            else:
+                limited_coords.append(c)
+        
+        self.move(limited_coords,boundaries)
+        t1 = tock(t0)
+        logging.info('register_to took %0.3f s; shifts were %d, %d, %d; nxc max %0.1f'%tuple([t1]+limited_coords+[np.max(nxc)]))
+
+        
+    def register_to0(self,reference_volume,boundaries,downsample=1,diagnostics=False,border_size=0):
+        
+        nxc = nxc3d(reference_volume.get_volume(),self.get_volume(),downsample=downsample,diagnostics=diagnostics,border_size=border_size)
         reg_coords = list(np.unravel_index(np.argmax(nxc),nxc.shape))
         for idx in range(len(nxc.shape)):
             if reg_coords[idx]>nxc.shape[idx]//2:
@@ -288,7 +380,10 @@ class VolumeSeries:
         self.volumes.append(volume)
 
 
-    def render(self,diagnostics=False):
+    def render(self,output_directory,diagnostics=False):
+
+        os.makedirs(output_directory,exist_ok=True)
+        
         large_integer = 10000000000
         ymin,zmin,xmin = large_integer,large_integer,large_integer
 
@@ -330,8 +425,8 @@ class VolumeSeries:
         x_slices = []
         z_slices = []
         
-        for v in self.volumes:
-            temp = np.ones(sum_array.shape)*np.nan
+        for idx,v in enumerate(self.volumes):
+            temp = np.zeros(sum_array.shape,dtype=np.complex128)
             vol = v.get_volume()
             sy,sz,sx = vol.shape
             for y in range(sy):
@@ -340,20 +435,18 @@ class VolumeSeries:
                     ypos = v.coordinates.y[y,x]
                     xpos = v.coordinates.x[y,x]
                     zpos = v.coordinates.z[y,x]
-                    temp[ypos,zpos:zpos+sz,xpos]=self.summing_function(ascan)
+                    temp[ypos,zpos:zpos+sz,xpos]=ascan
                     counter_array[ypos,zpos:zpos+sz,xpos]+=1
-                    
-            sum_array+=temp
+
+            np.save(os.path.join(output_directory,'volume_%05d.npy'%idx),temp)
+            
+            sum_array+=self.summing_function(temp)
             # store some slices of temp for debugging:
             temp = np.abs(temp)
-            if False:
-                y_slices.append(temp[temp.shape[0]//2,:,:])
-                x_slices.append(temp[:,:,temp.shape[2]//2])
-                z_slices.append(temp[:,temp.shape[1]//2,:])
-            else:
-                y_slices.append(np.nanmax(temp,axis=0))
-                x_slices.append(np.nanmax(temp,axis=2))
-                z_slices.append(np.nanmax(temp,axis=1))
+            
+            y_slices.append(temp[temp.shape[0]//2,:,:])
+            x_slices.append(temp[:,:,temp.shape[2]//2])
+            z_slices.append(temp[:,temp.shape[1]//2,:])
                     
         sum_array[counter_array==0]=np.nan
         av = sum_array/counter_array
@@ -366,14 +459,14 @@ class VolumeSeries:
                 plt.suptitle('volume %d'%idx)
                 plt.subplot(1,3,1)
                 plt.imshow(ys,cmap='gray',aspect='equal')
-                plt.title('x-z')
+                plt.title('z-x')
                 plt.subplot(1,3,2)
                 plt.imshow(zs,cmap='gray',aspect='equal')
-                plt.title('x-y')
+                plt.title('y-x')
                 plt.subplot(1,3,3)
-                plt.imshow(xs,cmap='gray',aspect='equal')
-                plt.title('y-z')
-            plt.show()
+                plt.imshow(xs.T,cmap='gray',aspect='equal')
+                plt.title('z-y')
+                plt.savefig(os.path.join(output_directory,'single_volume_%05d_slices.png'%idx),dpi=150)
                             
             
             plt.figure()
@@ -381,37 +474,45 @@ class VolumeSeries:
             plt.subplot(1,3,1)
             plt.imshow(20*np.log10(np.nanmean(av,0)),clim=dB_clim,aspect='auto',cmap='gray')
             plt.colorbar()
-            plt.title('x-z')
+            plt.title('z-x')
             plt.subplot(1,3,2)
             plt.imshow(20*np.log10(np.nanmean(av,1)),clim=dB_clim,aspect='auto',cmap='gray')
             plt.colorbar()
-            plt.title('x-y')
+            plt.title('y-x')
             plt.subplot(1,3,3)
             plt.imshow(20*np.log10(np.nanmean(av,2)).T,clim=dB_clim,aspect='auto',cmap='gray')
             plt.colorbar()
-            plt.title('y-z')
+            plt.title('z-y')
+            plt.savefig(os.path.join(output_directory,'average_volume_projections.png'),dpi=150)
 
             plt.figure()
             plt.suptitle('central slices')
             plt.subplot(1,3,1)
             plt.imshow(20*np.log10(av[av.shape[0]//2,:,:]),clim=dB_clim,aspect='auto',cmap='gray')
             plt.colorbar()
-            plt.title('x-z')
+            plt.title('z-x')
             plt.subplot(1,3,2)
             plt.imshow(20*np.log10(av[:,av.shape[1]//2,:]),clim=dB_clim,aspect='auto',cmap='gray')
             plt.colorbar()
-            plt.title('x-y')
+            plt.title('y-x')
             plt.subplot(1,3,3)
             plt.imshow(20*np.log10(av[:,:,av.shape[2]//2].T),clim=dB_clim,aspect='auto',cmap='gray')
             plt.colorbar()
-            plt.title('y-z')
+            plt.title('z-y')
+            plt.savefig(os.path.join(output_directory,'average_volume_slices.png'),dpi=150)
 
             if False:
+
+                flythrough_directory = os.path.join(output_directory,'flythrough')
+                os.makedirs(flythrough_directory,exist_ok=True)
+
                 plt.figure()
                 for k in range(av.shape[0]):
                     plt.cla()
                     plt.imshow(av[k,:,:])
-                    plt.pause(.1)
+                    plt.savefig(os.path.join(flythrough_directory,'bscan_%03d.png'%k),dpi=150)
+                    #plt.pause(.1)
+
             plt.show()
 
 
@@ -427,9 +528,9 @@ class SyntheticVolume:
         self.dy = 0
         self.dx = 0
 
-        self.zstd = 0.06
-        self.ystd = 0.08
-        self.xstd = 0.1
+        self.zstd = 0.01
+        self.ystd = 0.02
+        self.xstd = 0.03
 
         self.motion = motion
         
@@ -491,9 +592,9 @@ class SyntheticVolume:
         self.history.append((self.dy,self.dz,self.dx))
 
         if self.motion is None:
-            self.dzf = self.dzf + np.random.randn()*self.zstd*self.motion_factor
-            self.dyf = self.dyf + np.random.randn()*self.ystd*self.motion_factor
-            self.dxf = self.dxf + np.random.randn()*self.xstd*self.motion_factor
+            self.dzf = self.dzf + np.random.randn()*self.zstd
+            self.dyf = self.dyf + np.random.randn()*self.ystd
+            self.dxf = self.dxf + np.random.randn()*self.xstd
 
             limit = 10
 
