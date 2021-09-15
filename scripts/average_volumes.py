@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 import os,sys,glob
 import time
 import logging
-from octoblob.volume_tools import Volume, VolumeSeries, Boundaries
+from octoblob.volume_tools import Volume, VolumeSeries, Boundaries, gaussian_filter, rect_filter, show3d
 from octoblob.ticktock import tick, tock
 
 logging.basicConfig(
@@ -14,65 +14,65 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-
-
-M_SCAN_DIMENSION = 2
 t0 = None
 
-#reference_bscan_directory = '171358/17_13_58-_bscans/aligned/'
-#target_bscan_directories = ['171430/17_14_30-_bscans/aligned','171502/17_15_02-_bscans/aligned','171544/17_15_44-_bscans/aligned']
+
+folder_list = ['171358/17_13_58-_bscans/aligned/cropped', '171430/17_14_30-_bscans/aligned/cropped', '171502/17_15_02-_bscans/aligned/cropped', '171544/17_15_44-_bscans/aligned/cropped']
+
+#folder_list = ['synthetic/synthetic_000', 'synthetic/synthetic_001', 'synthetic/synthetic_002', 'synthetic/synthetic_003', 'synthetic/synthetic_004']
+
+# which item in the folder_list is the reference volume?
+reference_index = 0
+
+# rendering functions (for PNG B-scans only)
+display_function = lambda x: 20*np.log10(np.abs(x)) # convert to dB
+# display_function = lambda x: np.abs(x)
+
+# contrast limits
+display_clim = (40,80) # dB
+# display_clim = None
 
 
-#all_directories = sorted(glob.glob('17*/17*_bscans/aligned'))
-#all_directories = sorted(glob.glob(os.path.join('synthetic','*')))
-all_directories = sorted(glob.glob(os.path.join('synthetic_rigid','*')))
-reference_bscan_directory = all_directories[0]
-target_bscan_directories = all_directories[1:]
-
-
+reference_bscan_directory = folder_list[reference_index]
 reference_volume = Volume(reference_bscan_directory,diagnostics=False)
+tag = 'reference_%s'%os.path.split(reference_bscan_directory)[1]
+n_bscans = reference_volume.n_slow
+
+
+##############################################################################
+block_size_list = [n_bscans,10,2]
+block_downsample_list = [5,2,1]
+block_filter_sigma_list = [10.0,5.0,2.0]
+##############################################################################
+
+
 vseries = VolumeSeries()
-vseries.add(reference_volume)
-downsample = 5
+for directory in folder_list:
+    vseries.add(Volume(directory,diagnostics = False))
 
-for target_bscan_directory in target_bscan_directories:
-    target_volume = Volume(target_bscan_directory)
-    target_volume.register_to(reference_volume,downsample=5)
-    vseries.add(target_volume)
+# render the unregistered series, for comparison:
+vseries.render('%s_unregistered'%tag,True)
 
-# step through the volume in chunks of 10 B-scans
-for v in vseries[1:]:
-    block_size = 30
-    starts = [s for s in range(0,v.n_slow,block_size)]
-    ends = [s+block_size for s in starts]
-    ends[-1] = min(ends[-1],v.n_slow) # the last block may not have block_size B-scans in it
+for block_size,block_downsample,block_filter_sigma in zip(block_size_list,block_downsample_list,block_filter_sigma_list):
+    # step through the volume in chunks
 
-    for s,e in zip(starts,ends):
-        b = Boundaries(s,e,0,v.n_depth,0,v.n_fast)
-        reference_volume.get_block(b)
-        v.get_block(b)
-        plt.show()
-        
+    #filt = rect_filter((block_size//block_downsample,reference_volume.n_depth//block_downsample,reference_volume.n_fast//block_downsample),(block_filter_sigma,block_filter_sigma,block_filter_sigma))
+    filt = gaussian_filter((block_size,reference_volume.n_depth,reference_volume.n_fast),(block_filter_sigma,block_filter_sigma,block_filter_sigma))
 
+    filt = filt[::block_downsample,::block_downsample,::block_downsample]
     
-    sys.exit()
+    # use all of vseries instead of vseries[1:], as a sanity
+    # check; vseries[0] should result in all 0s, for all block sizes
+    for v in vseries:
+        starts = [s for s in range(0,v.n_slow,block_size)]
+        ends = [s+block_size for s in starts]
+        ends[-1] = min(ends[-1],v.n_slow) # the last block may not have block_size B-scans in it
 
+        for s,e in zip(starts,ends):
+            b = Boundaries(y1=s,y2=e,z1=0,z2=v.n_depth,x1=0,x2=v.n_fast)
+            v.register_to(reference_volume,b,downsample=block_downsample,diagnostics=False,nxc_filter=filt)
+            logging.info('')
 
-vseries.render(True)
-sys.exit()
-
-
-plt.figure()
-plt.subplot(1,3,1)
-plt.imshow(nxc[reg_coords[0],:,:])
-plt.subplot(1,3,2)
-plt.imshow(nxc[:,reg_coords[1],:])
-plt.subplot(1,3,3)
-plt.imshow(nxc[:,:,reg_coords[2]])
-plt.show()
-
-
-
-
-
+    # render at each block size:
+    vseries.render('%s_strip_registered_%03d'%(tag,block_size),True)
 

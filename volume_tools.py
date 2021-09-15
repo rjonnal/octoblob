@@ -448,7 +448,7 @@ class VolumeSeries:
     def add(self,volume):
         self.volumes.append(volume)
 
-    def render(self,output_directory,diagnostics=False):
+    def render(self,output_directory,diagnostics=False,display_function=lambda x: 20*np.log10(x),display_clim=None):
 
         os.makedirs(output_directory,exist_ok=True)
 
@@ -525,6 +525,10 @@ class VolumeSeries:
             np.save(os.path.join(info_directory,'ycoord_%05d.npy'%idx),v.coordinates.y)
             np.save(os.path.join(info_directory,'zcoord_%05d.npy'%idx),v.coordinates.z)
             np.save(os.path.join(info_directory,'corr_%05d.npy'%idx),v.coordinates.correlation)
+
+            with open(os.path.join(info_directory,'bscan_source_%05d.txt'%idx),'w') as fid:
+                fid.write('%s\n'%v.bscan_directory)
+            
             
             sum_array+=self.signal_function(temp)
             # store some slices of temp for debugging:
@@ -554,36 +558,35 @@ class VolumeSeries:
                 plt.title('z-y')
                 plt.savefig(os.path.join(diagnostics_directory,'single_volume_%05d_slices.png'%idx),dpi=150)
 
-            dispfunc = lambda x: x
-                
             plt.figure(figsize=(ncol*col_width_inches,nrow*row_height_inches),dpi=screen_dpi)
             plt.suptitle('%s\nfull volume projections'%output_directory)
             plt.subplot(1,3,1)
-            plt.imshow(dispfunc(np.nanmean(av,0)),clim=dB_clim,aspect='equal',cmap='gray')
+            plt.imshow(display_function(np.nanmean(av,0)),clim=display_clim,aspect='equal',cmap='gray')
             plt.colorbar()
             plt.title('z-x')
             plt.subplot(1,3,2)
-            plt.imshow(dispfunc(np.nanmean(av,1)),clim=dB_clim,aspect='equal',cmap='gray')
+            plt.imshow(display_function(np.nanmean(av,1)),clim=display_clim,aspect='equal',cmap='gray')
             plt.colorbar()
             plt.title('y-x')
             plt.subplot(1,3,3)
-            plt.imshow(dispfunc(np.nanmean(av,2)).T,clim=dB_clim,aspect='equal',cmap='gray')
+            plt.imshow(display_function(np.nanmean(av,2)).T,clim=display_clim,aspect='equal',cmap='gray')
             plt.colorbar()
             plt.title('z-y')
             plt.savefig(os.path.join(diagnostics_directory,'average_volume_projections.png'),dpi=150)
 
+            
             plt.figure(figsize=(ncol*col_width_inches,nrow*row_height_inches),dpi=screen_dpi)
             plt.suptitle('%s\ncentral slices'%output_directory)
             plt.subplot(1,3,1)
-            plt.imshow(dispfunc(av[av.shape[0]//2,:,:]),clim=dB_clim,aspect='equal',cmap='gray')
+            plt.imshow(display_function(av[av.shape[0]//2,:,:]),clim=display_clim,aspect='equal',cmap='gray')
             plt.colorbar()
             plt.title('z-x')
             plt.subplot(1,3,2)
-            plt.imshow(dispfunc(av[:,av.shape[1]//2,:]),clim=dB_clim,aspect='equal',cmap='gray')
+            plt.imshow(display_function(av[:,av.shape[1]//2,:]),clim=display_clim,aspect='equal',cmap='gray')
             plt.colorbar()
             plt.title('y-x')
             plt.subplot(1,3,3)
-            plt.imshow(dispfunc(av[:,:,av.shape[2]//2].T),clim=dB_clim,aspect='equal',cmap='gray')
+            plt.imshow(display_function(av[:,:,av.shape[2]//2].T),clim=display_clim,aspect='equal',cmap='gray')
             plt.colorbar()
             plt.title('z-y')
             plt.savefig(os.path.join(diagnostics_directory,'average_volume_slices.png'),dpi=150)
@@ -593,17 +596,23 @@ class VolumeSeries:
         fsz = asz/save_dpi
         fsx = asx/save_dpi
         plt.close('all')
-        fig = plt.figure(figsize=(fsx,fsz),dpi=save_dpi)
+        fig = plt.figure(figsize=(fsx,fsz),dpi=save_dpi*2)
         ax = fig.add_axes([0,0,1,1])
         ax.set_xticks([])
         ax.set_yticks([])
-        minval = np.nanmin(av)
-        maxval = np.nanmax(av)
+
+        valid_values = av[~np.isnan(av)]
+        valid_values = display_function(valid_values)
+
+        if display_clim is None:
+            display_clim = np.percentile(valid_values,(1,99.9))
+        
         for k in range(asy):
             frame = av[k,:,:]
-            frame[np.isnan(frame)] = minval
+            frame[np.isnan(frame)] = display_clim[0]
+            frame = display_function(frame)
             ax.clear()
-            ax.imshow(av[k,:,:],cmap='gray',interpolation='none',clim=(minval,maxval))
+            ax.imshow(frame,cmap='gray',interpolation='none',clim=display_clim)
             plt.savefig(os.path.join(bscan_png_directory,'bscan_%05d.png'%k),dpi=save_dpi)
             plt.pause(.000001)
         plt.close()
@@ -621,9 +630,9 @@ class SyntheticVolume:
         self.dy = 0
         self.dx = 0
 
-        self.zstd = 0.03
-        self.ystd = 0.03
-        self.xstd = 0.03
+        self.zstd = 0.01
+        self.ystd = 0.005
+        self.xstd = 0.01
 
         self.motion = motion
         
@@ -649,22 +658,14 @@ class SyntheticVolume:
         except FileNotFoundError:
             source_dims = (n_slow*2,n_depth*2,n_fast*2)
 
-            if not regular:
-                self.source = np.random.random(source_dims)**rpower
-                self.source[np.where(self.source<0.5)] = 0
-            else:
-                self.source = np.zeros(source_dims)
-                for y in range(0+np.random.randint(sphere_diameter*3),n_slow*2,sphere_diameter*3):
-                    for x in range(0+np.random.randint(sphere_diameter*3),n_fast*2,sphere_diameter*3):
-                        for z in range(0+np.random.randint(sphere_diameter*3),n_depth*2,sphere_diameter*3):
-                            self.source[y,z,x] = 1.0
-                
+            self.source = np.random.random(source_dims)**rpower
+            self.source[np.where(self.source<0.5)] = 0
+            self.source[np.where(self.source)] = 1
+
             layer_thickness = 10
             for z in range(0,n_depth*2,layer_thickness*2):
                 self.source[:,z:z+layer_thickness,:] = 0
 
-            self.source = self.source*2000
-            
             #sphere_diameter = 11
             sphere = np.zeros((sphere_diameter,sphere_diameter,sphere_diameter))
             XX,YY,ZZ = np.meshgrid(np.arange(sphere_diameter),np.arange(sphere_diameter),np.arange(sphere_diameter))
@@ -675,11 +676,16 @@ class SyntheticVolume:
             rad = np.sqrt(XX**2+YY**2+ZZ**2)
             sphere[rad<sphere_diameter/2-1] = 1
 
-            self.source = spn.convolve(self.source,sphere).astype(np.complex128)
+            self.source = spn.convolve(self.source,sphere)
+            self.source = (self.source-np.min(self.source))/(np.max(self.source)-np.min(self.source))
 
-            noise = np.random.random(source_dims)*200
-            self.source[self.source==0]=noise[self.source==0]
+            peak = 6000.0
             
+            self.source = self.source*peak
+            
+            noise = np.random.standard_normal(source_dims)*np.sqrt(peak)+5*np.sqrt(peak)
+            self.source = self.source + noise
+            self.source[self.source<=1] = 1.0
             np.save(cache_fn,self.source)
         
         if diagnostics:

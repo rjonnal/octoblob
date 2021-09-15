@@ -141,3 +141,21 @@ To run the phase analysis, pass the folder containing the B-scans to the script:
 
 ```python phase_analysis.py data/oct_test_set_bscans```
 
+### Part 3: Volumetric registration and averaging
+
+1. Run ```flatten_volume.py folder_name``` on all the volume folders to be registered. This will create subfolders called ```flattened``` within those folders.
+2. Edit ```crop_volumes.py```, modifying ```folder_list``` to contain the ```flattened``` folders created in step 1, and then run ```python crop_volumes.py```. This will create subfolders called ```cropped``` within the ```flattened``` folders.
+
+3. Edit ```average_volumes.py```, adjusting the following parameters:
+
+a. ```folder_list``` should contain the ```cropped``` folders generated in step 2.
+
+b. ```block_size_list```, ```block_downsample_list```, and ```block_filter_sigma_list``` are lists of parameters for the multiscale registration algorithm. Each list must have the same number of items, and the number of items determines the number of scales in the multiscale approach. Preliminary settings are shown below, but we'll modify these (including the number of scales) as we start doing volume averaging:
+
+```python
+##############################################################################
+block_size_list = [n_bscans,10,2]
+block_downsample_list = [5,2,1]
+block_filter_sigma_list = [10.0,5.0,2.0]
+##############################################################################
+```
