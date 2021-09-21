@@ -215,16 +215,16 @@ class Coordinates:
         self.correlation = np.zeros(self.x.shape)
         
     def move_x(self,dx,boundaries):
-        self.x[boundaries.y1:boundaries.y2,boundaries.x1:boundaries.x2]+=dx
+        self.x[boundaries.y1:boundaries.y2+1,boundaries.x1:boundaries.x2+1]+=dx
 
     def move_y(self,dy,boundaries):
-        self.y[boundaries.y1:boundaries.y2,boundaries.x1:boundaries.x2]+=dy
+        self.y[boundaries.y1:boundaries.y2+1,boundaries.x1:boundaries.x2+1]+=dy
 
     def move_z(self,dz,boundaries):
-        self.z[boundaries.y1:boundaries.y2,boundaries.x1:boundaries.x2]+=dz
+        self.z[boundaries.y1:boundaries.y2+1,boundaries.x1:boundaries.x2+1]+=dz
 
     def set_correlation(self,nxc_max,boundaries):
-        self.correlation[boundaries.y1:boundaries.y2,boundaries.x1:boundaries.x2]=nxc_max
+        self.correlation[boundaries.y1:boundaries.y2+1,boundaries.x1:boundaries.x2+1]=nxc_max
 
 class Boundaries:
 
@@ -266,6 +266,9 @@ class Volume:
         self.hold_volume_in_ram = hold_volume_in_ram
         if self.hold_volume_in_ram:
             self.volume = self.build_volume()
+
+        self.ac_max_dict = {}
+        self.is_reference = False
 
     def build_volume(self,diagnostics=False):
         t0 = tick()
@@ -320,6 +323,8 @@ class Volume:
         self.coordinates.move_x(shifts[2],boundaries)
         self.coordinates.set_correlation(nxc_max,boundaries)
         self.moved = True
+        if self.is_reference:
+            assert not any(shifts)
 
 
     def get_block(self,b,volume=None,diagnostics=False):
@@ -406,6 +411,17 @@ class Volume:
         rvol,rbound = reference_volume.get_block(boundaries,diagnostics=diagnostics)
         tvol,tbound = self.get_block(boundaries,diagnostics=diagnostics)
 
+        cache_directory = '.register_to_cache'
+        os.makedirs(cache_directory,exist_ok = True)
+
+        ac_max_key = '_'.join([str(s) for s in reference_volume.get_volume().shape])
+        try:
+            ac_max = self.ac_max_dict[ac_max_key]
+        except Exception as e:
+            nxc = nxc3d(rvol,rvol,downsample=downsample,border_size=border_size)
+            ac_max = nxc.max()
+            self.ac_max_dict[ac_max_key] = ac_max
+        
         nxc = nxc3d(rvol,tvol,downsample=downsample,diagnostics=diagnostics,border_size=border_size)
         if nxc_filter is not None:
             nxc = nxc*nxc_filter
@@ -427,13 +443,16 @@ class Volume:
             else:
                 limited_coords.append(c)
 
+        if self.is_reference:
+            assert not any(limited_coords)
+
         # old, buggy version:
         # self.move(limited_coords,boundaries,nxc_max)
 
         self.move(limited_coords,tbound,nxc_max)
 
         t1 = tock(t0)
-        logging.info('register_to took %0.3f s; shifts were %d, %d, %d; nxc max %0.1f'%tuple([t1]+limited_coords+[np.max(nxc)]))
+        logging.info('register_to took %0.3f s; shifts were %d, %d, %d; nxc max %0.1f'%tuple([t1]+limited_coords+[np.max(nxc)/ac_max]))
 
                 
 class VolumeSeries:
@@ -446,62 +465,56 @@ class VolumeSeries:
         return self.volumes[n]
 
     def add(self,volume):
+        
+        if len(self.volumes)==0:
+            volume.is_reference = True
+            
         self.volumes.append(volume)
 
-    def render(self,output_directory,diagnostics=False,display_function=lambda x: 20*np.log10(x),display_clim=None):
+    def render(self,output_directory,diagnostics=False,display_function=lambda x: 20*np.log10(x),display_clim=None,make_bscan_flythrough=True,make_enface_flythrough=True):
 
         os.makedirs(output_directory,exist_ok=True)
 
         bscan_png_directory = os.path.join(output_directory,'bscans')
+        enface_png_directory = os.path.join(output_directory,'enface')
         volume_directory = os.path.join(output_directory,'volumes')
         info_directory = os.path.join(output_directory,'info')
         diagnostics_directory = os.path.join(output_directory,'info')
 
-        os.makedirs(bscan_png_directory,exist_ok=True)
+        if make_bscan_flythrough:
+            os.makedirs(bscan_png_directory,exist_ok=True)
+        if make_enface_flythrough:
+            os.makedirs(enface_png_directory,exist_ok=True)
+            
         os.makedirs(volume_directory,exist_ok=True)
         os.makedirs(info_directory,exist_ok=True)
         os.makedirs(diagnostics_directory,exist_ok=True)
+
+
+        n_slow, n_depth, n_fast = self.volumes[0].volume.shape
         
-        ymin,zmin,xmin = large_integer,large_integer,large_integer
-
-        # find the global min for each dimension, for min-subtraction
-        for v in self.volumes:
-            if v.coordinates.z.min()<zmin:
-                zmin = v.coordinates.z.min()
-            if v.coordinates.y.min()<ymin:
-                ymin = v.coordinates.y.min()
-            if v.coordinates.x.min()<xmin:
-                xmin = v.coordinates.x.min()
-
-        # shift the coordinates for all volumes by the same amounts,
-        # keeping them aligned
-        for v in self.volumes:
-            v.coordinates.z-=zmin
-            v.coordinates.y-=ymin
-            v.coordinates.x-=xmin
-
         # find the maximum depth
         max_n_depth = np.max([v.n_depth for v in self.volumes])
 
-        # find the new max in each dimension
-        ymax,zmax,xmax = -large_integer,-large_integer,-large_integer
+        zmin = large_integer
+        for v in self.volumes:
+            #v.coordinates.z = -v.coordinates.z
+            
+            if v.coordinates.z.min()<zmin:
+                zmin = v.coordinates.z.min()
+
+        for v in self.volumes:
+            v.coordinates.z = v.coordinates.z - zmin
+        
+        # find the new max in z
+        zmax = -large_integer
 
         for v in self.volumes:
             if v.coordinates.z.max()>zmax:
                 zmax = v.coordinates.z.max()
-            if v.coordinates.y.max()>ymax:
-                ymax = v.coordinates.y.max()
-            if v.coordinates.x.max()>xmax:
-                xmax = v.coordinates.x.max()
 
-        # create accumulators
-        #sum_array = np.zeros((ymax+1,zmax+max_n_depth+1,xmax+1))
-        #counter_array = np.zeros((ymax+1,zmax+max_n_depth+1,xmax+1))
-
-        # something a little bit funky about initializing these: why
-        # is z different?
-        sum_array = np.zeros((ymax+1,zmax+max_n_depth,xmax+1))
-        counter_array = np.zeros((ymax+1,zmax+max_n_depth,xmax+1))
+        sum_array = np.zeros((n_slow,zmax+max_n_depth,n_fast))
+        counter_array = np.zeros((n_slow,zmax+max_n_depth,n_fast))
 
         y_slices = []
         x_slices = []
@@ -511,14 +524,24 @@ class VolumeSeries:
             temp = np.zeros(sum_array.shape,dtype=np.complex128)
             vol = v.get_volume()
             sy,sz,sx = vol.shape
+
+            # plt.figure()
+            # plt.imshow(v.coordinates.z,interpolation='none')
+            # plt.colorbar()
+            # plt.title(idx)
+            # plt.show()
+
+            
             for y in range(sy):
                 for x in range(sx):
                     ascan = vol[y,:,x]
                     ypos = v.coordinates.y[y,x]
                     xpos = v.coordinates.x[y,x]
                     zpos = v.coordinates.z[y,x]
-                    temp[ypos,zpos:zpos+sz,xpos]+=ascan
-                    counter_array[ypos,zpos:zpos+sz,xpos]+=1
+
+                    if ypos>=0 and ypos<n_slow and xpos>=0 and xpos<n_fast:
+                        temp[ypos,zpos:zpos+sz,xpos]+=self.signal_function(ascan)
+                        counter_array[ypos,zpos:zpos+sz,xpos]+=1
 
             np.save(os.path.join(volume_directory,'volume_%05d.npy'%idx),temp)
             np.save(os.path.join(info_directory,'xcoord_%05d.npy'%idx),v.coordinates.x)
@@ -528,7 +551,6 @@ class VolumeSeries:
 
             with open(os.path.join(info_directory,'bscan_source_%05d.txt'%idx),'w') as fid:
                 fid.write('%s\n'%v.bscan_directory)
-            
             
             sum_array+=self.signal_function(temp)
             # store some slices of temp for debugging:
@@ -596,10 +618,6 @@ class VolumeSeries:
         fsz = asz/save_dpi
         fsx = asx/save_dpi
         plt.close('all')
-        fig = plt.figure(figsize=(fsx,fsz),dpi=save_dpi*2)
-        ax = fig.add_axes([0,0,1,1])
-        ax.set_xticks([])
-        ax.set_yticks([])
 
         valid_values = av[~np.isnan(av)]
         valid_values = display_function(valid_values)
@@ -607,20 +625,236 @@ class VolumeSeries:
         if display_clim is None:
             display_clim = np.percentile(valid_values,(1,99.9))
         
-        for k in range(asy):
-            frame = av[k,:,:]
-            frame[np.isnan(frame)] = display_clim[0]
-            frame = display_function(frame)
-            ax.clear()
-            ax.imshow(frame,cmap='gray',interpolation='none',clim=display_clim)
-            plt.savefig(os.path.join(bscan_png_directory,'bscan_%05d.png'%k),dpi=save_dpi)
-            plt.pause(.000001)
-        plt.close()
+        fsz = asz/save_dpi
+        fsx = asx/save_dpi
+        fig = plt.figure(figsize=(fsx,fsz),dpi=save_dpi*2)
+        ax = fig.add_axes([0,0,1,1])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        
+        if make_bscan_flythrough:
+            for k in range(asy):
+                frame = av[k,:,:]
+                frame[np.isnan(frame)] = display_clim[0]
+                frame = display_function(frame)
+                ax.clear()
+                ax.imshow(frame,cmap='gray',interpolation='none',clim=display_clim)
+                plt.savefig(os.path.join(bscan_png_directory,'bscan_%05d.png'%k),dpi=save_dpi)
+                plt.pause(.000001)
+            plt.close()
 
+        fsy = asy/save_dpi
+        fsx = asx/save_dpi
+        fig = plt.figure(figsize=(fsx,fsy),dpi=save_dpi*2)
+        ax = fig.add_axes([0,0,1,1])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        
+        if make_enface_flythrough:
+            for k in range(asz):
+                frame = av[:,k,:]
+                frame[np.isnan(frame)] = display_clim[0]
+                frame = display_function(frame)
+                ax.clear()
+                ax.imshow(frame,cmap='gray',interpolation='none',clim=display_clim)
+                plt.savefig(os.path.join(enface_png_directory,'enface_%05d.png'%k),dpi=save_dpi)
+                plt.pause(.000001)
+            plt.close()
+
+            
+    def render0(self,output_directory,diagnostics=False,display_function=lambda x: 20*np.log10(x),display_clim=None,make_bscan_flythrough=True,make_enface_flythrough=True):
+
+        os.makedirs(output_directory,exist_ok=True)
+
+        bscan_png_directory = os.path.join(output_directory,'bscans')
+        enface_png_directory = os.path.join(output_directory,'enface')
+        volume_directory = os.path.join(output_directory,'volumes')
+        info_directory = os.path.join(output_directory,'info')
+        diagnostics_directory = os.path.join(output_directory,'info')
+
+        if make_bscan_flythrough:
+            os.makedirs(bscan_png_directory,exist_ok=True)
+        if make_enface_flythrough:
+            os.makedirs(enface_png_directory,exist_ok=True)
+            
+        os.makedirs(volume_directory,exist_ok=True)
+        os.makedirs(info_directory,exist_ok=True)
+        os.makedirs(diagnostics_directory,exist_ok=True)
+
+
+        n_slow, n_depth, n_fast = self.volumes[0].volume.shape
+        
+        # find the maximum depth
+        max_n_depth = np.max([v.n_depth for v in self.volumes])
+
+        zmin = large_integer
+        for v in self.volumes:
+            if v.coordinates.z.min()<zmin:
+                zmin = v.coordinates.z.min()
+
+        for v in self.volumes:
+            v.coordinates.z = v.coordinates.z - zmin
+        
+        # find the new max in z
+        zmax = -large_integer
+
+        for v in self.volumes:
+            if v.coordinates.z.max()>zmax:
+                zmax = v.coordinates.z.max()
+
+        # something a little bit funky about initializing these: why
+        # is z different?
+        sum_array = np.zeros((n_slow,zmax+max_n_depth,n_fast))
+        counter_array = np.zeros((n_slow,zmax+max_n_depth,n_fast))
+
+        y_slices = []
+        x_slices = []
+        z_slices = []
+        
+        for idx,v in enumerate(self.volumes):
+            temp = np.zeros(sum_array.shape,dtype=np.complex128)
+            vol = v.get_volume()
+            sy,sz,sx = vol.shape
+
+            # plt.figure()
+            # plt.imshow(v.coordinates.z,interpolation='none')
+            # plt.colorbar()
+            # plt.title(idx)
+            # plt.show()
+
+            
+            for y in range(sy):
+                for x in range(sx):
+                    ascan = vol[y,:,x]
+                    ypos = v.coordinates.y[y,x]
+                    xpos = v.coordinates.x[y,x]
+                    zpos = v.coordinates.z[y,x]
+
+                    if ypos>=0 and ypos<n_slow and xpos>=0 and xpos<n_fast:
+                        temp[ypos,zpos:zpos+sz,xpos]+=self.signal_function(ascan)
+                        counter_array[ypos,zpos:zpos+sz,xpos]+=1
+
+            np.save(os.path.join(volume_directory,'volume_%05d.npy'%idx),temp)
+            np.save(os.path.join(info_directory,'xcoord_%05d.npy'%idx),v.coordinates.x)
+            np.save(os.path.join(info_directory,'ycoord_%05d.npy'%idx),v.coordinates.y)
+            np.save(os.path.join(info_directory,'zcoord_%05d.npy'%idx),v.coordinates.z)
+            np.save(os.path.join(info_directory,'corr_%05d.npy'%idx),v.coordinates.correlation)
+
+            with open(os.path.join(info_directory,'bscan_source_%05d.txt'%idx),'w') as fid:
+                fid.write('%s\n'%v.bscan_directory)
+            
+            sum_array+=self.signal_function(temp)
+            # store some slices of temp for debugging:
+            temp = np.abs(temp)
+            
+            y_slices.append(temp[temp.shape[0]//2,:,:])
+            x_slices.append(temp[:,:,temp.shape[2]//2])
+            z_slices.append(temp[:,temp.shape[1]//2,:])
+                    
+        sum_array[counter_array==0]=np.nan
+        av = sum_array/counter_array
+
+        if diagnostics:
+            dB_clim = None#(40,80)
+            ncol,nrow = 3,1
+            for idx,(ys,zs,xs) in enumerate(zip(y_slices,z_slices,x_slices)):
+                plt.figure(figsize=(ncol*col_width_inches,nrow*row_height_inches),dpi=screen_dpi)
+                plt.suptitle('%s\nvolume %d'%(output_directory,idx))
+                plt.subplot(1,3,1)
+                plt.imshow(ys,cmap='gray',aspect='equal')
+                plt.title('z-x')
+                plt.subplot(1,3,2)
+                plt.imshow(zs,cmap='gray',aspect='equal')
+                plt.title('y-x')
+                plt.subplot(1,3,3)
+                plt.imshow(xs.T,cmap='gray',aspect='equal')
+                plt.title('z-y')
+                plt.savefig(os.path.join(diagnostics_directory,'single_volume_%05d_slices.png'%idx),dpi=150)
+
+            plt.figure(figsize=(ncol*col_width_inches,nrow*row_height_inches),dpi=screen_dpi)
+            plt.suptitle('%s\nfull volume projections'%output_directory)
+            plt.subplot(1,3,1)
+            plt.imshow(display_function(np.nanmean(av,0)),clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('z-x')
+            plt.subplot(1,3,2)
+            plt.imshow(display_function(np.nanmean(av,1)),clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('y-x')
+            plt.subplot(1,3,3)
+            plt.imshow(display_function(np.nanmean(av,2)).T,clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('z-y')
+            plt.savefig(os.path.join(diagnostics_directory,'average_volume_projections.png'),dpi=150)
+
+            
+            plt.figure(figsize=(ncol*col_width_inches,nrow*row_height_inches),dpi=screen_dpi)
+            plt.suptitle('%s\ncentral slices'%output_directory)
+            plt.subplot(1,3,1)
+            plt.imshow(display_function(av[av.shape[0]//2,:,:]),clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('z-x')
+            plt.subplot(1,3,2)
+            plt.imshow(display_function(av[:,av.shape[1]//2,:]),clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('y-x')
+            plt.subplot(1,3,3)
+            plt.imshow(display_function(av[:,:,av.shape[2]//2].T),clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('z-y')
+            plt.savefig(os.path.join(diagnostics_directory,'average_volume_slices.png'),dpi=150)
+
+        asy,asz,asx = av.shape
+        save_dpi = 100.0
+        fsz = asz/save_dpi
+        fsx = asx/save_dpi
+        plt.close('all')
+
+        valid_values = av[~np.isnan(av)]
+        valid_values = display_function(valid_values)
+
+        if display_clim is None:
+            display_clim = np.percentile(valid_values,(1,99.9))
+        
+        fsz = asz/save_dpi
+        fsx = asx/save_dpi
+        fig = plt.figure(figsize=(fsx,fsz),dpi=save_dpi*2)
+        ax = fig.add_axes([0,0,1,1])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        
+        if make_bscan_flythrough:
+            for k in range(asy):
+                frame = av[k,:,:]
+                frame[np.isnan(frame)] = display_clim[0]
+                frame = display_function(frame)
+                ax.clear()
+                ax.imshow(frame,cmap='gray',interpolation='none',clim=display_clim)
+                plt.savefig(os.path.join(bscan_png_directory,'bscan_%05d.png'%k),dpi=save_dpi)
+                plt.pause(.000001)
+            plt.close()
+
+        fsy = asy/save_dpi
+        fsx = asx/save_dpi
+        fig = plt.figure(figsize=(fsx,fsy),dpi=save_dpi*2)
+        ax = fig.add_axes([0,0,1,1])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        
+        if make_enface_flythrough:
+            for k in range(asz):
+                frame = av[:,k,:]
+                frame[np.isnan(frame)] = display_clim[0]
+                frame = display_function(frame)
+                ax.clear()
+                ax.imshow(frame,cmap='gray',interpolation='none',clim=display_clim)
+                plt.savefig(os.path.join(enface_png_directory,'enface_%05d.png'%k),dpi=save_dpi)
+                plt.pause(.000001)
+            plt.close()
 
 class SyntheticVolume:
 
-    def __init__(self,n_slow,n_depth,n_fast,diagnostics=False,sphere_diameter=11,motion=None,rpower=10000,regular=False):
+    def __init__(self,n_slow,n_depth,n_fast,diagnostics=False,sphere_diameter=11,motion=None,rpower=10000,regular=False,plane_thickness=0):
         # rpower: higher numbers = sparser objects 50000 creates just a few
         self.dzf = 0.0
         self.dyf = 0.0
@@ -630,9 +864,9 @@ class SyntheticVolume:
         self.dy = 0
         self.dx = 0
 
-        self.zstd = 0.01
-        self.ystd = 0.005
-        self.xstd = 0.01
+        self.zstd = 0.03
+        self.ystd = 0.02
+        self.xstd = 0.03
 
         self.motion = motion
         
@@ -651,7 +885,7 @@ class SyntheticVolume:
         else:
             regstring = '_rand'
         
-        cache_fn = os.path.join(cache_dir,'%d_%d_%d_synthetic_source_%d%s_%d.npy'%(n_slow,n_depth,n_fast,rpower,regstring,sphere_diameter))
+        cache_fn = os.path.join(cache_dir,'%d_%d_%d_synthetic_source_%d%s_%d_%d.npy'%(n_slow,n_depth,n_fast,rpower,regstring,sphere_diameter,plane_thickness))
 
         try:
             self.source = np.load(cache_fn)
@@ -686,6 +920,10 @@ class SyntheticVolume:
             noise = np.random.standard_normal(source_dims)*np.sqrt(peak)+5*np.sqrt(peak)
             self.source = self.source + noise
             self.source[self.source<=1] = 1.0
+
+            if plane_thickness:
+                self.source[:,n_depth:n_depth+plane_thickness,:] = peak
+            
             np.save(cache_fn,self.source)
         
         if diagnostics:
@@ -700,15 +938,20 @@ class SyntheticVolume:
         self.history = []
         self.scanner_history = []
         
-    def step(self,volume_rigid=False,motion_factor=1.0):
+    def step(self,volume_rigid=False,bscan_rigid=False,motion_factor=1.0,reference_rigid=False):
 
         self.history.append((self.dy,self.dz,self.dx))
         self.scanner_history.append(np.sqrt(self.yscanner**2+self.xscanner**2))
+
+        if reference_rigid and len(self.history)<self.n_slow*self.n_fast:
+            reference_rigid_factor = 0.0
+        else:
+            reference_rigid_factor = 1.0
         
         if self.motion is None:
-            self.dzf = self.dzf + np.random.randn()*self.zstd*motion_factor
-            self.dyf = self.dyf + np.random.randn()*self.ystd*motion_factor
-            self.dxf = self.dxf + np.random.randn()*self.xstd*motion_factor
+            self.dzf = self.dzf + np.random.randn()*self.zstd*motion_factor*reference_rigid_factor
+            self.dyf = self.dyf + np.random.randn()*self.ystd*motion_factor*reference_rigid_factor
+            self.dxf = self.dxf + np.random.randn()*self.xstd*motion_factor*reference_rigid_factor
 
             limit = 10
 
@@ -725,7 +968,20 @@ class SyntheticVolume:
             self.dxf = self.dxf + self.motion[2]
 
         #if not volume_rigid or (self.xscanner==(self.n_fast-1) and self.yscanner==(self.n_slow-1)):
-        if not volume_rigid or (self.xscanner==0 and self.yscanner==0):
+
+        make_move = False
+        if not bscan_rigid and not volume_rigid:
+            make_move = True
+        elif not bscan_rigid and volume_rigid:
+            sys.exit('bscan_rigid is False but volume_rigid is True--inconsistent.')
+        elif bscan_rigid and not volume_rigid:
+            make_move = self.xscanner==0
+        elif bscan_rigid and volume_rigid:
+            make_move = (self.xscanner==0 and self.yscanner==0)
+        else:
+            sys.exit('something bad has happened.')
+        
+        if make_move:
             self.dz = int(round(self.dzf))
             self.dy = int(round(self.dyf))
             self.dx = int(round(self.dxf))
@@ -736,11 +992,11 @@ class SyntheticVolume:
         
 
 
-    def get_bscan(self,diagnostics=False,volume_rigid=False,motion_factor=1.0):
+    def get_bscan(self,diagnostics=False,volume_rigid=False,bscan_rigid=False,motion_factor=1.0,reference_rigid=False):
         ascans = []
             
         for k in range(self.n_fast):
-            self.step(volume_rigid,motion_factor=motion_factor)
+            self.step(volume_rigid=volume_rigid,bscan_rigid=bscan_rigid,motion_factor=motion_factor,reference_rigid=reference_rigid)
             x = (self.xscanner-self.n_fast//2)+self.source.shape[2]//2+self.dx
             y = (self.yscanner-self.n_slow//2)+self.source.shape[0]//2+self.dy
             z1 = -self.n_depth//2+self.source.shape[1]//2+self.dz
@@ -785,16 +1041,18 @@ class SyntheticVolume:
 
 
         
-    def save_volume(self,directory_name,diagnostics=False,volume_rigid=False,motion_factor=1.0):
+    def save_volume(self,directory_name,diagnostics=False,volume_rigid=False,bscan_rigid=False,motion_factor=1.0,reference_rigid=False):
         os.makedirs(directory_name,exist_ok=True)
         for k in range(self.n_slow):
             outfn = os.path.join(directory_name,'complex_bscan_stack_%05d.npy'%k)
-            np.save(outfn,self.get_bscan(diagnostics,volume_rigid,motion_factor=motion_factor))
+            np.save(outfn,self.get_bscan(diagnostics,volume_rigid=volume_rigid,
+                                         bscan_rigid=bscan_rigid,motion_factor=motion_factor,
+                                         reference_rigid=reference_rigid))
             logging.info('Saving B-scan %d to %s.'%(k,outfn))
 
-    def save_volumes(self,directory_root,n,diagnostics=False,volume_rigid=False,motion_factor=1.0):
+    def save_volumes(self,directory_root,n,diagnostics=False,volume_rigid=False,bscan_rigid=False,motion_factor=1.0,reference_rigid=False):
         for k in range(n):
-            self.save_volume('%s_%03d'%(directory_root,k),diagnostics,volume_rigid,motion_factor=motion_factor)
+            self.save_volume('%s_%03d'%(directory_root,k),diagnostics,volume_rigid=volume_rigid,bscan_rigid=bscan_rigid,motion_factor=motion_factor,reference_rigid=reference_rigid)
         info_directory = os.path.join(os.path.split(directory_root)[0],'info')
         os.makedirs(info_directory,exist_ok=True)
         self.plot_history()
