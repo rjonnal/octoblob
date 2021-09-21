@@ -3,6 +3,16 @@ import numpy as np
 import sys,os
 from . import bmp_tools
 import scipy.optimize as spo
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("debug.log"),
+        logging.StreamHandler()
+    ]
+)
 
 dispersion_3_max = 1.0
 dispersion_2_max = 5.0
@@ -28,6 +38,8 @@ c3range = c3max_default-c3min_default
 c2range = c2max_default-c2min_default
 
 auto_n_points = 6
+
+
 
 def max(im):
     return np.max(np.max(im,axis=0))
@@ -198,7 +210,7 @@ def mapping_dispersion_ui(raw_data,func,m3min,m3max,m2min,m2max,c3min,c3max,c2mi
     return m3,m2,c3,c2
 
 #def optimize_mapping_dispersion(raw_data,func,m3min,m3max,m2min,m2max,c3min,c3max,c2min,c2max,title=''):
-def optimize_mapping_dispersion(raw_data,func,diagnostics=False):
+def optimize_mapping_dispersion(raw_data,func,diagnostics=False,maximum_iterations=200,bounds=None):
 
     base_image = np.abs(func(raw_data,0,0,0,0))
     
@@ -233,6 +245,8 @@ def optimize_mapping_dispersion(raw_data,func,diagnostics=False):
         if max_gradient>base_max_gradient*10.0:
             max_gradient = 1e-10
 
+        
+
         if diagnostics:
             plt.cla()
             plt.imshow(im,cmap='gray')
@@ -247,12 +261,54 @@ def optimize_mapping_dispersion(raw_data,func,diagnostics=False):
         else:
             optimization_history.append((np.nan,coefs))
 
+        logging.info('Optimizer: B-scan max gradient: %0.3f'%max_gradient)
+
         return 1.0/max_gradient
 
+    def f2(coefs):
+        m3,m2,c3,c2 = coefs
+        im = np.abs(func(raw_data,m3,m2,c3,c2))
+        xc = xcorr(im,base_image)/ac
+
+        gradient = np.diff(im,axis=0)
+        gradient = np.sort(gradient,axis=0)
+        gradient = gradient[-10:,:]
+
+        max_gradient = np.median(np.median(gradient,axis=0))
+        
+        lateral_mean_variance = np.var(np.mean(im,axis=0))
+
+        if xc<0.8:
+            max_gradient = 1e-10
+        if lateral_mean_variance>base_lateral_mean_variance*10.0:
+            max_gradient = 1e-10
+        if max_gradient>base_max_gradient*10.0:
+            max_gradient = 1e-10
+
+        
+
+        if diagnostics:
+            plt.cla()
+            plt.imshow(im,cmap='gray')
+            #plt.imshow(20*np.log10(im),cmap='gray',clim=(40,80))
+            plt.text(0,0,'%0.1f (%0.1f) / %0.1f (%0.1f) / %0.2f'%(max_gradient,base_max_gradient,
+                                      lateral_mean_variance,base_lateral_mean_variance
+                                      ,xc),ha='left',va='top',fontsize=12,color='y')
+            plt.pause(.001)
+
+        if max_gradient>1:
+            optimization_history.append((max_gradient,coefs))
+        else:
+            optimization_history.append((np.nan,coefs))
+
+        logging.info('Optimizer: B-scan max gradient: %0.3f'%max_gradient)
+
+        return 1.0/max_gradient
+    
     x0 = [0.0,0.0,0.0,0.0]
 
-    res = spo.minimize(f,x0,method='nelder-mead',
-                       options={'xatol':1e-11,'disp':True})
+    res = spo.minimize(f2,x0,method='nelder-mead',bounds=bounds,
+                       options={'xatol':1e-11,'disp':True,'maxiter':maximum_iterations})
 
     pre_image = np.abs(func(raw_data,*x0))
     post_image = np.abs(func(raw_data,*res.x))
