@@ -317,7 +317,7 @@ def optimize_mapping_dispersion(raw_data,func,diagnostics=False,maximum_iteratio
     post_dB = 20*np.log10(post_image)
     
     lin_clim = np.percentile(post_image,(20,99.9))
-    dB_clim = (40,85)
+    dB_clim = (40,90)
 
 
     gradient_history = [t[0] for t in optimization_history]
