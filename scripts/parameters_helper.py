@@ -68,6 +68,16 @@ def preliminary_visualizations(filename):
     log_bscan = 20*np.log10(bscan/counter)
     plt.figure()
     plt.imshow(log_bscan,aspect='auto',cmap='gray',clim=(40,80))
+
+    try:
+        z1 = params.bscan_z1
+        z2 = params.bscan_z2
+        x1 = params.bscan_x1
+        x2 = params.bscan_x2
+        plt.plot([x1,x2,x2,x1,x1],[z1,z1,z2,z2,z1],'y-')
+    except Exception as e:
+        print(e)
+    
     plt.colorbar()
     plt.title('Note region of interest (bscan_z1, bscan_z2, bscan_x1, bscan_x2).')
     plt.show()

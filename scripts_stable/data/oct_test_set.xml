@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<MonsterList>
+ <!--Program Generated Easy Monster-->
+ <Monster>
+  <Name>Goblin</Name>
+  <Time
+   Data_Acquired_at="11/27/2020 2:59:23 PM" />
+  <Volume_Size
+   Width="1536"
+   Height="400"
+   Number_of_Frames="20"
+   Number_of_Volumes="1" />
+  <Scanning_Parameters
+   X_Scan_Range="5050"
+   X_Scan_Offset="0"
+   Y_Scan_Range="3450"
+   Y_Scan_Offset="0"
+   Number_of_BM_scans="1" />
+  <Dispersion_Parameters
+   C2="-8.1E-05"
+   C3="0" />
+  <Fixation_Target
+   X="32"
+   Y="64" />
+ </Monster>
+</MonsterList>
