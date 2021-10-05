@@ -112,7 +112,15 @@ class OCTRawData:
             self.print_volume_info()
 
     def print_volume_info(self):
-        print('n_vol\t\t%d\nn_slow\t\t%d\nn_repeats\t%d\nn_fast\t\t%d\nn_depth\t\t%d\nbytes_per_pixel\t%d\ntotal_expected_size\t%d'%(self.n_vol,self.n_slow,self.n_repeats,self.n_fast,self.n_depth,self.bytes_per_pixel,self.n_bytes))
+        #print('n_vol\t\t%d\nn_slow\t\t%d\nn_repeats\t%d\nn_fast\t\t%d\nn_depth\t\t%d\nbytes_per_pixel\t%d\ntotal_expected_size\t%d'%(self.n_vol,self.n_slow,self.n_repeats,self.n_fast,self.n_depth,self.bytes_per_pixel,self.n_bytes))
+        print(self.get_info())
+        
+    def get_info(self,spaces=False):
+        temp = 'n_vol\t\t%d\nn_slow\t\t%d\nn_repeats\t%d\nn_fast\t\t%d\nn_depth\t\t%d\nbytes_per_pixel\t%d\ntotal_expected_size\t%d'%(self.n_vol,self.n_slow,self.n_repeats,self.n_fast,self.n_depth,self.bytes_per_pixel,self.n_bytes)
+        if spaces:
+            temp = temp.replace('\t',' ')
+        return temp
+    
 
 
     def align_to_fbg(self,frame,region_height=48,smoothing_size=5,sign=1,use_cross_correlation=False,diagnostics=False):

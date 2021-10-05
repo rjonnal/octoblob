@@ -1,5 +1,64 @@
 ## Instructions for using the simplified octoblob scripts
 
+### TL;DR
+
+#### Human
+
+```python
+# copy parameters_template.py to parameters.py
+cp parameters_template.py parameters.py
+
+python parameters_helper.py data.unp
+# edit spectrum and fbg parameters
+
+python parameters_helper.py data.unp
+# edit bscan cropping parameters
+
+# try automatic mapping/dispersion optimizer:
+python mapping_dispersion_optimizer.py data.unp
+
+# if the resulting B-scan doesn't look good, do it manually:
+python mapping_dispersion_manual.py data.unp
+
+# edit mapping and dispersion coefficients
+
+python process_bscans.py data.unp (show) (diagnostics)
+python flatten_volume.py data_bscans/
+
+python project_enface_dB.py data_bscans/flattened/ 0 3 45 75 1 1 100
+# parameters in the previous command are:
+# python project_enface_dB.py data_bscans/flattened/ (z1) (z2) (dB min) (dB max) (auto) (plot axial profile) (dpi)
+# the way we ran it, it will automatically (auto) generate projections of thickness 3 (z1, z2), scaled between 45 and 75 dB (dB min, dB max), including axial profile plots (plot axial profile), with an output dpi of 100 (dpi)
+```
+
+#### Mouse or cell cultures
+
+```python
+# copy parameters_template.py to parameters.py
+cp parameters_template.py parameters.py
+
+python parameters_helper.py data.unp
+# edit spectrum and fbg parameters
+
+python parameters_helper.py data.unp
+# edit bscan cropping parameters
+
+# if multiple B-scans appear in preview, edit data.xml file,
+# reducing the Number_BM_Scans value to 1
+
+python mapping_dispersion_manual.py data.unp
+# edit mapping and dispersion coefficients
+
+python process_bscans.py data.unp (show) (diagnostics)
+python flatten_planar_volume.py data_bscans/
+
+python project_enface_dB.py data_bscans/flattened/ 0 3 45 75 1 1 100
+# parameters in the previous command are:
+# python project_enface_dB.py data_bscans/flattened/ (z1) (z2) (dB min) (dB max) (auto) (plot axial profile) (dpi)
+# the way we ran it, it will automatically (auto) generate projections of thickness 3 (z1, z2), scaled between 45 and 75 dB (dB min, dB max), including axial profile plots (plot axial profile), with an output dpi of 100 (dpi)
+```
+
+
 ### Part 1: generic OCT post-processing
 
 In general, these scripts should be copied to the folder containing the data files (or the parent folder, if data with identical parameters are organized in subfolders. Scripts are invoked as follows:
@@ -103,8 +162,11 @@ The resulting interactive plots will allow you to set first the mapping and then
 mapping_coefficients = [0.0,0.0,0.0,0.0]
 dispersion_coefficients = [7.2e-09, -7.2e-05, 0.0, 0.0]
 ```
-
 We sometimes use zeros for mapping coefficients even if other values make the image look slightly better, for simplicity. Non-zero mapping coefficients can generate artifacts in some cases.
+
+#### A note on mouse data from the eyepod
+
+In some cases, mouse data from the eyepod will use different logic in the configuration file, and multiple B-scans will be visible in second stage of running ```parameters_helper.py```. If this happens, the configuration ```.xml``` file should be modified as follows: change ```Number_of_BM_scans="3"``` (or whatever number is there) to ```Number_of_BM_scans="1"```. This will increase the number of B-scans in the series or volume, and may require later downsampling in the slow dimension to harmonize with the fast dimension.
 
 #### Generating B-scans
 
