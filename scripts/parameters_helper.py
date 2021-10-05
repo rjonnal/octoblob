@@ -195,6 +195,5 @@ def make_report(filename):
     plt.savefig(report_filename,dpi=300)
     
     
-#preliminary_visualizations(unp_filename)
+preliminary_visualizations(unp_filename)
 make_report(unp_filename)
-plt.show()
