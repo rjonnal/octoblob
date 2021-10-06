@@ -5,6 +5,7 @@ import time
 import logging
 from .ticktock import tick, tock
 import scipy.ndimage as spn
+import imageio
 
 logging.basicConfig(
     level=logging.INFO,
@@ -275,11 +276,11 @@ class Volume:
         logging.info('Building volume in %s.'%self.bscan_directory)
         temp = np.load(self.bscan_filenames[0])
         dtype = temp.dtype
-        is_stack = len(temp.shape)>2
-
+        
         volume = []
         for rf in self.bscan_filenames:
             temp = np.load(rf)
+            is_stack = len(temp.shape)>2
             temp = np.abs(temp)
             if is_stack:
                 temp = np.nanmean(temp,axis=M_SCAN_DIMENSION)
@@ -290,10 +291,33 @@ class Volume:
                 plt.pause(.1)
 
             volume.append(temp)
+            
         volume = np.array(volume,dtype=dtype)
         logging.info('Done; took %0.3f sec.'%tock(t0))
+        
         return volume
-    
+
+
+    def write_tiffs(self,output_directory,filename_format='bscan_%05d.tif'):
+        os.makedirs(output_directory,exist_ok=True)
+        
+        vol = self.get_volume()
+        sy,sz,sx = vol.shape
+        avol = np.abs(vol)
+        vmax = np.nanmax(avol)
+        vmin = np.nanmin(avol)
+
+        avol = (avol - vmin)/(vmax-vmin)*(2**16-1)
+        avol[np.isnan(avol)] = 0
+        avol = np.round(avol).astype(np.uint16)
+        for y in range(sy):
+            outfn = os.path.join(output_directory,filename_format%y)
+            imageio.imwrite(outfn,avol[y,:,:])
+            print('Writing TIFF to %s.'%outfn)
+
+        with open(os.path.join(output_directory,'raw_image_stats.txt'),'w') as fid:
+            fid.write('volume max: %0.3f\n'%vmax)
+            fid.write('volume min: %0.3f\n'%vmin)
         
     def get_volume(self,diagnostics=False):
         if self.hold_volume_in_ram:
