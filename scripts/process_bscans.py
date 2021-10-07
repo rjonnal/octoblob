@@ -118,4 +118,6 @@ def process(filename,diagnostics=diagnostics,show_processed_data=show_processed_
         if show_processed_data:
             plt.pause(.001)
 
-process(unp_filename)
+if __name__=='__main__':
+
+    process(unp_filename)
