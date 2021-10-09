@@ -342,13 +342,17 @@ class Volume:
                 return out_vol
 
     def move(self,shifts,boundaries,nxc_max=0.0):
+        if self.is_reference:
+            try:
+                assert not any(shifts)
+            except AssertionError:
+                logging.info('move: assertion error on reference')
+                return
         self.coordinates.move_y(shifts[0],boundaries)
         self.coordinates.move_z(shifts[1],boundaries)
         self.coordinates.move_x(shifts[2],boundaries)
         self.coordinates.set_correlation(nxc_max,boundaries)
         self.moved = True
-        if self.is_reference:
-            assert not any(shifts)
 
 
     def get_block(self,b,volume=None,diagnostics=False):
@@ -468,7 +472,10 @@ class Volume:
                 limited_coords.append(c)
 
         if self.is_reference:
-            assert not any(limited_coords)
+            try:
+                assert not any(limited_coords)
+            except AssertionError:
+                logging.info('Limited coords asertion error while registering %s to %s.'%(self.bscan_directory,reference_volume.bscan_directory))
 
         # old, buggy version:
         # self.move(limited_coords,boundaries,nxc_max)
@@ -488,11 +495,9 @@ class VolumeSeries:
     def __getitem__(self,n):
         return self.volumes[n]
 
-    def add(self,volume):
+    def add(self,volume,is_reference=False):
         
-        if len(self.volumes)==0:
-            volume.is_reference = True
-            
+        volume.is_reference = is_reference
         self.volumes.append(volume)
 
     def render(self,output_directory,diagnostics=False,display_function=lambda x: 20*np.log10(x),display_clim=None,make_bscan_flythrough=True,make_enface_flythrough=True):
@@ -515,7 +520,7 @@ class VolumeSeries:
         os.makedirs(diagnostics_directory,exist_ok=True)
 
 
-        n_slow, n_depth, n_fast = self.volumes[0].volume.shape
+        n_slow, n_depth, n_fast = self.volumes[0].get_volume().shape
         
         # find the maximum depth
         max_n_depth = np.max([v.n_depth for v in self.volumes])
@@ -684,6 +689,8 @@ class VolumeSeries:
                 plt.savefig(os.path.join(enface_png_directory,'enface_%05d.png'%k),dpi=save_dpi)
                 plt.pause(.000001)
             plt.close()
+
+        plt.close('all')
 
             
     def render0(self,output_directory,diagnostics=False,display_function=lambda x: 20*np.log10(x),display_clim=None,make_bscan_flythrough=True,make_enface_flythrough=True):
