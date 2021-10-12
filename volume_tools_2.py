@@ -1,0 +1,1118 @@
+import numpy as np
+from matplotlib import pyplot as plt
+import os,sys,glob
+import time
+import logging
+from .ticktock import tick, tock
+import scipy.ndimage as spn
+import imageio
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("debug.log"),
+        logging.StreamHandler()
+    ]
+)
+
+# for loading M-scan series as volumes, we average the abs along this dimension:
+M_SCAN_DIMENSION = 2
+screen_dpi = 100
+col_width_inches = 2.5
+row_height_inches = 2.5
+large_integer = 10000000000
+
+def norm(im):
+    return (im - np.nanmean(im)/np.nanstd(im))
+
+def gaussian_filter(shape,sigmas,diagnostics=False):
+    f = np.zeros(shape)
+    sy,sz,sx = shape
+    wy,wz,wx = sigmas
+    ZZ,YY,XX = np.meshgrid(np.arange(sz),np.arange(sy),np.arange(sx))
+    ZZ = ZZ - sz/2.0
+    YY = YY - sy/2.0
+    XX = XX - sx/2.0
+
+    zz = ZZ**2/(2*wz**2)
+    yy = YY**2/(2*wy**2)
+    xx = XX**2/(2*wx**2)
+    g = np.exp(-(xx+yy+zz))
+
+    if diagnostics:
+        plt.figure()
+        for k in range(sy):
+            plt.clf()
+            plt.imshow(g[k,:,:],clim=(g.min(),g.max()))
+            plt.colorbar()
+            plt.pause(.5)
+        plt.close()
+
+    g = np.fft.fftshift(g)
+    return g
+
+def rect_filter(shape,radii,diagnostics=False):
+    f = np.zeros(shape)
+    sy,sz,sx = shape
+    wy,wz,wx = radii
+    ZZ,YY,XX = np.meshgrid(np.arange(sz),np.arange(sy),np.arange(sx))
+    ZZ = ZZ - sz/2.0
+    YY = YY - sy/2.0
+    XX = XX - sx/2.0
+
+    zz = ZZ**2/(wz**2)
+    yy = YY**2/(wy**2)
+    xx = XX**2/(wx**2)
+
+    rad = np.sqrt(zz+yy+xx)
+    g = np.zeros(rad.shape)
+    g[rad<=1] = 1
+
+    if diagnostics:
+        plt.figure()
+        for k in range(sy):
+            plt.clf()
+            plt.imshow(g[k,:,:],clim=(g.min(),g.max()))
+            plt.colorbar()
+            plt.title('%s of %s'%(k+1,sy))
+            plt.pause(.1)
+        plt.close()
+
+    g = np.fft.fftshift(g)
+    return g
+
+
+def show3d(vol,mode='center',aspect='auto'):
+    sy,sz,sx = vol.shape
+    temp = np.abs(vol)
+    ncol,nrow = 3,1
+    plt.figure(figsize=(ncol*col_width_inches,nrow*row_height_inches),dpi=screen_dpi)
+    if mode=='center':
+        plt.subplot(1,3,1)
+        plt.imshow(temp[sy//2,:,:],cmap='gray',aspect=aspect)
+        plt.title('z-x')
+        plt.subplot(1,3,2)
+        plt.imshow(temp[:,sz//2,:],cmap='gray',aspect=aspect)
+        plt.title('y-x')
+        plt.subplot(1,3,3)
+        plt.imshow(temp[:,:,sx//2].T,cmap='gray',aspect=aspect)
+        plt.title('z-y')
+    elif mode=='average':
+        plt.subplot(1,3,1)
+        plt.imshow(temp.mean(0),cmap='gray',aspect=aspect)
+        plt.title('z-x')
+        plt.subplot(1,3,2)
+        plt.imshow(temp.mean(1),cmap='gray',aspect=aspect)
+        plt.title('y-x')
+        plt.subplot(1,3,3)
+        plt.imshow(temp.mean(2).T,cmap='gray',aspect=aspect)
+        plt.title('z-y')
+    elif mode=='max':
+        plt.subplot(1,3,1)
+        plt.imshow(np.max(temp,axis=0),cmap='gray',aspect=aspect)
+        plt.title('z-x')
+        plt.subplot(1,3,2)
+        plt.imshow(np.max(temp,axis=1),cmap='gray',aspect=aspect)
+        plt.title('y-x')
+        plt.subplot(1,3,3)
+        plt.imshow(np.max(temp,axis=2).T,cmap='gray',aspect=aspect)
+        plt.title('z-y')
+    elif mode=='nxc':
+        reg_coords = list(np.unravel_index(np.argmax(vol),vol.shape))
+        plt.subplot(1,3,1)
+        plt.imshow(temp[reg_coords[0],:,:],cmap='gray',aspect=aspect)
+        plt.plot(reg_coords[2],reg_coords[1],'g+')
+        plt.title('z-x')
+        plt.subplot(1,3,2)
+        plt.imshow(temp[:,reg_coords[1],:],cmap='gray',aspect=aspect)
+        plt.plot(reg_coords[2],reg_coords[0],'g+')
+        plt.title('y-x')
+        plt.subplot(1,3,3)
+        plt.imshow(temp[:,:,reg_coords[2]].T,cmap='gray',aspect=aspect)
+        plt.plot(reg_coords[0],reg_coords[1],'g+')
+        plt.title('z-y')
+        
+        
+        
+        
+
+def nxc3d(ref,tar,downsample=1,diagnostics=False,border_size=0):
+    #ref = norm(ref)
+    #tar = norm(tar)
+
+    pref = np.zeros(ref.shape,dtype=ref.dtype)
+    ptar = np.zeros(tar.shape,dtype=tar.dtype)
+
+    if border_size:
+        pref[border_size:-border_size,border_size:-border_size,border_size:-border_size] = ref[border_size:-border_size,border_size:-border_size,border_size:-border_size]
+        ptar[border_size:-border_size,border_size:-border_size,border_size:-border_size] = tar[border_size:-border_size,border_size:-border_size,border_size:-border_size]
+    else:
+        pref = ref
+        ptar = tar
+
+    if diagnostics:
+        show3d(pref)
+        show3d(ptar)
+        plt.show()
+        
+    # default behavior for NaN values:
+    pref[np.isnan(pref)] = 0.0
+    ptar[np.isnan(ptar)] = 0.0
+        
+    n_slow,n_depth,n_fast = pref.shape
+
+    logging.info('Registering volumes of shape %dx%dx%d (slow x depth x fast).'%(n_slow,n_depth,n_fast))
+    t0 = tick()
+    
+    # if diagnostics:
+    #     plt.figure()
+    #     plt.subplot(4,2,1)
+    #     plt.imshow(np.mean(np.abs(pref),axis=1))
+    #     plt.subplot(4,2,2)
+    #     plt.imshow(np.mean(np.abs(ptar),axis=1))
+    #     plt.subplot(4,2,5)
+    #     plt.imshow(np.mean(np.abs(pref),axis=0))
+    #     plt.subplot(4,2,6)
+    #     plt.imshow(np.mean(np.abs(ptar),axis=0))
+        
+    pref = pref[::downsample,::downsample,::downsample]
+    ptar = ptar[::downsample,::downsample,::downsample]
+
+    # if diagnostics:
+    #     plt.subplot(4,2,3)
+    #     plt.imshow(np.mean(np.abs(pref),axis=1))
+    #     plt.subplot(4,2,4)
+    #     plt.imshow(np.mean(np.abs(ptar),axis=1))
+    #     plt.subplot(4,2,7)
+    #     plt.imshow(np.mean(np.abs(pref),axis=0))
+    #     plt.subplot(4,2,8)
+    #     plt.imshow(np.mean(np.abs(ptar),axis=0))
+
+    
+    rsx,rsz,rsy = pref.shape
+    tsx,tsz,tsy = ptar.shape
+    
+    sx = max(rsx,tsx)
+    sz = max(rsz,tsz)
+    sy = max(rsy,tsy)
+    
+    t0 = tick()
+    s = (sx,sz,sy)
+    fref = np.fft.fftn(pref,s=s)
+    ftar = np.fft.fftn(ptar,s=s)
+    dt = tock(t0)
+    logging.info('Registration took %0.3f sec with downsampling of %d.'%(dt,downsample))
+    
+    return np.real(np.fft.ifftn(fref*np.conj(ftar)))
+
+
+class Coordinates:
+    """A Coordinates object keeps track of the 3D coordinates for each A-scan in a Volume object."""
+    def __init__(self,n_slow,n_depth,n_fast):
+        self.x,self.y = np.meshgrid(np.arange(n_fast),np.arange(n_slow))
+        self.z = np.zeros(self.x.shape,dtype=np.int)
+        self.sy,self.sx = self.z.shape
+        self.correlation = np.zeros(self.x.shape)
+        
+    def move_x(self,dx,boundaries):
+        self.x[boundaries.y1:boundaries.y2+1,boundaries.x1:boundaries.x2+1]+=dx
+
+    def move_y(self,dy,boundaries):
+        self.y[boundaries.y1:boundaries.y2+1,boundaries.x1:boundaries.x2+1]+=dy
+
+    def move_z(self,dz,boundaries):
+        self.z[boundaries.y1:boundaries.y2+1,boundaries.x1:boundaries.x2+1]+=dz
+
+    def set_correlation(self,nxc_max,boundaries):
+        self.correlation[boundaries.y1:boundaries.y2+1,boundaries.x1:boundaries.x2+1]=nxc_max
+
+class Boundaries:
+
+    def __init__(self,y1,y2,z1,z2,x1,x2):
+        sy = y2-y1
+        sz = z2-z1
+        sx = x2-x1
+        self.x1 = x1
+        self.x2 = x2
+        self.y1 = y1
+        self.y2 = y2
+        self.z1 = z1
+        self.z2 = z2
+        self.shape = (sy,sz,sx)
+        
+        
+class Volume:
+
+    def __init__(self,bscan_directory,cache=True,diagnostics=False,hold_volume_in_ram=True):
+        t0 = tick()
+        
+        self.bscan_directory = bscan_directory
+        self.bscan_filenames = sorted(glob.glob(os.path.join(self.bscan_directory,'*.npy')))
+
+        # determine volume shape from file list length and sample B-scan:
+        self.n_slow = len(self.bscan_filenames)
+        temp = np.load(self.bscan_filenames[0])
+        self.n_depth,self.n_fast = temp.shape
+
+        # set default coordinates:
+        self.coordinates = Coordinates(self.n_slow,self.n_depth,self.n_fast)
+
+        self.moved = False
+        
+        self.cache = cache
+        self.cache_dir = os.path.join(self.bscan_directory,'volume')
+        os.makedirs(self.cache_dir,exist_ok=True)
+
+        self.hold_volume_in_ram = hold_volume_in_ram
+        if self.hold_volume_in_ram:
+            self.volume = self.build_volume()
+
+        self.ac_max_dict = {}
+        self.is_reference = False
+
+    def build_volume(self,diagnostics=False):
+        t0 = tick()
+        logging.info('Building volume in %s.'%self.bscan_directory)
+        temp = np.load(self.bscan_filenames[0])
+        dtype = temp.dtype
+        
+        volume = []
+        for rf in self.bscan_filenames:
+            temp = np.load(rf)
+            is_stack = len(temp.shape)>2
+            temp = np.abs(temp)
+            if is_stack:
+                temp = np.nanmean(temp,axis=M_SCAN_DIMENSION)
+                
+            if diagnostics:
+                plt.cla()
+                plt.imshow(temp,cmap='gray')
+                plt.pause(.1)
+
+            volume.append(temp)
+            
+        volume = np.array(volume,dtype=dtype)
+        logging.info('Done; took %0.3f sec.'%tock(t0))
+        
+        return volume
+
+
+    def write_tiffs(self,output_directory,filename_format='bscan_%05d.tif'):
+        os.makedirs(output_directory,exist_ok=True)
+        
+        vol = self.get_volume()
+        sy,sz,sx = vol.shape
+        avol = np.abs(vol)
+        vmax = np.nanmax(avol)
+        vmin = np.nanmin(avol)
+
+        avol = (avol - vmin)/(vmax-vmin)*(2**16-1)
+        avol[np.isnan(avol)] = 0
+        avol = np.round(avol).astype(np.uint16)
+        for y in range(sy):
+            outfn = os.path.join(output_directory,filename_format%y)
+            imageio.imwrite(outfn,avol[y,:,:])
+            print('Writing TIFF to %s.'%outfn)
+
+        with open(os.path.join(output_directory,'raw_image_stats.txt'),'w') as fid:
+            fid.write('volume max: %0.3f\n'%vmax)
+            fid.write('volume min: %0.3f\n'%vmin)
+        
+    def get_volume(self,diagnostics=False):
+        if self.hold_volume_in_ram:
+            logging.info('get_volume returning volume in RAM.')
+            return self.volume
+        else:
+            if self.cache:
+                vol_fn = os.path.join(self.cache_dir,'volume.npy')
+
+                if os.path.exists(vol_fn):
+                    t0 = tick()
+                    out_vol = np.load(vol_fn)
+                    logging.info('Using cached version at %s; took %0.3f sec.'%(vol_fn,tock(t0)))
+                    return out_vol
+
+                else:
+                    out_vol = self.build_volume(diagnostics=diagnostics)
+                    np.save(vol_fn,out_vol)
+                    return out_vol
+            else:
+                out_vol = self.build_volume(diagnostics=diagnostics)
+                return out_vol
+
+    def move(self,shifts,boundaries,nxc_max=0.0):
+        if self.is_reference:
+            try:
+                assert not any(shifts)
+            except AssertionError:
+                logging.info('move: assertion error on reference')
+                return
+        self.coordinates.move_y(shifts[0],boundaries)
+        self.coordinates.move_z(shifts[1],boundaries)
+        self.coordinates.move_x(shifts[2],boundaries)
+        self.coordinates.set_correlation(nxc_max,boundaries)
+        self.moved = True
+
+
+    def get_block(self,b,volume=None,diagnostics=False):
+        # given reference boundaries b, return a subvolume of my volume
+        # using my coordinates, as well as the boundaries of that subvolume
+        # use case:
+        # The registration script will step through the reference coordinate system,
+        # e.g., by slices, using unshifted coordinates (e.g., bscans 0-9, 10-19, etc.).
+        # For each of these, it will create a boundary object, and pass it to this
+        # object. This object will then have to use its coordinates object to determine
+        # where to pull the block from.
+        # One problem is that the requested block may wind up being the wrong size, if
+        # this object's coordinates say so. For now, we'll arbitrarily pad or truncate
+        # the block to match the requested size, but this may have to be revisited later.
+        # (This may only happen if in a multiscale approach, the block size is increased.
+        # If the block size is always reduced, it shouldn't?)
+
+        t0 = tick()
+        xc = np.copy(self.coordinates.x)
+        yc = np.copy(self.coordinates.y)
+        zc = np.copy(self.coordinates.z)
+
+        if volume is None:
+            volume = self.get_volume()
+
+        # quickly check if this is a reference volume for quicker block assembly:
+        if not self.moved:
+            block = volume[b.y1:b.y2,b.z1:b.z2,b.x1:b.x2]
+            b_out = b
+        else:
+            xmin = large_integer
+            ymin = large_integer
+            zmin = large_integer
+            
+            xmax = -large_integer
+            ymax = -large_integer
+            zmax = -large_integer
+            
+            block = np.ones(b.shape,dtype=volume.dtype)*np.nan
+            # Ugh this is going to be so slow. I'm too stupid to vectorize it.
+            for yput in range(b.y1,b.y2):
+                for xput in range(b.x1,b.x2):
+                    yget,xget = np.where((xc==xput)*(yc==yput))
+                    if len(yget):
+                        yget = yget[0]
+                        xget = xget[0]
+                        ymin = min(yget,ymin)
+                        xmin = min(xget,xmin)
+                        ymax = max(yget,ymax)
+                        xmax = max(xget,xmax)
+                        
+                        zput1 = zc[yput,xput]
+                        zput2 = zput1+self.n_depth
+                        
+                        zget1 = 0
+                        zget2 = self.n_depth
+
+                        zmin = min(zget1,zmin)
+                        zmax = max(zget1,zmax)
+                        
+                        while zput1<0:
+                            zput1+=1
+                            zget1+=1
+                        while zput2>self.n_depth:
+                            zput2-=1
+                            zget2-=1
+                        block[yput-b.y1,zput1:zput2,xput-b.x1] = volume[yget,zget1:zget2,xget]
+            b_out = Boundaries(ymin,ymax,zmin,zmax,xmin,xmax)
+            
+                        
+        if diagnostics:
+            ncol,nrow=1,1
+            plt.figure(figsize=(ncol*col_width_inches,nrow*row_height_inches),dpi=screen_dpi)
+            plt.imshow(np.abs(block[b.shape[0]//2,:,:]))
+
+        t1 = tock(t0)
+        logging.info('get_block took %0.3f s'%t1)
+
+        return block,b_out
+
+    def register_to(self,reference_volume,boundaries,limits=(np.inf,np.inf,np.inf),downsample=1,diagnostics=False,border_size=0,nxc_filter=None):
+        
+        t0 = tick()
+        rvol,rbound = reference_volume.get_block(boundaries,diagnostics=diagnostics)
+        tvol,tbound = self.get_block(boundaries,diagnostics=diagnostics)
+
+        cache_directory = '.register_to_cache'
+        os.makedirs(cache_directory,exist_ok = True)
+
+        ac_max_key = '_'.join([str(s) for s in reference_volume.get_volume().shape])
+        try:
+            ac_max = self.ac_max_dict[ac_max_key]
+        except Exception as e:
+            nxc = nxc3d(rvol,rvol,downsample=downsample,border_size=border_size)
+            ac_max = nxc.max()
+            self.ac_max_dict[ac_max_key] = ac_max
+        
+        nxc = nxc3d(rvol,tvol,downsample=downsample,diagnostics=diagnostics,border_size=border_size)
+        if nxc_filter is not None:
+            nxc = nxc*nxc_filter
+        
+        reg_coords = list(np.unravel_index(np.argmax(nxc),nxc.shape))
+        nxc_max = np.max(nxc)
+        
+        for idx in range(len(nxc.shape)):
+            if reg_coords[idx]>nxc.shape[idx]//2:
+                reg_coords[idx] = reg_coords[idx]-nxc.shape[idx]
+
+
+        upsampled_reg_coords = [rc*downsample for rc in reg_coords]
+
+        limited_coords = []
+        for c,limit in zip(upsampled_reg_coords,limits):
+            if np.abs(c)>limit:
+                limited_coords.append(0)
+            else:
+                limited_coords.append(c)
+
+        if self.is_reference:
+            try:
+                assert not any(limited_coords)
+            except AssertionError:
+                logging.info('Limited coords asertion error while registering %s to %s.'%(self.bscan_directory,reference_volume.bscan_directory))
+
+        # old, buggy version:
+        # self.move(limited_coords,boundaries,nxc_max)
+
+        self.move(limited_coords,tbound,nxc_max)
+
+        t1 = tock(t0)
+        logging.info('register_to took %0.3f s; shifts were %d, %d, %d; nxc max %0.1f'%tuple([t1]+limited_coords+[np.max(nxc)/ac_max]))
+
+                
+class VolumeSeries:
+
+    def __init__(self,signal_function=np.abs):
+        self.volumes = []
+        self.signal_function = signal_function
+
+    def __getitem__(self,n):
+        return self.volumes[n]
+
+    def add(self,volume,is_reference=False):
+        
+        volume.is_reference = is_reference
+        self.volumes.append(volume)
+
+    def render(self,output_directory,diagnostics=False,display_function=lambda x: 20*np.log10(x),display_clim=None,make_bscan_flythrough=True,make_enface_flythrough=True):
+
+        os.makedirs(output_directory,exist_ok=True)
+
+        bscan_png_directory = os.path.join(output_directory,'bscans')
+        enface_png_directory = os.path.join(output_directory,'enface')
+        volume_directory = os.path.join(output_directory,'volumes')
+        info_directory = os.path.join(output_directory,'info')
+        diagnostics_directory = os.path.join(output_directory,'info')
+
+        if make_bscan_flythrough:
+            os.makedirs(bscan_png_directory,exist_ok=True)
+        if make_enface_flythrough:
+            os.makedirs(enface_png_directory,exist_ok=True)
+            
+        os.makedirs(volume_directory,exist_ok=True)
+        os.makedirs(info_directory,exist_ok=True)
+        os.makedirs(diagnostics_directory,exist_ok=True)
+
+
+        n_slow, n_depth, n_fast = self.volumes[0].get_volume().shape
+        
+        # find the maximum depth
+        max_n_depth = np.max([v.n_depth for v in self.volumes])
+
+        zmin = large_integer
+        for v in self.volumes:
+            #v.coordinates.z = -v.coordinates.z
+            
+            if v.coordinates.z.min()<zmin:
+                zmin = v.coordinates.z.min()
+
+        for v in self.volumes:
+            v.coordinates.z = v.coordinates.z - zmin
+        
+        # find the new max in z
+        zmax = -large_integer
+
+        for v in self.volumes:
+            if v.coordinates.z.max()>zmax:
+                zmax = v.coordinates.z.max()
+
+        sum_array = np.zeros((n_slow,zmax+max_n_depth,n_fast))
+        counter_array = np.zeros((n_slow,zmax+max_n_depth,n_fast))
+
+        y_slices = []
+        x_slices = []
+        z_slices = []
+        
+        for idx,v in enumerate(self.volumes):
+            temp = np.zeros(sum_array.shape,dtype=np.complex128)
+            vol = v.get_volume()
+            sy,sz,sx = vol.shape
+
+            # plt.figure()
+            # plt.imshow(v.coordinates.z,interpolation='none')
+            # plt.colorbar()
+            # plt.title(idx)
+            # plt.show()
+
+            
+            for y in range(sy):
+                for x in range(sx):
+                    ascan = vol[y,:,x]
+                    ypos = v.coordinates.y[y,x]
+                    xpos = v.coordinates.x[y,x]
+                    zpos = v.coordinates.z[y,x]
+
+                    if ypos>=0 and ypos<n_slow and xpos>=0 and xpos<n_fast:
+                        temp[ypos,zpos:zpos+sz,xpos]+=self.signal_function(ascan)
+                        counter_array[ypos,zpos:zpos+sz,xpos]+=1
+
+            np.save(os.path.join(volume_directory,'volume_%05d.npy'%idx),temp)
+            np.save(os.path.join(info_directory,'xcoord_%05d.npy'%idx),v.coordinates.x)
+            np.save(os.path.join(info_directory,'ycoord_%05d.npy'%idx),v.coordinates.y)
+            np.save(os.path.join(info_directory,'zcoord_%05d.npy'%idx),v.coordinates.z)
+            np.save(os.path.join(info_directory,'corr_%05d.npy'%idx),v.coordinates.correlation)
+
+            with open(os.path.join(info_directory,'bscan_source_%05d.txt'%idx),'w') as fid:
+                fid.write('%s\n'%v.bscan_directory)
+            
+            sum_array+=self.signal_function(temp)
+            # store some slices of temp for debugging:
+            temp = np.abs(temp)
+            
+            y_slices.append(temp[temp.shape[0]//2,:,:])
+            x_slices.append(temp[:,:,temp.shape[2]//2])
+            z_slices.append(temp[:,temp.shape[1]//2,:])
+                    
+        sum_array[counter_array==0]=np.nan
+        av = sum_array/counter_array
+
+        if diagnostics:
+            dB_clim = None#(40,80)
+            ncol,nrow = 3,1
+            for idx,(ys,zs,xs) in enumerate(zip(y_slices,z_slices,x_slices)):
+                plt.figure(figsize=(ncol*col_width_inches,nrow*row_height_inches),dpi=screen_dpi)
+                plt.suptitle('%s\nvolume %d'%(output_directory,idx))
+                plt.subplot(1,3,1)
+                plt.imshow(ys,cmap='gray',aspect='equal')
+                plt.title('z-x')
+                plt.subplot(1,3,2)
+                plt.imshow(zs,cmap='gray',aspect='equal')
+                plt.title('y-x')
+                plt.subplot(1,3,3)
+                plt.imshow(xs.T,cmap='gray',aspect='equal')
+                plt.title('z-y')
+                plt.savefig(os.path.join(diagnostics_directory,'single_volume_%05d_slices.png'%idx),dpi=150)
+
+            plt.figure(figsize=(ncol*col_width_inches,nrow*row_height_inches),dpi=screen_dpi)
+            plt.suptitle('%s\nfull volume projections'%output_directory)
+            plt.subplot(1,3,1)
+            plt.imshow(display_function(np.nanmean(av,0)),clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('z-x')
+            plt.subplot(1,3,2)
+            plt.imshow(display_function(np.nanmean(av,1)),clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('y-x')
+            plt.subplot(1,3,3)
+            plt.imshow(display_function(np.nanmean(av,2)).T,clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('z-y')
+            plt.savefig(os.path.join(diagnostics_directory,'average_volume_projections.png'),dpi=150)
+
+            
+            plt.figure(figsize=(ncol*col_width_inches,nrow*row_height_inches),dpi=screen_dpi)
+            plt.suptitle('%s\ncentral slices'%output_directory)
+            plt.subplot(1,3,1)
+            plt.imshow(display_function(av[av.shape[0]//2,:,:]),clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('z-x')
+            plt.subplot(1,3,2)
+            plt.imshow(display_function(av[:,av.shape[1]//2,:]),clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('y-x')
+            plt.subplot(1,3,3)
+            plt.imshow(display_function(av[:,:,av.shape[2]//2].T),clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('z-y')
+            plt.savefig(os.path.join(diagnostics_directory,'average_volume_slices.png'),dpi=150)
+
+        asy,asz,asx = av.shape
+        save_dpi = 100.0
+        fsz = asz/save_dpi
+        fsx = asx/save_dpi
+        plt.close('all')
+
+        valid_values = av[~np.isnan(av)]
+        valid_values = display_function(valid_values)
+
+        if display_clim is None:
+            display_clim = np.percentile(valid_values,(1,99.9))
+        
+        fsz = asz/save_dpi
+        fsx = asx/save_dpi
+        fig = plt.figure(figsize=(fsx,fsz),dpi=save_dpi*2)
+        ax = fig.add_axes([0,0,1,1])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        
+        if make_bscan_flythrough:
+            for k in range(asy):
+                frame = av[k,:,:]
+                frame[np.isnan(frame)] = display_clim[0]
+                frame = display_function(frame)
+                ax.clear()
+                ax.imshow(frame,cmap='gray',interpolation='none',clim=display_clim)
+                plt.savefig(os.path.join(bscan_png_directory,'bscan_%05d.png'%k),dpi=save_dpi)
+                plt.pause(.000001)
+            plt.close()
+
+        fsy = asy/save_dpi
+        fsx = asx/save_dpi
+        fig = plt.figure(figsize=(fsx,fsy),dpi=save_dpi*2)
+        ax = fig.add_axes([0,0,1,1])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        
+        if make_enface_flythrough:
+            for k in range(asz):
+                frame = av[:,k,:]
+                frame[np.isnan(frame)] = display_clim[0]
+                frame = display_function(frame)
+                ax.clear()
+                ax.imshow(frame,cmap='gray',interpolation='none',clim=display_clim)
+                plt.savefig(os.path.join(enface_png_directory,'enface_%05d.png'%k),dpi=save_dpi)
+                plt.pause(.000001)
+            plt.close()
+
+        plt.close('all')
+
+            
+    def render0(self,output_directory,diagnostics=False,display_function=lambda x: 20*np.log10(x),display_clim=None,make_bscan_flythrough=True,make_enface_flythrough=True):
+
+        os.makedirs(output_directory,exist_ok=True)
+
+        bscan_png_directory = os.path.join(output_directory,'bscans')
+        enface_png_directory = os.path.join(output_directory,'enface')
+        volume_directory = os.path.join(output_directory,'volumes')
+        info_directory = os.path.join(output_directory,'info')
+        diagnostics_directory = os.path.join(output_directory,'info')
+
+        if make_bscan_flythrough:
+            os.makedirs(bscan_png_directory,exist_ok=True)
+        if make_enface_flythrough:
+            os.makedirs(enface_png_directory,exist_ok=True)
+            
+        os.makedirs(volume_directory,exist_ok=True)
+        os.makedirs(info_directory,exist_ok=True)
+        os.makedirs(diagnostics_directory,exist_ok=True)
+
+
+        n_slow, n_depth, n_fast = self.volumes[0].volume.shape
+        
+        # find the maximum depth
+        max_n_depth = np.max([v.n_depth for v in self.volumes])
+
+        zmin = large_integer
+        for v in self.volumes:
+            if v.coordinates.z.min()<zmin:
+                zmin = v.coordinates.z.min()
+
+        for v in self.volumes:
+            v.coordinates.z = v.coordinates.z - zmin
+        
+        # find the new max in z
+        zmax = -large_integer
+
+        for v in self.volumes:
+            if v.coordinates.z.max()>zmax:
+                zmax = v.coordinates.z.max()
+
+        # something a little bit funky about initializing these: why
+        # is z different?
+        sum_array = np.zeros((n_slow,zmax+max_n_depth,n_fast))
+        counter_array = np.zeros((n_slow,zmax+max_n_depth,n_fast))
+
+        y_slices = []
+        x_slices = []
+        z_slices = []
+        
+        for idx,v in enumerate(self.volumes):
+            temp = np.zeros(sum_array.shape,dtype=np.complex128)
+            vol = v.get_volume()
+            sy,sz,sx = vol.shape
+
+            # plt.figure()
+            # plt.imshow(v.coordinates.z,interpolation='none')
+            # plt.colorbar()
+            # plt.title(idx)
+            # plt.show()
+
+            
+            for y in range(sy):
+                for x in range(sx):
+                    ascan = vol[y,:,x]
+                    ypos = v.coordinates.y[y,x]
+                    xpos = v.coordinates.x[y,x]
+                    zpos = v.coordinates.z[y,x]
+
+                    if ypos>=0 and ypos<n_slow and xpos>=0 and xpos<n_fast:
+                        temp[ypos,zpos:zpos+sz,xpos]+=self.signal_function(ascan)
+                        counter_array[ypos,zpos:zpos+sz,xpos]+=1
+
+            np.save(os.path.join(volume_directory,'volume_%05d.npy'%idx),temp)
+            np.save(os.path.join(info_directory,'xcoord_%05d.npy'%idx),v.coordinates.x)
+            np.save(os.path.join(info_directory,'ycoord_%05d.npy'%idx),v.coordinates.y)
+            np.save(os.path.join(info_directory,'zcoord_%05d.npy'%idx),v.coordinates.z)
+            np.save(os.path.join(info_directory,'corr_%05d.npy'%idx),v.coordinates.correlation)
+
+            with open(os.path.join(info_directory,'bscan_source_%05d.txt'%idx),'w') as fid:
+                fid.write('%s\n'%v.bscan_directory)
+            
+            sum_array+=self.signal_function(temp)
+            # store some slices of temp for debugging:
+            temp = np.abs(temp)
+            
+            y_slices.append(temp[temp.shape[0]//2,:,:])
+            x_slices.append(temp[:,:,temp.shape[2]//2])
+            z_slices.append(temp[:,temp.shape[1]//2,:])
+                    
+        sum_array[counter_array==0]=np.nan
+        av = sum_array/counter_array
+
+        if diagnostics:
+            dB_clim = None#(40,80)
+            ncol,nrow = 3,1
+            for idx,(ys,zs,xs) in enumerate(zip(y_slices,z_slices,x_slices)):
+                plt.figure(figsize=(ncol*col_width_inches,nrow*row_height_inches),dpi=screen_dpi)
+                plt.suptitle('%s\nvolume %d'%(output_directory,idx))
+                plt.subplot(1,3,1)
+                plt.imshow(ys,cmap='gray',aspect='equal')
+                plt.title('z-x')
+                plt.subplot(1,3,2)
+                plt.imshow(zs,cmap='gray',aspect='equal')
+                plt.title('y-x')
+                plt.subplot(1,3,3)
+                plt.imshow(xs.T,cmap='gray',aspect='equal')
+                plt.title('z-y')
+                plt.savefig(os.path.join(diagnostics_directory,'single_volume_%05d_slices.png'%idx),dpi=150)
+
+            plt.figure(figsize=(ncol*col_width_inches,nrow*row_height_inches),dpi=screen_dpi)
+            plt.suptitle('%s\nfull volume projections'%output_directory)
+            plt.subplot(1,3,1)
+            plt.imshow(display_function(np.nanmean(av,0)),clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('z-x')
+            plt.subplot(1,3,2)
+            plt.imshow(display_function(np.nanmean(av,1)),clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('y-x')
+            plt.subplot(1,3,3)
+            plt.imshow(display_function(np.nanmean(av,2)).T,clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('z-y')
+            plt.savefig(os.path.join(diagnostics_directory,'average_volume_projections.png'),dpi=150)
+
+            
+            plt.figure(figsize=(ncol*col_width_inches,nrow*row_height_inches),dpi=screen_dpi)
+            plt.suptitle('%s\ncentral slices'%output_directory)
+            plt.subplot(1,3,1)
+            plt.imshow(display_function(av[av.shape[0]//2,:,:]),clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('z-x')
+            plt.subplot(1,3,2)
+            plt.imshow(display_function(av[:,av.shape[1]//2,:]),clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('y-x')
+            plt.subplot(1,3,3)
+            plt.imshow(display_function(av[:,:,av.shape[2]//2].T),clim=display_clim,aspect='equal',cmap='gray')
+            plt.colorbar()
+            plt.title('z-y')
+            plt.savefig(os.path.join(diagnostics_directory,'average_volume_slices.png'),dpi=150)
+
+        asy,asz,asx = av.shape
+        save_dpi = 100.0
+        fsz = asz/save_dpi
+        fsx = asx/save_dpi
+        plt.close('all')
+
+        valid_values = av[~np.isnan(av)]
+        valid_values = display_function(valid_values)
+
+        if display_clim is None:
+            display_clim = np.percentile(valid_values,(1,99.9))
+        
+        fsz = asz/save_dpi
+        fsx = asx/save_dpi
+        fig = plt.figure(figsize=(fsx,fsz),dpi=save_dpi*2)
+        ax = fig.add_axes([0,0,1,1])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        
+        if make_bscan_flythrough:
+            for k in range(asy):
+                frame = av[k,:,:]
+                frame[np.isnan(frame)] = display_clim[0]
+                frame = display_function(frame)
+                ax.clear()
+                ax.imshow(frame,cmap='gray',interpolation='none',clim=display_clim)
+                plt.savefig(os.path.join(bscan_png_directory,'bscan_%05d.png'%k),dpi=save_dpi)
+                plt.pause(.000001)
+            plt.close()
+
+        fsy = asy/save_dpi
+        fsx = asx/save_dpi
+        fig = plt.figure(figsize=(fsx,fsy),dpi=save_dpi*2)
+        ax = fig.add_axes([0,0,1,1])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        
+        if make_enface_flythrough:
+            for k in range(asz):
+                frame = av[:,k,:]
+                frame[np.isnan(frame)] = display_clim[0]
+                frame = display_function(frame)
+                ax.clear()
+                ax.imshow(frame,cmap='gray',interpolation='none',clim=display_clim)
+                plt.savefig(os.path.join(enface_png_directory,'enface_%05d.png'%k),dpi=save_dpi)
+                plt.pause(.000001)
+            plt.close()
+
+class SyntheticVolume:
+
+    def __init__(self,n_slow,n_depth,n_fast,diagnostics=False,sphere_diameter=11,motion=None,rpower=10000,regular=False,plane_thickness=0):
+        # rpower: higher numbers = sparser objects 50000 creates just a few
+        self.dzf = 0.0
+        self.dyf = 0.0
+        self.dxf = 0.0
+        
+        self.dz = 0
+        self.dy = 0
+        self.dx = 0
+
+        self.zstd = 0.03
+        self.ystd = 0.02
+        self.xstd = 0.03
+
+        self.motion = motion
+        
+        self.n_fast = n_fast
+        self.n_slow = n_slow
+        self.n_depth = n_depth
+        
+        self.yscanner = 0
+        self.xscanner = 0
+        
+        cache_dir = '.synthetic_volume_cache'
+        os.makedirs(cache_dir,exist_ok=True)
+
+        if regular:
+            regstring = '_reg'
+        else:
+            regstring = '_rand'
+        
+        cache_fn = os.path.join(cache_dir,'%d_%d_%d_synthetic_source_%d%s_%d_%d.npy'%(n_slow,n_depth,n_fast,rpower,regstring,sphere_diameter,plane_thickness))
+
+        try:
+            self.source = np.load(cache_fn)
+        except FileNotFoundError:
+            source_dims = (n_slow*2,n_depth*2,n_fast*2)
+
+            self.source = np.random.random(source_dims)**rpower
+            self.source[np.where(self.source<0.5)] = 0
+            self.source[np.where(self.source)] = 1
+
+            layer_thickness = 10
+            for z in range(0,n_depth*2,layer_thickness*2):
+                self.source[:,z:z+layer_thickness,:] = 0
+
+            #sphere_diameter = 11
+            sphere = np.zeros((sphere_diameter,sphere_diameter,sphere_diameter))
+            XX,YY,ZZ = np.meshgrid(np.arange(sphere_diameter),np.arange(sphere_diameter),np.arange(sphere_diameter))
+            v = -1
+            XX = XX-(sphere_diameter+v)/2.0
+            YY = YY-(sphere_diameter+v)/2.0
+            ZZ = ZZ-(sphere_diameter+v)/2.0
+            rad = np.sqrt(XX**2+YY**2+ZZ**2)
+            sphere[rad<sphere_diameter/2-1] = 1
+
+            self.source = spn.convolve(self.source,sphere)
+            self.source = (self.source-np.min(self.source))/(np.max(self.source)-np.min(self.source))
+
+            peak = 6000.0
+            
+            self.source = self.source*peak
+            
+            noise = np.random.standard_normal(source_dims)*np.sqrt(peak)+5*np.sqrt(peak)
+            self.source = self.source + noise
+            self.source[self.source<=1] = 1.0
+
+            if plane_thickness:
+                self.source[:,n_depth:n_depth+plane_thickness,:] = peak
+            
+            np.save(cache_fn,self.source)
+        
+        if diagnostics:
+            for k in range(self.source.shape[0]):
+                plt.cla()
+                plt.imshow(np.abs(self.source[k,:,:]))
+                plt.title(k)
+                plt.pause(.00001)
+            plt.close()
+        
+        #self.history = [(self.dy,self.dz,self.dx)]
+        self.history = []
+        self.scanner_history = []
+        
+    def step(self,volume_rigid=False,bscan_rigid=False,motion_factor=1.0,reference_rigid=False):
+
+        self.history.append((self.dy,self.dz,self.dx))
+        self.scanner_history.append(np.sqrt(self.yscanner**2+self.xscanner**2))
+
+        if reference_rigid and len(self.history)<self.n_slow*self.n_fast:
+            reference_rigid_factor = 0.0
+        else:
+            reference_rigid_factor = 1.0
+        
+        if self.motion is None:
+            self.dzf = self.dzf + np.random.randn()*self.zstd*motion_factor*reference_rigid_factor
+            self.dyf = self.dyf + np.random.randn()*self.ystd*motion_factor*reference_rigid_factor
+            self.dxf = self.dxf + np.random.randn()*self.xstd*motion_factor*reference_rigid_factor
+
+            limit = 10
+
+            if np.abs(self.dzf)>limit:
+                self.dzf = 0.0
+            if np.abs(self.dxf)>limit:
+                self.dxf = 0.0
+            if np.abs(self.dyf)>limit:
+                self.dyf = 0.0
+
+        else:
+            self.dzf = self.dzf + self.motion[1]
+            self.dyf = self.dyf + self.motion[0]
+            self.dxf = self.dxf + self.motion[2]
+
+        #if not volume_rigid or (self.xscanner==(self.n_fast-1) and self.yscanner==(self.n_slow-1)):
+
+        make_move = False
+        if not bscan_rigid and not volume_rigid:
+            make_move = True
+        elif not bscan_rigid and volume_rigid:
+            sys.exit('bscan_rigid is False but volume_rigid is True--inconsistent.')
+        elif bscan_rigid and not volume_rigid:
+            make_move = self.xscanner==0
+        elif bscan_rigid and volume_rigid:
+            make_move = (self.xscanner==0 and self.yscanner==0)
+        else:
+            sys.exit('something bad has happened.')
+        
+        if make_move:
+            self.dz = int(round(self.dzf))
+            self.dy = int(round(self.dyf))
+            self.dx = int(round(self.dxf))
+            
+        self.xscanner = (self.xscanner+1)%self.n_fast
+        if self.xscanner==0:
+            self.yscanner = (self.yscanner+1)%self.n_slow
+        
+
+
+    def get_bscan(self,diagnostics=False,volume_rigid=False,bscan_rigid=False,motion_factor=1.0,reference_rigid=False):
+        ascans = []
+            
+        for k in range(self.n_fast):
+            self.step(volume_rigid=volume_rigid,bscan_rigid=bscan_rigid,motion_factor=motion_factor,reference_rigid=reference_rigid)
+            x = (self.xscanner-self.n_fast//2)+self.source.shape[2]//2+self.dx
+            y = (self.yscanner-self.n_slow//2)+self.source.shape[0]//2+self.dy
+            z1 = -self.n_depth//2+self.source.shape[1]//2+self.dz
+            z2 = z1+self.n_depth
+            ascans.append(self.source[y,z1:z2,x])
+            
+        bscan = np.array(ascans).T
+        logging.info('xscanner: %d, yscanner: %d, dx: %d, dy: %d, dz: %d'%(self.xscanner,self.yscanner,self.dx,self.dy,self.dz))
+        if diagnostics:
+            plt.cla()
+            plt.imshow(np.abs(bscan))
+            plt.pause(.001)
+        return bscan
+        
+
+    def plot_history(self):
+        t = np.arange(len(self.history))
+        y = [tup[0] for tup in self.history]
+        z = [tup[1] for tup in self.history]
+        x = [tup[2] for tup in self.history]
+        scanner_zeros = np.where(np.array(self.scanner_history)==0)[0]
+        
+        plt.figure(figsize=(3*col_width_inches,row_height_inches),dpi=screen_dpi)
+        plt.subplot(1,3,1)
+        plt.plot(t,y)
+        for scanner_zero in scanner_zeros:
+            plt.axvline(scanner_zero,color='r')
+        plt.xlabel('time')
+        plt.ylabel('y')
+        plt.subplot(1,3,2)
+        plt.plot(t,z)
+        for scanner_zero in scanner_zeros:
+            plt.axvline(scanner_zero,color='r')
+        plt.xlabel('time')
+        plt.ylabel('z')
+        plt.subplot(1,3,3)
+        plt.plot(t,x)
+        for scanner_zero in scanner_zeros:
+            plt.axvline(scanner_zero,color='r')
+        plt.xlabel('time')
+        plt.ylabel('x')
+
+
+        
+    def save_volume(self,directory_name,diagnostics=False,volume_rigid=False,bscan_rigid=False,motion_factor=1.0,reference_rigid=False):
+        os.makedirs(directory_name,exist_ok=True)
+        for k in range(self.n_slow):
+            outfn = os.path.join(directory_name,'complex_bscan_stack_%05d.npy'%k)
+            np.save(outfn,self.get_bscan(diagnostics,volume_rigid=volume_rigid,
+                                         bscan_rigid=bscan_rigid,motion_factor=motion_factor,
+                                         reference_rigid=reference_rigid))
+            logging.info('Saving B-scan %d to %s.'%(k,outfn))
+
+    def save_volumes(self,directory_root,n,diagnostics=False,volume_rigid=False,bscan_rigid=False,motion_factor=1.0,reference_rigid=False):
+        for k in range(n):
+            self.save_volume('%s_%03d'%(directory_root,k),diagnostics,volume_rigid=volume_rigid,bscan_rigid=bscan_rigid,motion_factor=motion_factor,reference_rigid=reference_rigid)
+        info_directory = os.path.join(os.path.split(directory_root)[0],'info')
+        os.makedirs(info_directory,exist_ok=True)
+        self.plot_history()
+        plt.savefig(os.path.join(info_directory,'eye_movements.png'),dpi=300)
+        np.save(os.path.join(info_directory,'eye_movements.npy'),np.array(self.history))
+
+def make_simple_volume_series(folder_name):
+    sx = 7
+    sy = 6
+    sz = 5
+
+    x,y,z = 2,1,1
+    width = 1
+
+    n_vol = 3
+
+    src = np.random.random((sy,sz,sx))*100
+
+    for v in range(n_vol):
+        out = np.copy(src)
+        out[y+v:y+v+width,z+v:z+v+width,x+v:x+v+width] = 1000
+        out_folder = os.path.join(folder_name,'synthetic_%02d'%v)
+        os.makedirs(out_folder,exist_ok=True)
+        for ny in range(sy):
+            bscan = out[ny,:,:].astype(np.complex128)
+            plt.cla()
+            plt.imshow(np.abs(bscan),clim=(0,5000))
+            plt.title('%d, %d'%(v,ny))
+            plt.pause(.1)
+            outfn = os.path.join(out_folder,'complex_bscan_stack_%05d.npy'%ny)
+            np.save(outfn,bscan)
+            
