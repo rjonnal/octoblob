@@ -58,6 +58,39 @@ python project_enface_dB.py data_bscans/flattened/ 0 3 45 75 1 1 100
 # the way we ran it, it will automatically (auto) generate projections of thickness 3 (z1, z2), scaled between 45 and 75 dB (dB min, dB max), including axial profile plots (plot axial profile), with an output dpi of 100 (dpi)
 ```
 
+#### ORG block phase analysis
+
+Assuming you have three trials called ```1_1_1_bscans```, ```1_1_2_bscans```, and ```1_1_3_bscans```:
+
+Crop them together, so that they're roughly aligned. First:
+
+```python crop_volumes.py *_bscans```
+
+Look at the resulting plots. If everything looks ok, do this:
+
+```python crop_volumes.py *_bscans write```
+
+This will create subfolders in each folder called ```cropped```.
+
+Next:
+
+```python 
+python org_flash_block_analysis.py 1_1_1_bscans/cropped
+python org_flash_block_analysis.py 1_1_2_bscans/cropped
+python org_flash_block_analysis.py 1_1_3_bscans/cropped
+```
+
+This step will take a while. Lastly:
+
+```python
+python org_flash_block_make_figures.py 1_1_1_bscans/cropped/phase_ramps_007ms_npy
+python org_flash_block_make_figures.py 1_1_2_bscans/cropped/phase_ramps_007ms_npy
+python org_flash_block_make_figures.py 1_1_3_bscans/cropped/phase_ramps_007ms_npy
+```
+
+These steps will create a folder ```org_block_figures``` and save the resulting plots in there.
+
+
 
 ### Part 1: generic OCT post-processing
 
@@ -194,7 +227,9 @@ To generate complex-valued ```.npy``` B-scan files, PNG files, and diagnostics:
 
 #### Preliminaries: aligning and cropping the B-scan series
 
+#### Aligning B-scans
 
+#### Cropping B-scans
 
 This script moves through the processed B-scans in overlapping blocks, e.g. frames 0-4, 1-5, 2-6, etc.. In each block, the frames are rigid-body registered, bulk-phase corrected to the first B-scan in the block, and then the phase change over the block is computed for each pixel. Two thresholds have to be set, for bulk-motion correction and computing the signal. Both are expressed as fractions of the B-scan's maximum amplitude. More pixels should be used for histogram-based bulk motion correction (i.e., higher threshold) than phase ramp computation.
 
