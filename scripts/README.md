@@ -222,5 +222,5 @@ block_filter_sigma_list = [10.0,5.0,2.0]
 
 The principle of the 
 
-![](figures/conventional_org_block_method.png)
+![](figures/conventional_org_block_method_50.png)
 
