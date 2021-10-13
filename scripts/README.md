@@ -199,10 +199,6 @@ block_size = 5
 histogram_threshold_fraction = 0.2
 signal_threshold_fraction = 0.05
 ```
-To run the phase analysis, pass the folder containing the B-scans to the script:
-
-```python phase_analysis.py data/oct_test_set_bscans```
-
 ### Part 3: Volumetric registration and averaging
 
 1. Run ```flatten_volume.py folder_name``` on all the volume folders to be registered. This will create subfolders called ```flattened``` within those folders.
@@ -221,3 +217,10 @@ block_downsample_list = [5,2,1]
 block_filter_sigma_list = [10.0,5.0,2.0]
 ##############################################################################
 ```
+
+### Block-based ORG analysis (single flash)
+
+The principle of the 
+
+![](figures/conventional_org_block_method.png)
+
