@@ -186,9 +186,15 @@ To generate complex-valued ```.npy``` B-scan files, PNG files, and diagnostics:
 
 ```python process_bscans.py data/oct_test_set.unp diagnostics show```
 
-### Part 2: analyzing phase changes
+### Block-based ORG analysis (single flash)
 
-#### Phase analysis of B-scans
+#### Analytical approach for block-based analysis
+
+![](figures/conventional_org_block_method_25.png)
+
+#### Preliminaries: aligning and cropping the B-scan series
+
+
 
 This script moves through the processed B-scans in overlapping blocks, e.g. frames 0-4, 1-5, 2-6, etc.. In each block, the frames are rigid-body registered, bulk-phase corrected to the first B-scan in the block, and then the phase change over the block is computed for each pixel. Two thresholds have to be set, for bulk-motion correction and computing the signal. Both are expressed as fractions of the B-scan's maximum amplitude. More pixels should be used for histogram-based bulk motion correction (i.e., higher threshold) than phase ramp computation.
 
@@ -199,7 +205,9 @@ block_size = 5
 histogram_threshold_fraction = 0.2
 signal_threshold_fraction = 0.05
 ```
-### Part 3: Volumetric registration and averaging
+
+
+### Volumetric registration and averaging
 
 1. Run ```flatten_volume.py folder_name``` on all the volume folders to be registered. This will create subfolders called ```flattened``` within those folders.
 2. Edit ```crop_volumes.py```, modifying ```folder_list``` to contain the ```flattened``` folders created in step 1, and then run ```python crop_volumes.py```. This will create subfolders called ```cropped``` within the ```flattened``` folders.
@@ -218,9 +226,6 @@ block_filter_sigma_list = [10.0,5.0,2.0]
 ##############################################################################
 ```
 
-### Block-based ORG analysis (single flash)
 
-The principle of the 
 
-![](figures/conventional_org_block_method_25.png)
 
