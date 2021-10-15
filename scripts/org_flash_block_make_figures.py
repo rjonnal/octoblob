@@ -23,6 +23,8 @@ peak_labels = ['ISOS','COST','RPE']
 layer_differences = [('COST','ISOS'),('RPE','ISOS')]
 stim_start = 1
 stim_end = 3
+flatten = True # flatten B-scans using 1D A-scan registration
+flattening_averaging_width = 5 # number of A-scans to average for flattening
 
 ###### Plotting parameters ######
 mscan_figure_size = (3.75,2.25)
@@ -271,6 +273,7 @@ dz = 2.5
 z = np.arange(sz)
 stim_idx = np.argmin(np.abs(t))
 
+
 def linereg(a,b,mask=None):
     if mask is None:
         mask = np.ones(a.shape)
@@ -281,7 +284,7 @@ def linereg(a,b,mask=None):
     p = np.argmax(xc)
     if p>len(a)//2:
         p = p - len(a)
-    return a,np.roll(b,p)
+    return p
 
 
 def get_peak_dict(prof):
@@ -296,14 +299,50 @@ def get_peak_dict(prof):
             d[peak_labels[idx]] = peak
         except:
             d['peak_%d'%idx] = peak
+    for pl in peak_labels:
+        if not pl in d.keys():
+            d[pl] = 0
     return d
 
 
+def get_contour(b):
+    hw = (flattening_averaging_width-1)//2
+    sy,sx = b.shape
+    out = []
+    ref = b[:,sx//2-hw:sx//2+hw].mean(axis=1)
+    for x in range(sx):
+        x1 = x-hw
+        x2 = x+hw+1
+        while x1<0:
+            x1+=1
+        while x2>=sx:
+            x2-=1
+        p = linereg(ref,b[:,x1:x2].mean(1))
+        out.append(p)
+    out = np.array(out)
+    out = sps.medfilt(out,3)
+    return np.round(out).astype(np.int)
+
+def roll_block(block,contour):
+    sy,sz,sx = block.shape
+    assert(len(contour)==sx)
+    for x in range(sx):
+        block[:,:,x] = np.roll(block[:,:,x],contour[x])
+    return block
+    
 # plot profile, threshold, and labels
+
+if flatten:
+    contour_amp = np.nanmean(amp_block[stim_idx-20:stim_idx+20,:,:],axis=0)
+    contour = get_contour(contour_amp)
+    amp_block = roll_block(amp_block,contour)
+    phase_slope_block = roll_block(phase_slope_block,contour)
+
 peri_stim_amp = np.nanmean(amp_block[stim_idx-20:stim_idx+20,:,:],axis=0)
 prof = np.nanmean(peri_stim_amp,axis=1)
 peak_dict = get_peak_dict(prof)
 mask = make_mask(peri_stim_amp)
+
 pre_stim_phase = np.nanmean(phase_slope_block[stim_idx-10:stim_idx-1,:,:],axis=0)*mask
 post_stim_phase = np.nanmean(phase_slope_block[stim_idx+stim_start:stim_idx+stim_end,:,:],axis=0)*mask
 
@@ -367,6 +406,7 @@ savefig('bscans')
 
 amp_m = np.nanmean(amp_block[:,:,stimulated_region_start:stimulated_region_end],axis=2).T
 phase_m = np.nanmean(phase_slope_block[:,:,stimulated_region_start:stimulated_region_end],axis=2).T
+
 phase_m[:,:15] = np.nan
 
 #for y in range(sy):

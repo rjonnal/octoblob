@@ -67,7 +67,7 @@ for idx,(folder,tar,bscan,dB_bscan) in enumerate(zip(folder_list,profs,bscans,dB
 
     shift = np.argmax(nxc)
     if shift>len(nxc)//2:
-        shift = shift+len(nxc)
+        shift = shift-len(nxc)
     print(shift)
 
     tz1 = rz1+shift

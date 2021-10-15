@@ -39,8 +39,11 @@ def preliminary_visualizations(filename):
     test_uncropped = src_uncropped.get_frame(0).astype(np.float)
     
     plt.figure()
+    plt.subplot(1,2,1)
     plt.imshow(test_uncropped,aspect='auto')
-    plt.title('Uncropped spectra. Note approximate location (row) of FBG trough (or None), \ndesired rows of spectrum_start and spectrum_end.')
+    plt.subplot(1,2,2)
+    plt.plot(test_uncropped.mean(1))
+    plt.suptitle('Uncropped spectra. Note approximate location (row) of FBG trough (or None), \ndesired rows of spectrum_start and spectrum_end.')
 
     try:
         src_cropped = blob.OCTRawData(filename,n_vol,n_slow,n_fast,n_depth,n_repeats,fbg_position=None,bit_shift_right=params.bit_shift_right,dtype=params.dtype,spectrum_start=params.spectrum_start,spectrum_end=params.spectrum_end)
@@ -53,8 +56,11 @@ def preliminary_visualizations(filename):
 
     
     plt.figure()
+    plt.subplot(1,2,1)
     plt.imshow(test_cropped,aspect='auto')
-    plt.title('Cropped spectra. Used to generate B-scan in Fig. 3.')
+    plt.subplot(1,2,2)
+    plt.plot(test_cropped.mean(1))
+    plt.suptitle('Cropped spectra. Used to generate B-scan in Fig. 3.')
 
 
     # load and average a sample of of spectra, so axial eye movements are evident:
