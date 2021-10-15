@@ -431,7 +431,7 @@ class Volume:
         os.makedirs(rcache,exist_ok=True)
 
         pair_id = reference_volume.unique_id+'_'+self.unique_id
-        cache_fn = os.path.join(rcache,'reg_info_%s.npy'%pair_id)
+        cache_fn = os.path.join(rcache,'reg_info_%s_%d.npy'%(pair_id,sigma))
         
         #self.flythrough(0)
         #self.flythrough(1)

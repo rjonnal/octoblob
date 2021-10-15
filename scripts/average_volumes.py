@@ -22,7 +22,7 @@ resampling = 1.0
 # i.e., if resampling is 2.0 and sigma is 10, the resulting
 # gaussian window would have a width of 20; this is designed to
 # avoid having to change sigma when resampling is changed
-sigma = 10
+sigma = 3
 
 
 def usage():
