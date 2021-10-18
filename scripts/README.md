@@ -72,12 +72,12 @@ Look at the resulting plots. If everything looks ok, do this:
 
 This will create subfolders in each folder called ```cropped```.
 
-Next:
+Next, run the block analysis on each of the sets. **Important: the next step, org_flash_block_make_figures.py, assumes that you have processed only blocks 50 through 150, so those must be specified at the command line.**
 
 ```python 
-python org_flash_block_analysis.py 1_1_1_bscans/cropped
-python org_flash_block_analysis.py 1_1_2_bscans/cropped
-python org_flash_block_analysis.py 1_1_3_bscans/cropped
+python org_flash_block_analysis.py 1_1_1_bscans/cropped 50 150
+python org_flash_block_analysis.py 1_1_2_bscans/cropped 50 150
+python org_flash_block_analysis.py 1_1_3_bscans/cropped 50 150
 ```
 
 This step will take a while. Lastly:
@@ -90,6 +90,18 @@ python org_flash_block_make_figures.py 1_1_3_bscans/cropped/phase_ramps_007ms_np
 
 These steps will create a folder ```org_block_figures``` and save the resulting plots in there.
 
+#### Complete workflow for ORG block phase analysis
+
+```python
+python parameters_helper 16_25_04.unp
+python parameters_helper 16_25_04.unp # have to run this twice to determine B-scan cropping params
+python mapping_dispersion_optimizer.py 16_25_04.unp 
+python process_bscans.py 16_25_04.unp 
+python crop_volumes.py 16_25_04_bscans/
+python crop_volumes.py 16_25_04_bscans/ write
+python org_flash_block_analysis.py 16_25_04_bscans/cropped/ 50 150
+python org_flash_block_make_figures.py 16_25_04_bscans/cropped/phase_ramps_007ms_npy/
+```
 
 
 ### Part 1: generic OCT post-processing

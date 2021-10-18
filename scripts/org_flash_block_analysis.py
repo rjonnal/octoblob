@@ -28,7 +28,6 @@ theta_bin_min = -80
 theta_bin_max = 80
 theta_bin_step = (theta_bin_max-theta_bin_min)/20.0
 
-
 # the duration over which we assume the retina is stationary (in seconds)
 stationary_duration_default = 0.0075
 testing = False
@@ -44,15 +43,23 @@ def nm_to_phase(nm):
 
 print(nm_to_phase(5000)/(np.pi))
 
+def usage():
+    print('Usage:')
+    print('\t python org_flash_block_analysis.py path/to/phase_ramp_npy start_index end_index')
+
 # setup parameters
-bscan_folder = sys.argv[1]
+try:
+    bscan_folder = sys.argv[1]
+except IndexError:
+    usage()
+    sys.exit()
 
 try:
     block_start = int(sys.argv[2])
     n_files = int(sys.argv[3])
-except:
-    block_start = None
-    n_files = None
+except IndexError:
+    usage()
+    sys.exit()
 
 try:
     stationary_duration = float(sys.argv[4])
@@ -80,7 +87,6 @@ diagnostics = 'diagnostics' in flags
 if diagnostics:
     diagnostics_directory = bscan_folder.replace('_bscans','')+'_diagnostics'
     os.makedirs(diagnostics_directory,exist_ok=True)
-
 
 found_xml = False
 temp = bscan_folder
@@ -203,7 +209,7 @@ hist_max = 0
 while temp_block_start+block_size<=n_files:
     files = flist[temp_block_start:temp_block_start+block_size]
     ref = get_oversampled_file(files[0],oversample_factor,oversampled_dict)
-    
+
     block = [ref]
     for tar_idx in range(1,block_size):
         tar = get_oversampled_file(files[tar_idx],oversample_factor,oversampled_dict)

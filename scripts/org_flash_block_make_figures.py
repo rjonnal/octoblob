@@ -56,10 +56,16 @@ def make_tag(path):
 folder = sys.argv[1].strip('/')
 output_folder = 'org_block_figures'
 
+tag = make_tag(folder)
+flist = sorted(glob.glob(os.path.join(folder,'phase_ramp*.npy')))
+
+
 try:
-    tag = sys.argv[2]
+    start_index = int(sys.argv[2])
+    end_index = int(sys.argv[3])
 except:
-    tag = make_tag(folder)
+    start_index = 0
+    end_index = len(flist)
 
 os.makedirs(output_folder,exist_ok=True)
 def savefig(fn):
@@ -220,8 +226,6 @@ def oversample_and_align(m,factor=5):
     return out
 
 
-flist = sorted(glob.glob(os.path.join(folder,'phase_ramp*.npy')))
-
 z_pos = []
 
 mscan_xlim = (-100,75)
@@ -321,6 +325,8 @@ def get_contour(b):
         out.append(p)
     out = np.array(out)
     out = sps.medfilt(out,3)
+    x = np.arange(len(out))
+    out = np.polyval(np.polyfit(x,out,1),x)
     return np.round(out).astype(np.int)
 
 def roll_block(block,contour):

@@ -58,6 +58,8 @@ rz2 = bright_idx[-1]+40
 
 ref = profs[0]
 
+shifts = []
+
 for idx,(folder,tar,bscan,dB_bscan) in enumerate(zip(folder_list,profs,bscans,dB_bscans)):
     minlen = min(len(ref),len(tar))
     ref = ref[:minlen]
@@ -67,9 +69,18 @@ for idx,(folder,tar,bscan,dB_bscan) in enumerate(zip(folder_list,profs,bscans,dB
 
     shift = np.argmax(nxc)
     if shift>len(nxc)//2:
-        shift = shift-len(nxc)
-    print(shift)
+        shift = shift+len(nxc)
+    shifts.append(shift)
 
+shifts = np.array(shifts)
+    
+rz1 = max(0,rz1)
+rz2 = min(len(profs[0]),rz2)
+
+shifts = shifts-np.min(shifts)
+rz2 = rz2-np.max(shifts)
+
+for idx,(folder,tar,bscan,dB_bscan) in enumerate(zip(folder_list,profs,bscans,dB_bscans)):
     tz1 = rz1+shift
     tz2 = rz2+shift
 
