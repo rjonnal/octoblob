@@ -185,9 +185,38 @@ Note: The ```fbg_position``` is relative to the top of the **uncropped** spectra
 
 #### Estimating mapping and dispersion coefficients
 
+##### Automated (optimization) method
+
 Issue:
 
-```python estimate_mapping_and_dispersion.py data/oct_test_set.unp```
+```python mapping_and_dispersion_optimizer.py data/oct_test_set.unp```
+
+This will run the optimizer with default settings. You can add these at the command line:
+
+```python mapping_and_dispersion_optimizer.py data/oct_test_set.unp mode frame_index show_plots```
+
+* mode may be gradient, brightness, or hybrid, and determines how image quality is assessed; default is gradient.
+* frame_index specifies the index of the B-scan to use from the volume; default is 0.
+* show_plots is self-explanatory; may be 0 or 1; default is 1.
+
+##### Manual method, mapping and dispersion simultaneously
+
+Issue:
+
+```python mapping_and_dispersion_manual_both.py data/oct_test_set.unp```
+
+The resulting interactive plots will allow you to set the mapping and dispersion coefficients at once. Your last clicks determines the values that are printed to the terminal, and these should be copied and pasted into ```parameters.py```, e.g.:
+
+```python
+mapping_coefficients = [0.0,0.0,0.0,0.0]
+dispersion_coefficients = [7.2e-09, -7.2e-05, 0.0, 0.0]
+```
+
+##### Manual method, mapping and dispersion sequentially
+
+Issue:
+
+```python mapping_and_dispersion_manual.py data/oct_test_set.unp```
 
 The resulting interactive plots will allow you to set first the mapping and then the dispersion coefficients. Your last click determines the values that are printed to the terminal, and these should be copied and pasted into ```parameters.py```, e.g.:
 
