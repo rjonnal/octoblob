@@ -23,9 +23,34 @@ logging.basicConfig(
     ]
 )
 
-unp_filename = sys.argv[1]
+def usage():
+    print('Usage:')
+    print('\tpython mapping_dispersion_optimizer.py raw_data.unp (mode) (frame_index) (show_plots)')
+    print('\tmode - gradient/brightness/hybrid - default gradient')
+    print('\tframe_index - which frame to use from UNP file - default 0')
+    print('\tshow_plots - True to see plots; whether True or False, plots saved to diagnostics folder')
 
+try:
+    unp_filename = sys.argv[1]
+    assert os.path.exists(unp_filename)
+except IndexError:
+    usage()
+    sys.exit()
+    
+try:
+    mode = sys.argv[2]
+except:
+    mode = 'gradient'
+try:
+    frame_index = int(sys.argv[3])
+except:
+    frame_index = 0
 
+try:
+    show_figures = int(sys.argv[4])
+except:
+    show_figures = True
+    
 def process(filename):
     # setting diagnostics to True will plot/show a bunch of extra information to help
     # you understand why things don't look right, and then quit after the first loop
@@ -60,10 +85,21 @@ def process(filename):
               (params.c3min,params.c3max),
               (params.c2min,params.c2max)]
     
-    m3,m2,c3,c2 = dispersion_ui.optimize_mapping_dispersion(src.get_frame(0),process_for_optimization,diagnostics=False,bounds=None,maximum_iterations=200)
+    m3,m2,c3,c2 = dispersion_ui.optimize_mapping_dispersion(src.get_frame(frame_index),process_for_optimization,diagnostics=False,bounds=None,maximum_iterations=200,mode=mode,show_figures=show_figures)
 
     print('mapping_coefficients = [%0.1e, %0.1e, 0.0, 0.0]'%(m3,m2))
     print('dispersion_coefficients = [%0.1e, %0.1e, 0.0, 0.0]'%(c3,c2))
 
+    with open('optimization.log','a') as fid:
+        fid.write(unp_filename+'\n')
+        fid.write(mode+'\n')
+        fid.write('frame index: %d\n'%frame_index)
+        fid.write('mapping: %0.3f, %0.3f\n'%(m3,m2))
+        fid.write('dispersion: %0.3f, %0.3f\n'%(c3,c2))
+        frame = src.get_frame(frame_index)
+        b = process_for_optimization(frame,m3,m2,c3,c2)
+        b = np.abs(b)
+        fid.write('stats: %s\n'%dispersion_ui.stats(b))
+        fid.write('\n')
 
 process(unp_filename)
