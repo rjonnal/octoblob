@@ -260,7 +260,7 @@ class Volume:
         self.unique_id = self.make_id(volume)
         logging.info('Initializing volume with id %s.'%self.unique_id)
         sy,sz,sx = volume.shape
-        
+
         if self.hold_volume_in_ram:
             self.volume = volume
 
@@ -506,41 +506,49 @@ class Volume:
 
 class VolumeSeries:
 
-    def __init__(self,reference_folder,resampling=1.0,sigma=10,signal_function=np.abs):
+    def __init__(self,reference_folder,resampling=1.0,sigma=10,signal_function=np.abs,hold_volume_in_ram=True):
         self.volumes = []
         self.signal_function = signal_function
         self.resampling = resampling
         self.sigma = sigma
-        self.add_reference(reference_folder)
-        self.folder = os.path.join('registered','%s_%0.1f_%0.1f'%(reference_folder.strip('/').strip('\\'),self.resampling,self.sigma))
+        self.hold_volume_in_ram = hold_volume_in_ram
+        self.add_reference(reference_folder,hold_volume_in_ram=hold_volume_in_ram)
+        self.unique_id = self.reference.unique_id
+        self.ref_tag = os.path.split(reference_folder)[1].strip('/').strip('\\')
+        self.folder = os.path.join('registered/%s_%s'%(self.ref_tag,self.unique_id),'%0.1f_%0.1f'%(self.resampling,self.sigma))
         os.makedirs(self.folder,exist_ok=True)
-
 
     def __getitem__(self,n):
         return self.volumes[n]
 
-    def add_reference(self,volume_folder):
-        vol = Volume(volume_folder,resampling=self.resampling)
+    def add_reference(self,volume_folder,hold_volume_in_ram=True):
+        vol = Volume(volume_folder,resampling=self.resampling,hold_volume_in_ram=hold_volume_in_ram)
         self.reference = vol
 
-    def add_target(self,volume_folder):
-        vol = Volume(volume_folder,resampling=self.resampling)
+    def add_target(self,volume_folder,hold_volume_in_ram=True):
+        vol = Volume(volume_folder,resampling=self.resampling,hold_volume_in_ram=hold_volume_in_ram)
         self.volumes.append(vol)
 
     def register(self):
         info_folder = os.path.join(self.folder,'info')
         os.makedirs(info_folder,exist_ok=True)
+        nvol = len(self.volumes)
         
-        for v in self.volumes:
+        for idx,v in enumerate(self.volumes):
+            t0 = tick()
             v.register_to(self.reference,sigma=self.sigma)
-
+            dt = tock(t0)
+            with open('progress.txt','a') as fid:
+                fid.write('%d of %d, %0.1f s each\n'%(idx+1,nvol,dt))
+            
     def render(self,threshold_percentile=0.0,diagnostics=False,display_function=lambda x: 20*np.log10(x),display_clim=None,make_bscan_flythrough=True,make_enface_flythrough=True):
 
         bscan_png_folder = os.path.join(self.folder,'bscans_png')
         enface_png_folder = os.path.join(self.folder,'enface')
         bscan_folder = os.path.join(self.folder,'bscans')
         diagnostics_folder = os.path.join(self.folder,'info')
-
+        volumes_folder = os.path.join(self.folder,'volumes')
+        
         if make_bscan_flythrough:
             os.makedirs(bscan_png_folder,exist_ok=True)
         if make_enface_flythrough:
@@ -548,7 +556,8 @@ class VolumeSeries:
             
         os.makedirs(bscan_folder,exist_ok=True)
         os.makedirs(diagnostics_folder,exist_ok=True)
-
+        os.makedirs(volumes_folder,exist_ok=True)
+        
         n_slow, n_depth, n_fast = self.volumes[0].get_volume().shape
         
         # find the maximum depth
@@ -580,6 +589,8 @@ class VolumeSeries:
         
         for idx,v in enumerate(self.volumes):
             temp = np.zeros(sum_array.shape,dtype=np.complex128)
+            single_counter = np.zeros(sum_array.shape,dtype=np.complex128)
+            
             vol = v.get_volume()
             sy,sz,sx = vol.shape
 
@@ -599,7 +610,8 @@ class VolumeSeries:
                     if ypos>=0 and ypos<n_slow and xpos>=0 and xpos<n_fast:
                         temp[ypos,zpos:zpos+sz,xpos]+=self.signal_function(ascan)
                         counter_array[ypos,zpos:zpos+sz,xpos]+=1
-
+                        single_counter[ypos,zpos:zpos+sz,xpos]+=1
+                        
             # np.save(os.path.join(info_folder,'xcoord_%05d.npy'%idx),v.coordinates.x)
             # np.save(os.path.join(info_folder,'ycoord_%05d.npy'%idx),v.coordinates.y)
             # np.save(os.path.join(info_folder,'zcoord_%05d.npy'%idx),v.coordinates.z)
@@ -607,6 +619,7 @@ class VolumeSeries:
 
             # with open(os.path.join(info_folder,'bscan_source_%05d.txt'%idx),'w') as fid:
             #     fid.write('%s\n'%v.bscan_folder)
+
             
             sum_array+=self.signal_function(temp)
             # store some slices of temp for debugging:
@@ -615,6 +628,14 @@ class VolumeSeries:
             y_slices.append(temp[temp.shape[0]//2,:,:])
             x_slices.append(temp[:,:,temp.shape[2]//2])
             z_slices.append(temp[:,temp.shape[1]//2,:])
+            out = temp.copy()
+            out[single_counter==0]=np.nan
+            out = out/single_counter
+            single_folder = os.path.join(volumes_folder,'%03d'%idx)
+            os.makedirs(single_folder,exist_ok=True)
+            for y in range(out.shape[0]):
+                outfn = os.path.join(single_folder,'complex_bscan_%05d.npy'%y)
+                np.save(outfn,out[y,:,:])
                     
         sum_array[counter_array==0]=np.nan
         av = sum_array/counter_array
