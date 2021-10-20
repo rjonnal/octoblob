@@ -181,7 +181,8 @@ def nxc3d(ref,tar,diagnostics=False):
     fref = np.fft.fftn(pref,s=s)
     ftar = np.fft.fftn(ptar,s=s)
     dt = tock(t0)
-    nxc = np.real(np.fft.ifftn(fref*np.conj(ftar)))
+    #nxc = np.real(np.fft.ifftn(fref*np.conj(ftar)))
+    nxc = np.real(np.fft.ifftn(fref*np.conj(ftar)/np.abs(fref*np.conj(ftar))))
     logging.info('Registration took %0.3f sec.'%dt)
     return nxc
 
@@ -441,9 +442,7 @@ class Volume:
         rvol = reference_volume.get_volume()
         tvol = self.get_volume()
         sy,sz,sx = tvol.shape
-        cache_folder = '.register_to_cache'
-        os.makedirs(cache_folder,exist_ok = True)
-
+        
         try:
             volume_info = np.load(cache_fn)
         except:
@@ -514,6 +513,7 @@ class VolumeSeries:
         self.hold_volume_in_ram = hold_volume_in_ram
         self.add_reference(reference_folder,hold_volume_in_ram=hold_volume_in_ram)
         self.unique_id = self.reference.unique_id
+        reference_folder = reference_folder.strip('/').strip('\\')
         self.ref_tag = os.path.split(reference_folder)[1].strip('/').strip('\\')
         self.folder = os.path.join('registered/%s_%s'%(self.ref_tag,self.unique_id),'%0.1f_%0.1f'%(self.resampling,self.sigma))
         os.makedirs(self.folder,exist_ok=True)
