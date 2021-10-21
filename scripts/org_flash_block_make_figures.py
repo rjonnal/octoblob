@@ -28,7 +28,7 @@ flattening_averaging_width = 5 # number of A-scans to average for flattening
 
 # y-axis limits for absolulte phase slope plot and relative phase slope plot
 abs_plot_ylim = (-2,2)
-rel_plot_ylim = (-4,4)
+rel_plot_ylim = (-3,3)
 
 ###### Plotting parameters ######
 mscan_figure_size = (3.75,2.25)
