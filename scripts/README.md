@@ -103,6 +103,21 @@ python org_flash_block_analysis.py 16_25_04_bscans/cropped/ 50 150
 python org_flash_block_make_figures.py 16_25_04_bscans/cropped/phase_ramps_007ms_npy/
 ```
 
+#### Complete workflow for ORG block phase analysis--multiple datasets and averaging
+
+```python
+# establish parameters using one dataset
+python parameters_helper 16_25_04.unp
+python parameters_helper 16_25_04.unp # have to run this twice to determine B-scan cropping params
+python mapping_dispersion_optimizer.py 16_25_04.unp 
+# use batch processing to process all B-scans
+python process_all.py *.unp 
+python crop_volumes.py *_bscans/
+python crop_volumes.py *_bscans/ write
+python org_flash_block_analysis_2.py 16_25_04_bscans/cropped/ 50 150
+python org_flash_block_make_figures_2.py *_bscans/cropped/phase_ramps_007ms_npy/
+```
+
 
 ### Part 1: generic OCT post-processing
 
