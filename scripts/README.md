@@ -114,8 +114,8 @@ python mapping_dispersion_optimizer.py 16_25_04.unp
 python process_all.py *.unp 
 python crop_volumes.py *_bscans/
 python crop_volumes.py *_bscans/ write
-python org_flash_block_analysis_2.py 16_25_04_bscans/cropped/ 50 150
-python org_flash_block_make_figures_2.py *_bscans/cropped/phase_ramps_007ms_npy/
+python org_flash_block_analysis_batch.py *_bscans/cropped/ 50 150
+python org_flash_block_make_figures_batch.py *_bscans/cropped/phase_ramps_007ms_npy/
 ```
 
 
