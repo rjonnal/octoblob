@@ -3,10 +3,26 @@ from matplotlib import pyplot as plt
 import os,sys,glob
 import time
 import logging
-from .ticktock import tick, tock
+try:
+    from .ticktock import tick, tock
+except ImportError:
+    tick = lambda: 0.0
+    tock = lambda x: 0.0
+    
 import scipy.ndimage as spn
 import scipy.interpolate as spi
 import imageio
+import multiprocessing as mp
+from itertools import repeat
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("debug.log"),
+        logging.StreamHandler()
+    ]
+)
 
 ################################# Intro ####################################
 # This version of volume_tools is meant to be a drop-in replacement for the
@@ -17,14 +33,6 @@ import imageio
 # fewer corner cases to worry about, and fewer assumptions.
 #############################################################################
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler("debug.log"),
-        logging.StreamHandler()
-    ]
-)
 
 # for loading M-scan series as volumes, we average the abs along this dimension:
 M_SCAN_DIMENSION = 2
@@ -503,6 +511,13 @@ class Volume:
 
         
 
+def dummy_function(x):
+    return x
+
+
+def registration_function(volume,reference):
+    volume.register_to(reference)
+
 class VolumeSeries:
 
     def __init__(self,reference_folder,resampling=1.0,sigma=10,signal_function=np.abs,hold_volume_in_ram=True):
@@ -517,6 +532,15 @@ class VolumeSeries:
         self.ref_tag = os.path.split(reference_folder)[1].strip('/').strip('\\')
         self.folder = os.path.join('registered/%s_%s'%(self.ref_tag,self.unique_id),'%0.1f_%0.1f'%(self.resampling,self.sigma))
         os.makedirs(self.folder,exist_ok=True)
+
+        try:
+            data = np.random.rand(10)
+            with mp.Pool(4) as p:
+                p.map(dummy_function,data)
+            self.use_multiprocessing = True
+        except Exception as e:
+            print(e)
+            self.use_multiprocessing = False
 
     def __getitem__(self,n):
         return self.volumes[n]
@@ -533,14 +557,14 @@ class VolumeSeries:
         info_folder = os.path.join(self.folder,'info')
         os.makedirs(info_folder,exist_ok=True)
         nvol = len(self.volumes)
-        
+
         for idx,v in enumerate(self.volumes):
             t0 = tick()
             v.register_to(self.reference,sigma=self.sigma)
             dt = tock(t0)
             with open('progress.txt','a') as fid:
                 fid.write('%d of %d, %0.1f s each\n'%(idx+1,nvol,dt))
-            
+                
     def render(self,threshold_percentile=0.0,diagnostics=False,display_function=lambda x: 20*np.log10(x),display_clim=None,make_bscan_flythrough=True,make_enface_flythrough=True):
 
         bscan_png_folder = os.path.join(self.folder,'bscans_png')
