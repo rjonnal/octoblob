@@ -373,6 +373,15 @@ class Resampler:
         k_interpolator = spi.interp1d(self.k_in,spectra,axis=0,copy=False)
         return k_interpolator(self.k_out)
 
+def expand_wildcard_arguments(input_argv):
+    output_argv = []
+    for arg in input_argv:
+        if arg.find('*')>-1:
+            temp = glob.glob(arg)
+            output_argv = output_argv + sorted(temp)
+        else:
+            output_argv.append(arg)
+    return output_argv
 
 def save_diagnostics(diagnostics,tag):
     # if diagnostics is a tuple containing a directory and a frame index,

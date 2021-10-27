@@ -36,6 +36,8 @@ do_strip_registration = False
 phase_clim = (0,2*np.pi)
 
 args = sys.argv[1:]
+args = blob.expand_wildcard_arguments(args)
+
 
 limits = []
 bscan_folders = []
@@ -67,6 +69,7 @@ except AssertionError as ae:
     sys.exit(ae)
 
 limits.sort()
+limits0 = [l for l in limits]
 
 def phase_to_nm(phase):
     return phase/(4*np.pi*1.38)*1050.0
@@ -90,10 +93,10 @@ if diagnostics:
     diagnostics_directory = bscan_folder.replace('_bscans','')+'_diagnostics'
     os.makedirs(diagnostics_directory,exist_ok=True)
 
-block_start,n_files = limits
-    
 for bscan_folder in bscan_folders:
-
+    block_start = limits[0]
+    n_files = limits[1]
+    
     found_xml = False
     temp = bscan_folder
 

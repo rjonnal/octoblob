@@ -5,6 +5,7 @@ import glob,os,sys,shutil
 import scipy.signal as sps
 import octoblob.plotting_functions as opf
 import warnings
+import octoblob as blob
 
 
 
@@ -26,35 +27,56 @@ stimulated_region_start = 0
 stimulated_region_end = 170
 
 bscan_vel_clim = (-4,4)
-mscan_vel_clim = (-3.5,3.5)
+mscan_vel_clim = (-3,3)
+abs_plot_clim = (-3.5,3.5)
+rel_plot_clim = (-5,4)
 
-vel_lateral_smoothing_sigma = 7 # use 0 for no smoothing
+# the time range, in ms, to include in plots
+# stimulus is at t=0.0
+tlim_ms = (-100,100)
 
-profile_peak_threshold = 4000
+# crop b-scans, just for visualization
+bscan_crop_left = 10
+bscan_crop_right = 20
+
+vel_lateral_smoothing_sigma = 3 # use 0 for no smoothing
+
+profile_peak_threshold = 5000
 peak_labels = ['ISOS','COST']
 layer_differences = [('COST','ISOS')]#,('RPE','ISOS')]
 
 flatten = True # flatten B-scans using 1D A-scan registration
 flattening_averaging_width = 5 # number of A-scans to average for flattening
 
-profile_figure_size = (4,3)
-plots_figure_size = (4,3)
+profile_figure_size = (4,4)
+plots_figure_size = (4,4)
 
 bscan_figure_width = 4
 
 screen_dpi = 100
-print_dpi = 200
+print_dpi = 300
 
 stim_color = 'g'
 stim_linestyle = '-'
 output_folder = 'org_block_figures'
-report_directory = 'org_block_figures'
+output_folder = 'org_block_figures'
 ################################### End parameters ######################################
+
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("debug.log"),
+        logging.StreamHandler()
+    ]
+)
 
 #folders = glob.glob('*_bscans/cropped/phase_ramps_007ms_npy')
 args = sys.argv[1:]
 folders = []
 
+args = blob.expand_wildcard_arguments(args)
 
 def usage():
     print('Usage:')
@@ -78,12 +100,6 @@ if len(folders)==0:
     sys.exit('Cannot find any .npy files in these folders: %s'%args)
     
 os.makedirs(output_folder,exist_ok=True)
-
-try:
-    shutil.rmtree(report_directory)
-except:
-    pass
-os.makedirs(report_directory,exist_ok=True)
 
 
 figure_list = []
@@ -144,7 +160,7 @@ temp_amp = np.real(temp)
 temp_vel = phase_to_nm(np.imag(temp))
 sz,sx = temp.shape
 z_arr = np.arange(sz)*dz_um
-
+bscan_xlim = (bscan_crop_left,sx-bscan_crop_right)
 
 def make_kernel(kernel_size,sigma,mode='gaussian'):
     XX,YY = np.meshgrid(np.arange(kernel_size),np.arange(kernel_size))
@@ -160,7 +176,7 @@ def make_kernel(kernel_size,sigma,mode='gaussian'):
         kernel = kernel/np.sum(kernel)
     return kernel
 
-def scalebar_x(um_per_px,length_um=100,yoffset_px=10,xoffset_px=10,ax=None,linewidth=5,color=color_cycle[-1],alpha=0.9):
+def scalebar_x(um_per_px,length_um=100,yoffset_px=10,xoffset_px=10+bscan_crop_left,ax=None,linewidth=5,color=color_cycle[-1],alpha=0.9):
     if ax is None:
         ax = plt.gca()
     x0 = xoffset_px
@@ -168,7 +184,7 @@ def scalebar_x(um_per_px,length_um=100,yoffset_px=10,xoffset_px=10,ax=None,linew
     y = yoffset_px
     ax.plot([x0,x1],[y,y],linewidth=linewidth,color=color,alpha=alpha)
 
-def scalebar_y(um_per_px,length_um=100,yoffset_px=10,xoffset_px=10,ax=None,linewidth=5,color=color_cycle[-1],alpha=0.9):
+def scalebar_y(um_per_px,length_um=100,yoffset_px=10,xoffset_px=10+bscan_crop_left,ax=None,linewidth=5,color=color_cycle[-1],alpha=0.9):
     if ax is None:
         ax = plt.gca()
     y0 = yoffset_px
@@ -195,6 +211,7 @@ def show_bscan(b,screen_dpi=100,x_stretch=1.0,y_stretch=1.0,ax=None):
     db = 20*np.log10(b)
     clim = np.percentile(db,(5,99.9))
     imh = ax.imshow(db,clim=clim,cmap='gray',aspect='auto')
+    ax.set_xlim(bscan_xlim)
     ax.set_xticks([])
     ax.set_yticks([])
     fig.colorbar(imh,cax=cax)
@@ -221,6 +238,7 @@ def show_bscan_overlay(amp,vel,screen_dpi=100,x_stretch=1.0,y_stretch=1.0,ax=Non
     vel_nan[:] = vel[:]
     vel_nan[np.where(vel==0)] = np.nan
     velh = ax.imshow(vel_nan,clim=bscan_vel_clim,cmap='jet',alpha=alpha,aspect='auto')
+    ax.set_xlim(bscan_xlim)
     fig.colorbar(velh,cax=cax)
     return fig,ax
 
@@ -376,7 +394,7 @@ def add_labels(ax,pd,xlim=None):
         if k in peak_labels:
             text(ax,xlim[0],pd[k],k)
             
-def show_mscan_overlay(amp_m,vel_m,screen_dpi=100,x_stretch=3.0,y_stretch=1.0,ax=None,alpha=0.5,mscan_xlim=(-100,75),peak_dict={}):
+def show_mscan_overlay(amp_m,vel_m,screen_dpi=100,x_stretch=3.0,y_stretch=1.0,ax=None,alpha=0.5,mscan_xlim=tlim_ms,peak_dict={}):
 
     vel_m[:,:15] = np.nan
 
@@ -384,7 +402,7 @@ def show_mscan_overlay(amp_m,vel_m,screen_dpi=100,x_stretch=3.0,y_stretch=1.0,ax
     mask = make_mask(amp_m)
 
     sy,sx = amp_m.shape
-    fy = float(sy)/screen_dpi*y_stretch*1.3
+    fy = float(sy)/screen_dpi*y_stretch*1.4
     fx = float(sx)/screen_dpi*x_stretch*1.111
 
     scaling_factor = bscan_figure_width/fx
@@ -454,6 +472,7 @@ def add_origin():
 layer_dict = {}
 
 for folder_idx,folder in enumerate(folders):
+    logging.info('Working on folder %d of %d: %s.'%(folder_idx+1,len(folders),folder))
     tag = make_tag(folder)
     file_list = get_files(folder)
     ablock,vblock = make_blocks(folder)
@@ -484,7 +503,8 @@ for folder_idx,folder in enumerate(folders):
     
     plt.xlabel('time (ms)')
     plt.ylabel('velocity ($\mu m/s$)')
-    plt.ylim(mscan_vel_clim)
+    plt.ylim(abs_plot_clim)
+    plt.xlim(tlim_ms)
     opf.despine()
     plt.legend(frameon=False)
     savefig('layer_velocities',tag)
@@ -496,7 +516,8 @@ for folder_idx,folder in enumerate(folders):
     add_origin()
     plt.xlabel('time (ms)')
     plt.ylabel('velocity ($\mu m/s$)')
-    plt.ylim(mscan_vel_clim)
+    plt.ylim(rel_plot_clim)
+    plt.xlim(tlim_ms)
     opf.despine()
     plt.legend(frameon=False)
     savefig('layer_velocity_differences',tag)
@@ -525,6 +546,7 @@ for folder_idx,folder in enumerate(folders):
     plt.close('all')
 
 
+logging.info('Working on average plots.')
 plt.figure(figsize=plots_figure_size,dpi=screen_dpi)
 for peak_label in peak_labels:
     arr = np.array(layer_dict[peak_label])
@@ -533,7 +555,8 @@ for peak_label in peak_labels:
 add_origin()
 plt.xlabel('time (ms)')
 plt.ylabel('velocity ($\mu m/s$)')
-plt.ylim(mscan_vel_clim)
+plt.ylim(abs_plot_clim)
+plt.xlim(tlim_ms)
 opf.despine()
 plt.legend(frameon=False)
 savefig('layer_velocities','average')
@@ -549,25 +572,27 @@ for a,b in layer_differences:
 add_origin()
 plt.xlabel('time (ms)')
 plt.ylabel('velocity ($\mu m/s$)')
-plt.ylim(mscan_vel_clim)
+plt.ylim(rel_plot_clim)
+plt.xlim(tlim_ms)
 opf.despine()
 plt.legend(frameon=False)
 savefig('layer_velocity_differences','average')
 
 
+logging.info('Writing report.')
 figure_list.sort(key=lambda tup: tup[0])
 
 
+d = {}
+d['bscan_amp'] = 'Amplitude B-scans'
+d['bscan_pre'] = 'Velocity (pre stimulus)'
+d['bscan_post'] = 'Velocity (post stimulus)'
+d['mscan'] = 'M-scans'
+d['layer_velocities'] = 'Layer velocity plots'
+d['layer_velocity_differences'] = 'Relative layer velocity plots'
+
 try:
-    d = {}
-    d['bscan_amp'] = 'Amplitude B-scans'
-    d['bscan_pre'] = 'Velocity (pre stimulus)'
-    d['bscan_post'] = 'Velocity (post stimulus)'
-    d['mscan'] = 'M-scans'
-    d['layer_velocities'] = 'Layer velocity plots'
-    d['layer_velocity_differences'] = 'Relative layer velocity plots'
-    
-    with open('%s/figures.md'%report_directory,'w') as fid:
+    with open('%s/figures.md'%output_folder,'w') as fid:
         for label in ['bscan_amp','bscan_pre','bscan_post','mscan','layer_velocities','layer_velocity_differences']:
             sublist = [f for f in figure_list if f[0].find(label)>-1]
             sublist.sort(key=lambda tup: tup[0])
@@ -578,6 +603,38 @@ try:
                 fid.write('![%s: %s](%s)\n\n'%(plot_type,file_tag,outfn))
             fid.write('---\n\n')
             
-    os.system('pandoc -V geometry:margin=0.5in -s -o %s/figures.html %s/figures.md'%(report_directory,report_directory))
+    os.system('cd %s && pandoc -V geometry:margin=0.5in -o figures.pdf figures.md'%output_folder)
+    os.system('cd ..')
 except Exception as e:
     print(e)
+
+try:
+    fign = 1
+    secn = 1
+    with open('%s/figures.html'%output_folder,'w') as fid:
+        fid.write('<head><title>Conventional flash ORG figures</title></head>\n')
+        fid.write('<body>\n')
+        for label in ['bscan_amp','bscan_pre','bscan_post','mscan','layer_velocities','layer_velocity_differences']:
+            sublist = [f for f in figure_list if f[0].find(label)>-1]
+            sublist.sort(key=lambda tup: tup[0])
+            fid.write('<h3>%d. %s</h3>\n\n'%(secn,d[label]))
+            secn+=1
+            for plot_type,file_tag,outfn in sublist:
+                outfn_list = outfn.split('/')
+                outfn = '/'.join(outfn_list[1:])
+                fid.write('<p>')
+                fid.write('<a href=\"%s\">\n'%outfn)
+                fid.write('<img src=\"%s\" alt=\"%s: %s\" width=\"33%%\">\n'%(outfn,plot_type,file_tag))
+                fid.write('</a>\n')
+                fid.write('</p>\n')
+                fid.write('<p>Fig. %d. %s / %s</p>\n'%(fign,plot_type,file_tag))
+                fign+=1
+            fid.write('<hr>\n\n')
+        fid.write('</body>')
+except Exception as e:
+    print(e)
+
+try:
+    os.system('firefox %s/figures.html'%output_folder)
+except:
+    pass
