@@ -26,6 +26,10 @@ stim_end = 3
 flatten = True # flatten B-scans using 1D A-scan registration
 flattening_averaging_width = 5 # number of A-scans to average for flattening
 
+# y-axis limits for absolulte phase slope plot and relative phase slope plot
+abs_plot_ylim = (-2,2)
+rel_plot_ylim = (-3,3)
+
 ###### Plotting parameters ######
 mscan_figure_size = (3.75,2.25)
 mscan_axes_rect = [0.1,0.15,0.95,0.78]
@@ -454,6 +458,7 @@ plt.ylabel(r'dz/dt ($\mu$m/s)')
 plt.xlabel('time (ms)')
 plt.axvline(0.0,color=stim_color,linestyle=stim_linestyle)
 plt.legend()
+plt.ylim(abs_plot_ylim)
 opf.despine()
 savefig('phase_slope_by_layer')
 
@@ -475,6 +480,7 @@ plt.ylabel(r'dz/dt ($\mu$m/s)')
 plt.xlabel('time (ms)')
 plt.axvline(0.0,color=stim_color,linestyle=stim_linestyle)
 plt.legend()
+plt.ylim(rel_plot_ylim)
 opf.despine()
 savefig('phase_slope_layer_differences')
 
