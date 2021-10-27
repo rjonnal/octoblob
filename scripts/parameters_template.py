@@ -33,6 +33,7 @@ n_skip = 0
 
 # Leave this False for now
 use_multiprocessing = False
+multiprocessing_n_processes = 4
 ##############################################
 
 
