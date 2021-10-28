@@ -6,7 +6,7 @@ import scipy.signal as sps
 import octoblob.plotting_functions as opf
 import warnings
 import octoblob as blob
-
+import webbrowser as wb
 
 
 ################################### Parameters ##########################################
@@ -59,7 +59,8 @@ print_dpi = 300
 stim_color = 'g'
 stim_linestyle = '-'
 output_folder = 'org_block_figures'
-output_folder = 'org_block_figures'
+auto_open_report = True
+make_pdf = False # requires pandoc
 ################################### End parameters ######################################
 
 import logging
@@ -591,22 +592,23 @@ d['mscan'] = 'M-scans'
 d['layer_velocities'] = 'Layer velocity plots'
 d['layer_velocity_differences'] = 'Relative layer velocity plots'
 
-try:
-    with open('%s/figures.md'%output_folder,'w') as fid:
-        for label in ['bscan_amp','bscan_pre','bscan_post','mscan','layer_velocities','layer_velocity_differences']:
-            sublist = [f for f in figure_list if f[0].find(label)>-1]
-            sublist.sort(key=lambda tup: tup[0])
-            fid.write('### %s\n\n'%d[label])
-            for plot_type,file_tag,outfn in sublist:
-                outfn_list = outfn.split('/')
-                outfn = '/'.join(outfn_list[1:])
-                fid.write('![%s: %s](%s)\n\n'%(plot_type,file_tag,outfn))
-            fid.write('---\n\n')
-            
-    os.system('cd %s && pandoc -V geometry:margin=0.5in -o figures.pdf figures.md'%output_folder)
-    os.system('cd ..')
-except Exception as e:
-    print(e)
+if make_pdf:
+    try:
+        with open('%s/figures.md'%output_folder,'w') as fid:
+            for label in ['bscan_amp','bscan_pre','bscan_post','mscan','layer_velocities','layer_velocity_differences']:
+                sublist = [f for f in figure_list if f[0].find(label)>-1]
+                sublist.sort(key=lambda tup: tup[0])
+                fid.write('### %s\n\n'%d[label])
+                for plot_type,file_tag,outfn in sublist:
+                    outfn_list = outfn.split('/')
+                    outfn = '/'.join(outfn_list[1:])
+                    fid.write('![%s: %s](%s)\n\n'%(plot_type,file_tag,outfn))
+                fid.write('---\n\n')
+                
+        os.system('cd %s && pandoc -V geometry:margin=0.5in -o figures.pdf figures.md'%output_folder)
+        os.system('cd ..')
+    except Exception as e:
+        print(e)
 
 try:
     fign = 1
@@ -620,9 +622,16 @@ try:
             fid.write('<h3>%d. %s</h3>\n\n'%(secn,d[label]))
             secn+=1
             for plot_type,file_tag,outfn in sublist:
-                outfn_list = outfn.split('/')
-                outfn = '/'.join(outfn_list[1:])
+                outfn_list = []
+                while len(outfn)>0:
+                    outfn_list.append(os.path.split(outfn)[1])
+                    outfn = os.path.split(outfn)[0]
+                outfn_list = outfn_list[::-1]
+                outfn = ''
+                for item in outfn_list[1:]:
+                    outfn = os.path.join(outfn,item)                
                 fid.write('<p>')
+                
                 fid.write('<a href=\"%s\">\n'%outfn)
                 fid.write('<img src=\"%s\" alt=\"%s: %s\" width=\"33%%\">\n'%(outfn,plot_type,file_tag))
                 fid.write('</a>\n')
@@ -635,6 +644,9 @@ except Exception as e:
     print(e)
 
 try:
-    os.system('firefox %s/figures.html'%output_folder)
+    if auto_open_report:
+        report_fn = os.path.join(output_folder,'figures.html')
+        wb.open(report_fn)
+        #os.system('firefox %s/figures.html'%output_folder)
 except:
     pass
