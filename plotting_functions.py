@@ -66,7 +66,7 @@ def despine(ax=None):
     ax.spines["bottom"].set_visible(False)
     ax.spines["left"].set_visible(False)
 
-def setup_plots(mode='paper'):
+def setup_plots(mode='paper',style='seaborn-deep'):
     if mode=='paper':
         SMALL_SIZE = 8
         MEDIUM_SIZE = 10
@@ -85,7 +85,7 @@ def setup_plots(mode='paper'):
     plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
     plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
     plt.rc('figure', titlesize=SMALL_SIZE)  # fontsize of the figure title
-    plt.style.use('seaborn-deep')
+    plt.style.use(style)
 
 def get_color_cycle():
     color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']

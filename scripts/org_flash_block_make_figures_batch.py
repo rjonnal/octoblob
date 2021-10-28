@@ -61,6 +61,7 @@ stim_linestyle = '-'
 output_folder = 'org_block_figures'
 auto_open_report = True
 make_pdf = False # requires pandoc
+style = 'ggplot'
 ################################### End parameters ######################################
 
 import logging
@@ -72,6 +73,11 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+
+styles_with_origin = ['ggplot']
+opf.setup_plots(mode='paper',style='ggplot')
+color_cycle = opf.get_color_cycle()
 
 #folders = glob.glob('*_bscans/cropped/phase_ramps_007ms_npy')
 args = sys.argv[1:]
@@ -197,7 +203,7 @@ def scalebars(x_um_per_px,y_um_per_px,ax=None):
     scalebar_x(x_um_per_px,ax=ax)
     scalebar_y(y_um_per_px,ax=ax)
 
-def show_bscan(b,screen_dpi=100,x_stretch=1.0,y_stretch=1.0,ax=None):
+def show_bscan(b,screen_dpi=100,x_stretch=1.0,y_stretch=1.0,ax=None,layer_dict={}):
     sy,sx = b.shape
     fy = float(sy)/screen_dpi*y_stretch
     fx = float(sx)/screen_dpi*x_stretch*1.111
@@ -215,6 +221,13 @@ def show_bscan(b,screen_dpi=100,x_stretch=1.0,y_stretch=1.0,ax=None):
     ax.set_xlim(bscan_xlim)
     ax.set_xticks([])
     ax.set_yticks([])
+
+    for idx,label in enumerate(layer_dict.keys()):
+        color = color_cycle[idx%len(color_cycle)]
+        z = layer_dict[label]
+        ax.axhline(z,color=color,alpha=0.5)
+        ax.text(bscan_xlim[0],z,label,ha='left',va='bottom',color=color)
+    
     fig.colorbar(imh,cax=cax)
     return fig,ax
 
@@ -423,6 +436,7 @@ def show_mscan_overlay(amp_m,vel_m,screen_dpi=100,x_stretch=3.0,y_stretch=1.0,ax
     ax.set_xlabel('time (ms)')
     ax.set_title(r'dz/dt ($\mu$m/s)')
     ax.set_yticks([])
+    ax.grid(False)
     for peak_label in peak_labels:
         try:
             zpx = peak_dict[peak_label]
@@ -500,7 +514,9 @@ for folder_idx,folder in enumerate(folders):
             layer_dict[peak_label] = [series]
             
         plt.plot(1000*t_arr,series,label=peak_label)
-    add_origin()
+
+    if not style in styles_with_origin:
+        add_origin()
     
     plt.xlabel('time (ms)')
     plt.ylabel('velocity ($\mu m/s$)')
@@ -514,7 +530,10 @@ for folder_idx,folder in enumerate(folders):
     for a,b in layer_differences:
         dseries = layer_dict[a][-1]-layer_dict[b][-1]
         plt.plot(1000*t_arr,dseries,label='%s - %s'%(a,b))
-    add_origin()
+        
+    if not style in styles_with_origin:
+        add_origin()
+        
     plt.xlabel('time (ms)')
     plt.ylabel('velocity ($\mu m/s$)')
     plt.ylim(rel_plot_clim)
@@ -539,6 +558,11 @@ for folder_idx,folder in enumerate(folders):
     scalebars(3.0,2.5,ax=ax)
     savefig('bscan_post_stim',tag)
 
+    fig,ax = show_bscan(bscan,layer_dict=peak_dict)
+    savefig('bscan_amp_layers',tag)
+    scalebars(3.0,2.5,ax=ax)
+
+    
 
     amp_m = nanmean(ablock[:,:,stimulated_region_start:stimulated_region_end],axis=2).T
     vel_m = nanmean(vblock[:,:,stimulated_region_start:stimulated_region_end],axis=2).T
@@ -553,7 +577,10 @@ for peak_label in peak_labels:
     arr = np.array(layer_dict[peak_label])
     avg = nanmean(arr,axis=0)
     plt.plot(1000*t_arr,avg,label=peak_label)
-add_origin()
+    
+if not style in ['ggplot']:
+    add_origin()
+
 plt.xlabel('time (ms)')
 plt.ylabel('velocity ($\mu m/s$)')
 plt.ylim(abs_plot_clim)
@@ -570,7 +597,10 @@ for a,b in layer_differences:
     b_avg = nanmean(b_arr,axis=0)
     d = a_avg-b_avg
     plt.plot(1000*t_arr,d,label='%s - %s'%(a,b))
-add_origin()
+    
+if not style in ['ggplot']:
+    add_origin()
+
 plt.xlabel('time (ms)')
 plt.ylabel('velocity ($\mu m/s$)')
 plt.ylim(rel_plot_clim)
