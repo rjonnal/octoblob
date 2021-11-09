@@ -7,6 +7,22 @@ from octoblob.volume_tools import Volume, VolumeSeries, Boundaries
 from octoblob.ticktock import tick, tock
 import octoblob as blob
 
+# The volumes are aligned and cropped by:
+# 1. Computing the axial reflectance profile of each volume
+# 2. Identifying the pixels that are above a threshold (in dB)
+# 3. If z1 and z2 are the indices of the first and last pixel
+#    above threshold, the profile is cropped using:
+#    z1+inner_padding:z2+outer padding
+# 4. Cross-correlating the cropped profiles to align them
+# 5. Applying the resulting shifts to z1+inner_padding and
+#    z2+outer_padding in order to crop the volumes
+# The threshold, inner_padding, and outer_padding can be set here:
+
+threshold_dB = -15
+inner_padding = -30
+outer_padding = 30
+
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -55,10 +71,10 @@ for folder in folder_list:
     
 dB_ref = dB_profs[0]
 
-bright_idx = np.where(dB_ref>-15)[0]
+bright_idx = np.where(dB_ref>threshold_dB)[0]
 
-rz1 = bright_idx[0]-30
-rz2 = bright_idx[-1]+30
+rz1 = bright_idx[0]+inner_padding
+rz2 = bright_idx[-1]+outer_padding
 
 ref = profs[0]
 
