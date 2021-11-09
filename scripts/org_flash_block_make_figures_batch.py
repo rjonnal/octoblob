@@ -7,7 +7,7 @@ import octoblob.plotting_functions as opf
 import warnings
 import octoblob as blob
 import webbrowser as wb
-
+from difflib import SequenceMatcher
 
 ################################### Parameters ##########################################
 # parameters for now, but turn these into command line arguments
@@ -62,6 +62,15 @@ output_folder = 'org_block_figures'
 auto_open_report = True
 make_pdf = False # requires pandoc
 style = 'ggplot'
+
+# options for plotting raw data and/or noise in background of average:
+plot_error_region = True
+plot_single_measurements = True
+single_color = 'r'
+single_alpha = 0.1
+noise_alpha = 0.1
+noise_color = 'k'
+
 ################################### End parameters ######################################
 
 import logging
@@ -485,10 +494,13 @@ def add_origin():
     plt.axhline(0.0,linestyle=linestyle,color=color,alpha=alpha)
 
 layer_dict = {}
+tags = []
+
 
 for folder_idx,folder in enumerate(folders):
     logging.info('Working on folder %d of %d: %s.'%(folder_idx+1,len(folders),folder))
     tag = make_tag(folder)
+    tags.append(tag)
     file_list = get_files(folder)
     ablock,vblock = make_blocks(folder)
     sy,sz,sx = ablock.shape
@@ -571,12 +583,32 @@ for folder_idx,folder in enumerate(folders):
     plt.close('all')
 
 
+if len(tags)==0:
+    sys.exit('Error.')
+elif len(tags)==1:
+    common_string = tags[0]
+else:
+    common_string = tags[0]
+    for test_tag in tags[1:]:
+        print(common_string)
+        m = SequenceMatcher(None,common_string,test_tag).find_longest_match(0,len(common_string),0,len(test_tag))
+        common_string = test_tag[m.b:m.b+m.size]
+        print(common_string)
+    common_string = common_string.strip('_').strip()
+
 logging.info('Working on average plots.')
 plt.figure(figsize=plots_figure_size,dpi=screen_dpi)
 for peak_label in peak_labels:
     arr = np.array(layer_dict[peak_label])
     avg = nanmean(arr,axis=0)
+    std = np.nanstd(arr,axis=0)
     plt.plot(1000*t_arr,avg,label=peak_label)
+    if plot_error_region:
+        plt.fill_between(1000*t_arr,y1=avg+std,y2=avg-std,color=noise_color,alpha=noise_alpha)
+    if plot_single_measurements:
+        for k in range(arr.shape[0]):
+            plt.plot(1000*t_arr,arr[k,:],color=single_color,alpha=single_alpha)
+            
     
 if not style in ['ggplot']:
     add_origin()
@@ -587,7 +619,7 @@ plt.ylim(abs_plot_clim)
 plt.xlim(tlim_ms)
 opf.despine()
 plt.legend(frameon=False)
-savefig('layer_velocities','average')
+savefig('layer_velocities','average_%s'%common_string)
 
 plt.figure(figsize=plots_figure_size,dpi=screen_dpi)
 for a,b in layer_differences:
@@ -596,7 +628,16 @@ for a,b in layer_differences:
     a_avg = nanmean(a_arr,axis=0)
     b_avg = nanmean(b_arr,axis=0)
     d = a_avg-b_avg
+    d_arr = a_arr-b_arr
+    
+    std = np.sqrt(np.nanstd(a_arr,axis=0)**2+np.nanstd(b_arr,axis=0)**2)
+    
     plt.plot(1000*t_arr,d,label='%s - %s'%(a,b))
+    if plot_error_region:
+        plt.fill_between(1000*t_arr,y1=d+std,y2=d-std,color=noise_color,alpha=noise_alpha)
+    if plot_single_measurements:
+        for k in range(d_arr.shape[0]):
+            plt.plot(1000*t_arr,d_arr[k,:],color=single_color,alpha=single_alpha)
     
 if not style in ['ggplot']:
     add_origin()
@@ -607,7 +648,7 @@ plt.ylim(rel_plot_clim)
 plt.xlim(tlim_ms)
 opf.despine()
 plt.legend(frameon=False)
-savefig('layer_velocity_differences','average')
+savefig('layer_velocity_differences','average_%s'%common_string)
 
 
 logging.info('Writing report.')
