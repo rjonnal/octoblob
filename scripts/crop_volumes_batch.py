@@ -6,6 +6,9 @@ import logging
 from octoblob.volume_tools import Volume, VolumeSeries, Boundaries
 from octoblob.ticktock import tick, tock
 import octoblob as blob
+import octoblob.plotting_functions as opf
+opf.setup_plots(mode='paper',style='seaborn-deep')
+color_cycle = opf.get_color_cycle()
 
 # The volumes are aligned and cropped by:
 # 1. Computing the axial reflectance profile of each volume
@@ -20,7 +23,7 @@ import octoblob as blob
 
 threshold_dB = -15
 inner_padding = -30
-outer_padding = 30
+outer_padding = 130
 
 
 logging.basicConfig(
@@ -52,7 +55,11 @@ dB_profs = []
 bscans = []
 dB_bscans = []
 
-for folder in folder_list:
+
+
+
+uncropped_bscan_fig = plt.figure()
+for idx,folder in enumerate(folder_list):
     print(folder)
     volume = Volume(folder)
     bscan = np.abs(volume.get_volume()).mean(axis=0)
@@ -68,13 +75,21 @@ for folder in folder_list:
 
     dB_bscan = 20*np.log10(bscan)
     dB_bscans.append(dB_bscan)
-    
+    plt.plot(dB_prof,label='%d'%idx)
+
+plt.legend()
+plt.title('uncropped, unshifted profiles')
+plt.axhline(threshold_dB,linestyle='--',color='k')
+opf.despine()
+
 dB_ref = dB_profs[0]
 
 bright_idx = np.where(dB_ref>threshold_dB)[0]
 
 rz1 = bright_idx[0]+inner_padding
 rz2 = bright_idx[-1]+outer_padding
+
+
 
 ref = profs[0]
 
@@ -100,6 +115,7 @@ rz2 = min(len(profs[0]),rz2)
 shifts = shifts-np.min(shifts)
 rz2 = rz2-np.max(shifts)
 
+cropped_bscan_fig = plt.figure()
 for idx,(folder,tar,bscan,dB_bscan,shift) in enumerate(zip(folder_list,profs,bscans,dB_bscans,shifts)):
     
     tz1 = rz1+shift
@@ -121,12 +137,25 @@ for idx,(folder,tar,bscan,dB_bscan,shift) in enumerate(zip(folder_list,profs,bsc
             print('Cropping %s -> %s.'%(f,out_f))
 
     else:
-        plt.figure(1)
-        plt.plot(tar[tz1:tz2]+200*idx,label='%d'%idx)
+        plt.figure(uncropped_bscan_fig.number)
+        plt.axvline(tz1,color=color_cycle[idx])
+        plt.axvline(tz2,color=color_cycle[idx])
+        
+        plt.figure(cropped_bscan_fig.number)
+        tar = tar/tar.max()
+        prof_dB = 20*np.log10(tar[tz1:tz2])
+
+        plt.plot(prof_dB,label='%d'%idx)
+        #plt.plot(tar[tz1:tz2],label='%d'%idx)
         plt.figure()
         plt.imshow(dB_bscan,clim=(40,90),cmap='gray',aspect='auto')
-        plt.axhspan(tz1,tz2,color='g',alpha=0.25)
+        plt.axhspan(tz1,tz2,color='g',alpha=0.15)
+        plt.title(idx)
+        
 if not write:
-    plt.figure(1)
+    plt.figure(cropped_bscan_fig.number)
+    plt.axhline(threshold_dB,linestyle='--',color='k')
+    plt.legend()
     plt.title("preview of cropped volume profiles\nrun with 'write' as a parameter to perform crop.")
+    opf.despine()
     plt.show()
