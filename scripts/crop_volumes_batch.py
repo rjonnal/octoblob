@@ -89,8 +89,6 @@ bright_idx = np.where(dB_ref>threshold_dB)[0]
 rz1 = bright_idx[0]+inner_padding
 rz2 = bright_idx[-1]+outer_padding
 
-
-
 ref = profs[0]
 
 shifts = []
@@ -104,7 +102,7 @@ for idx,(folder,tar,bscan,dB_bscan) in enumerate(zip(folder_list,profs,bscans,dB
 
     shift = np.argmax(nxc)
     if shift>len(nxc)//2:
-        shift = shift+len(nxc)
+        shift = shift-len(nxc)
     shifts.append(shift)
 
 shifts = np.array(shifts)
@@ -120,7 +118,6 @@ for idx,(folder,tar,bscan,dB_bscan,shift) in enumerate(zip(folder_list,profs,bsc
     
     tz1 = rz1+shift
     tz2 = rz2+shift
-
     if write:
         out_folder = os.path.join(folder,'cropped')
         os.makedirs(out_folder,exist_ok=True)
