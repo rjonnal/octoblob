@@ -4,7 +4,12 @@ import sys,os
 from . import bmp_tools
 import scipy.optimize as spo
 import logging
-
+try:
+    from fig2gif import GIF
+    make_movie = True
+except ImportError:
+    make_movie = False
+    
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -231,12 +236,19 @@ def optimize_mapping_dispersion(raw_data,func,diagnostics=False,maximum_iteratio
     base_lateral_mean_variance = np.var(np.mean(base_image,axis=0))
     base_image_quality = np.mean(np.max(np.diff(base_image,axis=0)))
 
-
-    output_directory = 'optimize_mapping_dispersion_diagnostics'
-    os.makedirs(output_directory,exist_ok=True)
+    try:
+        output_directory = os.path.join(diagnostics[0],'dispersion_compensation/optimization')
+        os.makedirs(output_directory,exist_ok=True)
+    except:
+        output_directory = 'optimize_mapping_dispersion_diagnostics'
+        os.makedirs(output_directory,exist_ok=True)
 
     optimization_history = []
 
+
+    if make_movie:
+        mov = GIF(os.path.join(output_directory,'optimization.gif'),fps=30,dpi=50)
+    
     def f(coefs):
         m3,m2,c3,c2 = coefs
         im = np.abs(func(raw_data,m3,m2,c3,c2))
@@ -268,11 +280,16 @@ def optimize_mapping_dispersion(raw_data,func,diagnostics=False,maximum_iteratio
 
         if diagnostics:
             plt.cla()
-            plt.imshow(im,cmap='gray')
-            #plt.imshow(20*np.log10(im),cmap='gray',clim=(40,80))
-            plt.text(0,0,'%0.1f (%0.1f) / %0.1f (%0.1f) / %0.2f'%(image_quality,base_image_quality,
-                                      lateral_mean_variance,base_lateral_mean_variance
-                                      ,xc),ha='left',va='top',fontsize=12,color='y')
+            #plt.imshow(im,cmap='gray')
+            plt.imshow(20*np.log10(im),cmap='gray',clim=(40,90))
+            plt.text(0,0,'%0.1f (%0.1f)\n%0.1f (%0.1f)\n%0.2f'%(image_quality,base_image_quality,
+                                                                  lateral_mean_variance,base_lateral_mean_variance
+                                                                  ,xc),ha='left',va='top',fontsize=9,color='g')
+            plt.xticks([])
+            plt.yticks([])
+            if make_movie:
+                mov.add(plt.gcf())
+                
             plt.pause(.001)
 
         if image_quality>1:
@@ -291,6 +308,8 @@ def optimize_mapping_dispersion(raw_data,func,diagnostics=False,maximum_iteratio
     res = spo.minimize(f,x0,method='nelder-mead',bounds=bounds,
                        options={'xatol':1e-11,'disp':True,'maxiter':maximum_iterations})
 
+    if make_movie:
+        mov.make()
     pre_image = np.abs(func(raw_data,*x0))
     post_image = np.abs(func(raw_data,*res.x))
 

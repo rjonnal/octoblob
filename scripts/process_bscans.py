@@ -13,6 +13,11 @@ import multiprocessing as mp
 from octoblob.registration_tools import rigid_shift
 import parameters as params
 from octoblob.bmp_tools import add_colorbar
+from octoblob import plotting_functions as opf
+
+opf.setup_plots('paper')
+opf.print_dpi = 120
+opf.IPSP = 3.5
 
 unp_filename = sys.argv[1]
 
@@ -24,7 +29,6 @@ for f in flags:
         end_frame = int(f)
     except:
         pass
-
 
 
 diagnostics = 'diagnostics' in flags

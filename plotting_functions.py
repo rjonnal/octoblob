@@ -5,6 +5,7 @@ from matplotlib import animation
 
 print_dpi = 300
 screen_dpi = 100
+IPSP = 2.0
 
 def mdsavefig(fn,dpi=print_dpi):
     plt.savefig(fn,dpi=dpi)

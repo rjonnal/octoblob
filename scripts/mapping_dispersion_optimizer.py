@@ -13,6 +13,11 @@ import multiprocessing as mp
 from octoblob.registration_tools import rigid_shift
 import parameters as params
 import logging
+from octoblob import plotting_functions as opf
+
+opf.setup_plots('paper')
+opf.print_dpi = 120
+opf.IPSP = 3.5
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,6 +27,8 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+
 
 def usage():
     print('Usage:')
@@ -84,8 +91,9 @@ def process(filename):
               (params.m2min,params.m2max),
               (params.c3min,params.c3max),
               (params.c2min,params.c2max)]
-    
-    m3,m2,c3,c2 = dispersion_ui.optimize_mapping_dispersion(src.get_frame(frame_index),process_for_optimization,diagnostics=False,bounds=None,maximum_iterations=200,mode=mode,show_figures=show_figures)
+
+    diagnostics_pair = (filename.replace('.unp','')+'_diagnostics',frame_index)
+    m3,m2,c3,c2 = dispersion_ui.optimize_mapping_dispersion(src.get_frame(frame_index),process_for_optimization,diagnostics=diagnostics_pair,bounds=None,maximum_iterations=200,mode=mode,show_figures=show_figures)
 
     print('mapping_coefficients = [%0.1e, %0.1e, 0.0, 0.0]'%(m3,m2))
     print('dispersion_coefficients = [%0.1e, %0.1e, 0.0, 0.0]'%(c3,c2))

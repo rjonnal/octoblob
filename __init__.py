@@ -10,12 +10,8 @@ import scipy.io as sio
 from octoblob import bmp_tools
 from octoblob import registration_tools
 from octoblob import volume_tools
+from octoblob import plotting_functions as opf
 import glob
-
-IPSP = 2.0
-DISPLAY_DPI = 75
-PRINT_DPI = 75
-
 
 class ProcessingParameters:
 
@@ -206,7 +202,7 @@ class OCTRawData:
         if diagnostics:
             n_samples = 10
             sample_interval = int(float(out.shape[1])/float(n_samples))
-            plt.figure(figsize=(4*IPSP,2*IPSP),dpi=DISPLAY_DPI)
+            plt.figure(figsize=(4*opf.IPSP,2*opf.IPSP),dpi=opf.screen_dpi)
             plt.subplot(2,5,1)
             plt.imshow(frame,cmap='gray',aspect='auto',interpolation='none')
             plt.axhline(z1,alpha=0.5)
@@ -315,13 +311,13 @@ class OCTRawData:
 
             if frame.max()>=self.saturation_value:
                 if diagnostics:
-                    plt.figure(figsize=(IPSP,IPSP),dpi=DISPLAY_DPI)
+                    plt.figure(figsize=(opf.IPSP,opf.IPSP),dpi=opf.screen_dpi)
                     plt.hist(frame,bins=100)
                     plt.title('Frame saturated with pixels >= %d.'%self.saturation_value)
                 print('Frame saturated, with pixels >= %d.'%self.saturation_value)
             
             if diagnostics:
-                plt.figure(figsize=(IPSP,2*IPSP),dpi=DISPLAY_DPI)
+                plt.figure(figsize=(opf.IPSP,2*opf.IPSP),dpi=opf.screen_dpi)
                 plt.subplot(2,1,1)
                 plt.hist(frame,bins=100)
                 plt.title('before %d bit shift'%self.bit_shift_right)
@@ -341,7 +337,7 @@ class OCTRawData:
 
 
             if diagnostics:
-                plt.figure(figsize=(IPSP,IPSP),dpi=DISPLAY_DPI)
+                plt.figure(figsize=(opf.IPSP,opf.IPSP),dpi=opf.screen_dpi)
                 plt.imshow(frame,aspect='auto',interpolation='none',cmap='gray')
                 plt.colorbar()
                 plt.title('raw data (bit shifted %d bits)'%self.bit_shift_right)
@@ -397,7 +393,9 @@ def save_diagnostics(diagnostics,tag):
         return
     
     try:
-        plt.savefig(os.path.join(subdir,'%05d.png'%index),dpi=PRINT_DPI)
+        diag_out_fn = os.path.join(subdir,'%05d.png'%index)
+        print('Saving to %s.'%diag_out_fn)
+        plt.savefig(diag_out_fn,dpi=opf.print_dpi)
     except Exception as e:
         print('save_diagnostics error: %s'%e)
 
@@ -458,7 +456,7 @@ def dc_subtract(spectra,diagnostics=False):
     out = (spectra.T-dc).T
     
     if diagnostics:
-        plt.figure(figsize=(2*IPSP,2*IPSP),dpi=DISPLAY_DPI)
+        plt.figure(figsize=(2*opf.IPSP,2*opf.IPSP),dpi=opf.screen_dpi)
         plt.subplot(2,2,1)
         plt.imshow(spectra,aspect='auto',cmap='gray',interpolation='none')
         plt.colorbar()
@@ -510,7 +508,7 @@ def k_resample(spectra,coefficients=pp.k_resampling_coefficients,diagnostics=Fal
     interpolated[-1,:] = interpolated[-2,:]
 
     if diagnostics:
-        plt.figure(figsize=(2*IPSP,3*IPSP),dpi=DISPLAY_DPI)
+        plt.figure(figsize=(2*opf.IPSP,3*opf.IPSP),dpi=opf.screen_dpi)
         plt.subplot(3,2,1)
         plt.imshow(spectra)
         plt.colorbar()
@@ -553,7 +551,7 @@ def dispersion_compensate(spectra,coefficients=pp.dispersion_coefficients,diagno
     if diagnostics:
         before = 20*np.log10(np.abs(np.fft.fft(spectra,axis=0)))
         after = 20*np.log10(np.abs(np.fft.fft(dechirped,axis=0)))
-        plt.figure(figsize=(2*IPSP,1*IPSP),dpi=DISPLAY_DPI)
+        plt.figure(figsize=(2*opf.IPSP,1*opf.IPSP),dpi=opf.screen_dpi)
         plt.subplot(1,2,1)
         plt.imshow(before,cmap='gray',aspect='auto',clim=[40,80])
         plt.colorbar()
@@ -587,7 +585,7 @@ def gaussian_window(spectra,sigma=pp.gaussian_window_sigma,diagnostics=False):
             return dc,bright
 
             
-        plt.figure(figsize=(2*IPSP,4*IPSP),dpi=DISPLAY_DPI)
+        plt.figure(figsize=(2*opf.IPSP,4*opf.IPSP),dpi=opf.screen_dpi)
         plt.subplot(4,2,1)
         plt.imshow(np.abs(spectra),cmap='gray',aspect='auto',interpolation='none')
         plt.colorbar()
@@ -658,7 +656,7 @@ def spectra_to_bscan(spectra,oversampled_size=None,z1=None,z2=None,x1=None,x2=No
     #    bscan = np.fft.fft(spectra,axis=0)
 
     if diagnostics:
-        plt.figure(figsize=(1*IPSP,1*IPSP),dpi=DISPLAY_DPI)
+        plt.figure(figsize=(1*opf.IPSP,1*opf.IPSP),dpi=opf.screen_dpi)
         plt.imshow(20*np.log10(np.abs(bscan)),cmap='gray',clim=[40,80],aspect='auto')
         plt.colorbar()
         plt.axhline(z1)
@@ -693,7 +691,7 @@ def show_bscan(bscan,title='',clim=None,plot_ascan=False):
     plt.colorbar()
     plt.title(title)
     if plot_ascan:
-        plt.figure(figsize=(1*IPSP,1*IPSP),dpi=DISPLAY_DPI)
+        plt.figure(figsize=(1*opf.IPSP,1*opf.IPSP),dpi=opf.screen_dpi)
         plt.plot(display_bscan.mean(1))
     #plt.savefig('./figs/%s.png'%(title.replace(' ','_')))
 
@@ -739,7 +737,7 @@ def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=False):
         bin_width = np.mean(np.diff(bin_edges))
         shift_size = np.mean(np.diff(shifts))
         
-        plt.figure(figsize=(3*IPSP,IPSP),dpi=DISPLAY_DPI)
+        plt.figure(figsize=(3*opf.IPSP,opf.IPSP),dpi=opf.screen_dpi)
         plt.subplot(1,3,1)
         plt.imshow(all_counts)
         plt.title('counts')
@@ -807,7 +805,7 @@ def get_phase_jumps(phase_stack,mask,
 
 
     if diagnostics:
-        plt.figure(figsize=((n_reps-1)*IPSP,2*IPSP),dpi=DISPLAY_DPI)
+        plt.figure(figsize=((n_reps-1)*opf.IPSP,2*opf.IPSP),dpi=opf.screen_dpi)
         plt.suptitle('phase shifts between adjacent frames in cluster')
         for rep in range(1,n_reps):
             plt.subplot(2,n_reps-1,rep)
@@ -844,7 +842,7 @@ def get_phase_jumps(phase_stack,mask,
     bin_counts = np.zeros((d_phase_d_t.shape[1:]))
 
     if diagnostics:
-        plt.figure(figsize=((n_reps-1)*IPSP,1*IPSP),dpi=DISPLAY_DPI)
+        plt.figure(figsize=((n_reps-1)*opf.IPSP,1*opf.IPSP),dpi=opf.screen_dpi)
         total_bins = n_bins*resample_factor
         hist_sets = np.zeros((n_reps-1,n_fast,total_bins))
 
@@ -907,7 +905,7 @@ def get_phase_jumps(phase_stack,mask,
         pts_per_example = 10
         max_examples = 16
         dtheta_threshold = np.pi/2.0
-        fig = plt.figure(figsize=(IPSP*4,IPSP*4))
+        fig = plt.figure(figsize=(opf.IPSP*4,opf.IPSP*4))
         example_count = 0
         for rep_idx,hist_set in enumerate(hist_sets):
             temp = np.diff(b_jumps[:,rep_idx])
@@ -941,7 +939,7 @@ def get_phase_jumps(phase_stack,mask,
 
         # now let's show some examples of small differences between adjacent A-scans
         dtheta_threshold = np.pi/20.0
-        fig = plt.figure(figsize=(IPSP*4,IPSP*4))
+        fig = plt.figure(figsize=(opf.IPSP*4,opf.IPSP*4))
         example_count = 0
         for rep_idx,hist_set in enumerate(hist_sets):
             temp = np.diff(b_jumps[:,rep_idx])
@@ -1079,7 +1077,7 @@ def bulk_motion_correct(phase_stack,mask,
         err_clim = [-np.pi-np.min(-np.sum(b_jumps,axis=1)),np.pi+np.max(-np.sum(b_jumps,axis=1))]
         if err_clim[1]<err_clim[0]:
             err_clim = [-ec for ec in err_clim]
-        plt.figure(figsize=((n_reps-1)*IPSP,2*IPSP),dpi=DISPLAY_DPI)
+        plt.figure(figsize=((n_reps-1)*opf.IPSP,2*opf.IPSP),dpi=opf.screen_dpi)
         plt.subplot(2,n_reps+1,1)
         plt.imshow(mask*phase_stack[:,:,0],clim=phase_clim,aspect='auto',interpolation='none')
         plt.xticks([])
@@ -1138,7 +1136,7 @@ def phase_variance(data_phase,mask,diagnostics=False):
     # i.e. variance is computed with N-1 in denominator
     pv = np.var(np.exp(1j*data_phase),axis=2,ddof=1)
     if diagnostics:
-        plt.figure(figsize=(3*IPSP,1*IPSP),dpi=DISPLAY_DPI)
+        plt.figure(figsize=(3*opf.IPSP,1*opf.IPSP),dpi=opf.screen_dpi)
         plt.subplot(1,3,1)
         plt.imshow(pv,cmap='gray',aspect='auto',interpolation='none')
         plt.xticks([])
@@ -1193,7 +1191,7 @@ def make_angiogram(stack_complex,bulk_correction_threshold=None,phase_variance_t
 
     if diagnostics:
         nbins=20
-        plt.figure(figsize=(4*IPSP,2*IPSP),dpi=DISPLAY_DPI)
+        plt.figure(figsize=(4*opf.IPSP,2*opf.IPSP),dpi=opf.screen_dpi)
         plt.subplot(2,4,1)
         plt.hist(np.ravel(stack_dB),bins=nbins)
         plt.xlabel('dB (full stack)')
