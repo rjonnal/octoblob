@@ -505,7 +505,7 @@ tags = []
 profs = []
 
 for folder_idx,folder in enumerate(folders):
-    logging.info('Working on folder %d of %d: %s.'%(folder_idx+1,len(folders),folder))
+    logging.info('Computing axial profile plots for set %d of %d: %s.'%(folder_idx+1,len(folders),folder))
     tag = make_tag(folder)
     tags.append(tag)
     file_list = get_files(folder)
@@ -521,7 +521,8 @@ for folder_idx,folder in enumerate(folders):
 prof_axial_shifts = []
 fref = np.fft.fft(profs[0])
 mprof = np.zeros(profs[0].shape)
-for tar,folder in zip(profs,folders):
+for folder_idx,(tar,folder) in enumerate(zip(profs,folders)):
+    logging.info('Registering axial profile plots for set %d of %d: %s.'%(folder_idx+1,len(folders),folder))
     ftar = np.fft.fft(tar)
     xc = np.real(np.fft.ifft(fref*np.conj(ftar)/np.abs(fref*np.conj(ftar))))
     pidx = np.argmax(xc)
@@ -536,7 +537,8 @@ mpeak_dict = get_peak_dict(mprof)
 
 
 peak_metadict = {}
-for prof,shift,folder in zip(profs,prof_axial_shifts,folders):
+for folder_idx,(prof,shift,folder) in enumerate(zip(profs,prof_axial_shifts,folders)):
+    logging.info('Identifying peaks for set %d of %d: %s.'%(folder_idx+1,len(folders),folder))
     peak_dict = {}
     for k in mpeak_dict.keys():
         estimate = mpeak_dict[k]-shift
@@ -548,13 +550,12 @@ for prof,shift,folder in zip(profs,prof_axial_shifts,folders):
                 peak_height = prof[peak_position]
             if prof[peak_position]>prof[peak_position-1] and prof[peak_position]>prof[peak_position+1]:
                 break
-                
         peak_dict[k] = peak_position
     peak_metadict[folder] = peak_dict
 
 
 for folder_idx,folder in enumerate(folders):
-    logging.info('Working on folder %d of %d: %s.'%(folder_idx+1,len(folders),folder))
+    logging.info('Making plots for folder %d of %d: %s.'%(folder_idx+1,len(folders),folder))
     tag = make_tag(folder)
     tags.append(tag)
     file_list = get_files(folder)

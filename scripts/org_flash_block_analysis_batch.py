@@ -27,9 +27,10 @@ signal_threshold_fraction = 0.04
 theta_bin_min = -80
 theta_bin_max = 80
 theta_bin_step = (theta_bin_max-theta_bin_min)/20.0
+default_limits = [50,150]
 
 # the duration over which we assume the retina is stationary (in seconds)
-stationary_duration_default = 0.0075
+stationary_duration_default = 0.01
 testing = False
 do_strip_registration = False
 
@@ -66,9 +67,10 @@ for arg in args:
 try:
     assert len(limits)==2
 except AssertionError as ae:
-    sys.exit(ae)
+    limits = default_limits
 
 limits.sort()
+logging.info('Using limits %s.'%limits)
 limits0 = [l for l in limits]
 
 def phase_to_nm(phase):
@@ -107,6 +109,8 @@ for bscan_folder in bscan_folders:
             break
         temp = temp[:-1]
 
+    tag = xml_filename.replace('.xml','')
+
     cfg = config_reader.get_configuration(xml_filename)
 
     n_vol = cfg['n_vol']
@@ -124,7 +128,8 @@ for bscan_folder in bscan_folders:
     # Remember that the B-scan width may not be the same as
     # n_fast, since B-scans are cropped during processing.
     # The same is true for n_depth.
-    dt = n_fast/1e5 
+    dt = n_fast/1e5
+    logging.info('Working on set %s.'%tag)
     logging.info('B-scan interval: %0.1f ms; B-scan rate: %0.1f Hz'%(dt*1000,1/dt))
     block_size = int(round(stationary_duration/dt))
     logging.info('Setting block size to %d, assuming retina is stationary for %0.1f ms.'%(block_size,stationary_duration*1000))
@@ -137,8 +142,8 @@ for bscan_folder in bscan_folders:
 
     blocks_processed = 0
 
-    npy_output_directory = os.path.join(bscan_folder,'phase_ramps_%03dms_npy'%(stationary_duration*1000))
-    png_output_directory = os.path.join(bscan_folder,'phase_ramps_%03dms_png'%(stationary_duration*1000))
+    npy_output_directory = os.path.join(bscan_folder,'%s_phase_ramps_%03dms_npy'%(tag,stationary_duration*1000))
+    png_output_directory = os.path.join(bscan_folder,'%s_phase_ramps_%03dms_png'%(tag,stationary_duration*1000))
 
     os.makedirs(npy_output_directory,exist_ok=True)
     os.makedirs(png_output_directory,exist_ok=True)
