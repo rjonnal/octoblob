@@ -41,7 +41,12 @@ bscan_crop_right = 20
 
 vel_lateral_smoothing_sigma = 3 # use 0 for no smoothing
 
-profile_peak_threshold = 5000
+# when refining the localization of peaks, allow individual
+# peak positions to vary slightly from the peaks in the mean
+# profile, to accommodate slight variations in fixation/eccentricity:
+axial_peak_shift_tolerance = 2
+
+profile_peak_threshold = 3000
 peak_labels = ['ISOS','COST']
 layer_differences = [('COST','ISOS')]#,('RPE','ISOS')]
 
@@ -60,7 +65,7 @@ stim_color = 'g'
 stim_linestyle = '-'
 output_folder = 'org_block_figures'
 auto_open_report = True
-make_pdf = False # requires pandoc
+make_pdf = True # requires pandoc
 style = 'ggplot'
 
 # options for plotting raw data and/or noise in background of average:
@@ -298,8 +303,8 @@ def get_contour0(b):
     out = np.polyval(np.polyfit(x,out,1),x)
     return np.round(out).astype(np.int)
 
-def get_contour(b,maxtilt=10):
-    tmaxes = np.arange(-maxtilt,maxtilt+1)
+def get_contour(b,maxtilt=20,tilt_step=0.1):
+    tmaxes = np.arange(-maxtilt,maxtilt+1,tilt_step)
     contrasts = np.zeros(tmaxes.shape)
     amaxes = np.zeros(tmaxes.shape)
 
@@ -400,7 +405,7 @@ def make_profile_plot(prof,peak_dict):
         idx = peak_dict[key]
         plt.axvline(idx,color=c)
         plt.text(idx,prof[idx],key,ha='right',va='bottom',rotation=90,color=c,fontsize=6)
-    plt.yticks([])
+    #plt.yticks([])
     plt.ylabel('OCT amplitude')
     opf.despine()
 
@@ -497,6 +502,57 @@ layer_dict = {}
 tags = []
 
 
+profs = []
+
+for folder_idx,folder in enumerate(folders):
+    logging.info('Working on folder %d of %d: %s.'%(folder_idx+1,len(folders),folder))
+    tag = make_tag(folder)
+    tags.append(tag)
+    file_list = get_files(folder)
+    ablock,vblock = make_blocks(folder)
+    sy,sz,sx = ablock.shape
+    bscan = get_amp(ablock)
+
+    prof = nanmean(bscan[:,stimulated_region_start:stimulated_region_end],axis=1)
+
+    profs.append(prof)
+
+
+prof_axial_shifts = []
+fref = np.fft.fft(profs[0])
+mprof = np.zeros(profs[0].shape)
+for tar,folder in zip(profs,folders):
+    ftar = np.fft.fft(tar)
+    xc = np.real(np.fft.ifft(fref*np.conj(ftar)/np.abs(fref*np.conj(ftar))))
+    pidx = np.argmax(xc)
+    if pidx>len(xc)//2:
+        pidx = pidx - len(xc)
+    prof_axial_shifts.append(pidx)
+    shifted = np.roll(tar,pidx)
+    mprof = mprof + shifted
+
+mprof = mprof/len(profs)
+mpeak_dict = get_peak_dict(mprof)
+
+
+peak_metadict = {}
+for prof,shift,folder in zip(profs,prof_axial_shifts,folders):
+    peak_dict = {}
+    for k in mpeak_dict.keys():
+        estimate = mpeak_dict[k]-shift
+        peak_height = prof[estimate]
+        peak_position = estimate
+        for dz in range(-axial_peak_shift_tolerance,axial_peak_shift_tolerance+1):
+            if prof[estimate+dz]>peak_height:
+                peak_position = estimate+dz
+                peak_height = prof[peak_position]
+            if prof[peak_position]>prof[peak_position-1] and prof[peak_position]>prof[peak_position+1]:
+                break
+                
+        peak_dict[k] = peak_position
+    peak_metadict[folder] = peak_dict
+
+
 for folder_idx,folder in enumerate(folders):
     logging.info('Working on folder %d of %d: %s.'%(folder_idx+1,len(folders),folder))
     tag = make_tag(folder)
@@ -513,8 +569,12 @@ for folder_idx,folder in enumerate(folders):
     poststim = get_vel(vblock,0.00,0.020)
     
     prof = nanmean(bscan[:,stimulated_region_start:stimulated_region_end],axis=1)
-    peak_dict = get_peak_dict(prof)
 
+    # old way: separate peaks for each profile:
+    #peak_dict = get_peak_dict(prof)
+    # new way: use peak metadictionary
+    peak_dict = peak_metadict[folder]
+    
     plt.figure(figsize=plots_figure_size,dpi=screen_dpi)
     for peak_label in peak_labels:
         z = peak_dict[peak_label]
@@ -656,17 +716,19 @@ figure_list.sort(key=lambda tup: tup[0])
 
 
 d = {}
-d['bscan_amp'] = 'Amplitude B-scans'
+d['bscan_amp_layers'] = 'Amplitude B-scans'
 d['bscan_pre'] = 'Velocity (pre stimulus)'
 d['bscan_post'] = 'Velocity (post stimulus)'
 d['mscan'] = 'M-scans'
 d['layer_velocities'] = 'Layer velocity plots'
 d['layer_velocity_differences'] = 'Relative layer velocity plots'
+d['peak_profiles'] = 'Axial profiles'
 
 if make_pdf:
     try:
         with open('%s/figures.md'%output_folder,'w') as fid:
-            for label in ['bscan_amp','bscan_pre','bscan_post','mscan','layer_velocities','layer_velocity_differences']:
+            for label in ['bscan_amp_layers','peak_profiles','bscan_pre','bscan_post','mscan','layer_velocities','layer_velocity_differences']:
+                print(label)
                 sublist = [f for f in figure_list if f[0].find(label)>-1]
                 sublist.sort(key=lambda tup: tup[0])
                 fid.write('### %s\n\n'%d[label])
@@ -687,7 +749,7 @@ try:
     with open('%s/figures.html'%output_folder,'w') as fid:
         fid.write('<head><title>Conventional flash ORG figures</title></head>\n')
         fid.write('<body>\n')
-        for label in ['bscan_amp','bscan_pre','bscan_post','mscan','layer_velocities','layer_velocity_differences']:
+        for label in ['bscan_amp_layers','peak_profiles','bscan_pre','bscan_post','mscan','layer_velocities','layer_velocity_differences']:
             sublist = [f for f in figure_list if f[0].find(label)>-1]
             sublist.sort(key=lambda tup: tup[0])
             fid.write('<h3>%d. %s</h3>\n\n'%(secn,d[label]))
