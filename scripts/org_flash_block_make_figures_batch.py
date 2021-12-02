@@ -76,6 +76,8 @@ single_alpha = 0.1
 noise_alpha = 0.1
 noise_color = 'k'
 
+testing_length_differences = False
+
 ################################### End parameters ######################################
 
 import logging
@@ -367,6 +369,7 @@ def make_blocks(folder,diagnostics=False):
         
         amp_block = roll_block(amp_block,contour)
         post_contour_amp = nanmean(amp_block[stim_idx-20:stim_idx+20,:,:],axis=0)
+        
         vel_block = roll_block(vel_block,contour)
         if diagnostics:
             plt.figure()
@@ -504,25 +507,49 @@ tags = []
 
 profs = []
 
+if testing_length_differences:
+    tempdict = {'12_45_49_bscans/cropped/phase_ramps_010ms_npy':125,
+                '12_53_09_bscans/cropped/phase_ramps_010ms_npy':129,
+                '12_58_29_bscans/cropped/phase_ramps_010ms_npy':123}
+
+
 for folder_idx,folder in enumerate(folders):
     logging.info('Computing axial profile plots for set %d of %d: %s.'%(folder_idx+1,len(folders),folder))
     tag = make_tag(folder)
     tags.append(tag)
     file_list = get_files(folder)
-    ablock,vblock = make_blocks(folder)
+    ablock,vblock = make_blocks(folder,diagnostics=False)
+
+    if testing_length_differences:
+        ablock = ablock[:,:tempdict[folder],:]
     sy,sz,sx = ablock.shape
     bscan = get_amp(ablock)
-
     prof = nanmean(bscan[:,stimulated_region_start:stimulated_region_end],axis=1)
-
     profs.append(prof)
 
 
+
+# reconcile prof lengths
+max_length = np.max([len(prof) for prof in profs])
+
+newprofs = []
+for prof in profs:
+    newprof = np.zeros(max_length)
+    newprof[:len(prof)] = prof[:]
+    newprofs.append(newprof)
+
+profs = newprofs
+    
 prof_axial_shifts = []
 fref = np.fft.fft(profs[0])
 mprof = np.zeros(profs[0].shape)
+
+for prof in profs:
+    print(len(prof))
+
 for folder_idx,(tar,folder) in enumerate(zip(profs,folders)):
     logging.info('Registering axial profile plots for set %d of %d: %s.'%(folder_idx+1,len(folders),folder))
+
     ftar = np.fft.fft(tar)
     xc = np.real(np.fft.ifft(fref*np.conj(ftar)/np.abs(fref*np.conj(ftar))))
     pidx = np.argmax(xc)
