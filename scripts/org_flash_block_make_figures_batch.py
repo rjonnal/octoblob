@@ -41,7 +41,7 @@ rel_plot_clim = (-5,4)
 # stimulus is at t=0.0
 # None in either place defaults to the start or end of the existing ramp files
 tlim_ms = (-100,100)
-tlim_ms = (None,None)
+# tlim_ms = (None,None)
 
 # crop b-scans, just for visualization
 bscan_crop_left = 10
