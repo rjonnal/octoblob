@@ -12,12 +12,18 @@ from difflib import SequenceMatcher
 ################################### Parameters ##########################################
 # parameters for now, but turn these into command line arguments
 figure_mode = 'paper' # 'paper' or 'presentation'
-index_of_stimulus = 48 # expressed in terms of the number of files
+
+# specify the file containing the onset of the stimulus; it will be identified by finding
+# the first filename containing this substring in the alphanumerically sorted files:
+stimulus_file_filter = 'phase_ramp_frames_00100'
 
 dx_um = 3.0
 dy_um = 3.0
 dz_um = 2.5
 dt_s = 0.0025
+
+# the duration over which we assume the retina is stationary (in seconds)
+stationary_duration = 0.01
 
 # layer thickness, used for axial integration of signal:
 layer_thickness = 1
@@ -33,7 +39,9 @@ rel_plot_clim = (-5,4)
 
 # the time range, in ms, to include in plots
 # stimulus is at t=0.0
+# None in either place defaults to the start or end of the existing ramp files
 tlim_ms = (-100,100)
+tlim_ms = (None,None)
 
 # crop b-scans, just for visualization
 bscan_crop_left = 10
@@ -160,11 +168,32 @@ for tup in zip(*file_lists):
             except AssertionError:
                 sys.exit('Incomensurate files found in %s: %s.'%(folders,tup))
 
+temp = file_lists[0]
+index_of_stimulus=None
+for idx,f in enumerate(temp):
+    if f.find(stimulus_file_filter)>-1:
+        index_of_stimulus=idx
+        
+if index_of_stimulus is None:
+    sys.exit('stimulus_file_filter %s did not identify a stimulus frame'%stimulus_file_filter)
+
+
+t_pre_stim = index_of_stimulus*dt_s-stationary_duration/2.0
 
 # use temporal sampling, number of files, and the file index of the stimulus
 # to generate a time array
-t_arr = (np.arange(n_files)-index_of_stimulus)*dt_s
+t_arr = np.arange(n_files)*dt_s-t_pre_stim#index_of_stimulus)*dt_s
 stim_idx = np.argmin(np.abs(t_arr))
+
+new_start = tlim_ms[0]
+new_end = tlim_ms[1]
+if new_start is None:
+    new_start = t_arr[0]*1000.0
+if new_end is None:
+    new_end = t_arr[-1]*1000.0
+
+tlim_ms = (new_start,new_end)
+
 
 def nanmean(arr,axis=0):
     with warnings.catch_warnings():

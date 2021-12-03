@@ -12,6 +12,8 @@ from octoblob import registration_tools
 from octoblob import volume_tools
 from octoblob import plotting_functions as opf
 import glob
+import shutil
+
 
 class ProcessingParameters:
 
@@ -60,6 +62,7 @@ class ProcessingParameters:
         self.phase_variance_threshold = 0.43
 
 pp = ProcessingParameters()
+
 
 class OCTRawData:
 
@@ -125,6 +128,7 @@ class OCTRawData:
     def print_volume_info(self):
         #print('n_vol\t\t%d\nn_slow\t\t%d\nn_repeats\t%d\nn_fast\t\t%d\nn_depth\t\t%d\nbytes_per_pixel\t%d\ntotal_expected_size\t%d'%(self.n_vol,self.n_slow,self.n_repeats,self.n_fast,self.n_depth,self.bytes_per_pixel,self.n_bytes))
         print(self.get_info())
+
         
     def get_info(self,spaces=False):
         temp = 'n_vol\t\t%d\nn_slow\t\t%d\nn_repeats\t%d\nn_fast\t\t%d\nn_depth\t\t%d\nbytes_per_pixel\t%d\ntotal_expected_size\t%d'%(self.n_vol,self.n_slow,self.n_repeats,self.n_fast,self.n_depth,self.bytes_per_pixel,self.n_bytes)
