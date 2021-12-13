@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 import matplotlib.patches as patches
 import glob,os,sys,shutil
 import scipy.signal as sps
+import scipy.io as sio
 import octoblob.plotting_functions as opf
 import warnings
 import octoblob as blob
@@ -73,7 +74,7 @@ stim_color = 'g'
 stim_linestyle = '-'
 output_folder = 'org_block_figures'
 auto_open_report = True
-make_pdf = True # requires pandoc
+make_pdf = False # requires pandoc
 style = 'ggplot'
 
 # options for plotting raw data and/or noise in background of average:
@@ -97,6 +98,12 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+
+data_dictionary = {}
+def add_to_data_dictionary(s1,s2,dat):
+    key = '%s_%s'%(s1,s2)
+    data_dictionary[key] = dat
 
 
 styles_with_origin = ['ggplot']
@@ -151,6 +158,9 @@ def get_files(folder):
 file_lists = []
 for folder in folders:
     file_lists.append(get_files(folder))
+
+
+metatag = ''
 
 # verify that the supplied file lists are commensurate--same numbers of files, etc.
 try:
@@ -365,7 +375,7 @@ def roll_block(block,contour):
     return block
 
 def make_blocks(folder,diagnostics=False):
-    tag = make_tag(folder)
+    tag,stag = make_tag(folder)
 
     file_list = get_files(folder)
     
@@ -454,7 +464,7 @@ def add_labels(ax,pd,xlim=None):
         if k in peak_labels:
             text(ax,xlim[0],pd[k],k)
             
-def show_mscan_overlay(amp_m,vel_m,screen_dpi=100,x_stretch=3.0,y_stretch=1.0,ax=None,alpha=0.5,mscan_xlim=tlim_ms,peak_dict={}):
+def show_mscan_overlay(amp_m,vel_m,screen_dpi=100,x_stretch=3.0,y_stretch=1.0,ax=None,alpha=0.5,mscan_xlim=tlim_ms,peak_dict={},do_overlay=True):
 
     vel_m[:,:15] = np.nan
 
@@ -471,11 +481,15 @@ def show_mscan_overlay(amp_m,vel_m,screen_dpi=100,x_stretch=3.0,y_stretch=1.0,ax
     
     fig = plt.figure(figsize=(fx,fy),dpi=screen_dpi)
     ax = fig.add_axes([0.02,0.15,.85,0.75])
-    cax = fig.add_axes([0.89,0.1,0.02,0.8])
+    if do_overlay:
+        cax = fig.add_axes([0.89,0.1,0.02,0.8])
     db = 20*np.log10(amp_m)
     clim = np.percentile(db,(5,99.9))
+    
     imh = ax.imshow(db,clim=clim,cmap='gray',aspect='auto',extent=[1000*t_arr[0],1000*t_arr[-1],z_arr[0],z_arr[-1]])
-    vh = ax.imshow(vel_m,clim=mscan_vel_clim,cmap='jet',aspect='auto',alpha=0.5,extent=[1000*t_arr[0],1000*t_arr[-1],z_arr[0],z_arr[-1]])
+    
+    if do_overlay:
+        vh = ax.imshow(vel_m,clim=mscan_vel_clim,cmap='jet',aspect='auto',alpha=0.5,extent=[1000*t_arr[0],1000*t_arr[-1],z_arr[0],z_arr[-1]])
 
     ax.axvline(0.0,color=stim_color,linestyle=stim_linestyle)
     ax.set_xlim(mscan_xlim)
@@ -491,8 +505,9 @@ def show_mscan_overlay(amp_m,vel_m,screen_dpi=100,x_stretch=3.0,y_stretch=1.0,ax
             ax.text(mscan_xlim[0],zum,peak_label,ha='left',va='center')
         except:
             pass
-            
-    fig.colorbar(vh,cax=cax)
+
+    if do_overlay:
+        fig.colorbar(vh,cax=cax)
 
     
     
@@ -513,15 +528,31 @@ def get_roi(vel_block,x1,x2,z1,z2):
     sub = nanmean(nanmean(sub,axis=2),axis=1)
     return sub
 
+
+def all_ints(items):
+    for item in items[:1]:
+        try:
+            junk = int(item)
+            assert junk<100
+        except:
+            return False
+    return True
+
 def make_tag(path):
     toks = []
+    short_toks = []
+    
     while True:
         tup = os.path.split(path)
+        temp = tup[1].split('_')
+        if all_ints(temp):
+            short_toks.append(tup[1][:8])
+        
         toks = [tup[1]]+toks
         path = tup[0]
         if len(path)==0:
             break
-    return '_'.join(toks)
+    return '_'.join(toks),'_'.join(short_toks)
 
 def add_origin():
     alpha = 0.5
@@ -532,7 +563,7 @@ def add_origin():
 
 layer_dict = {}
 tags = []
-
+stags = []
 
 profs = []
 
@@ -544,8 +575,9 @@ if testing_length_differences:
 
 for folder_idx,folder in enumerate(folders):
     logging.info('Computing axial profile plots for set %d of %d: %s.'%(folder_idx+1,len(folders),folder))
-    tag = make_tag(folder)
+    tag,stag = make_tag(folder)
     tags.append(tag)
+    stags.append(stag)
     file_list = get_files(folder)
     ablock,vblock = make_blocks(folder,diagnostics=False)
 
@@ -556,6 +588,7 @@ for folder_idx,folder in enumerate(folders):
     prof = nanmean(bscan[:,stimulated_region_start:stimulated_region_end],axis=1)
     profs.append(prof)
 
+metatag = '_'.join(stags)
 
 
 # reconcile prof lengths
@@ -572,9 +605,6 @@ profs = newprofs
 prof_axial_shifts = []
 fref = np.fft.fft(profs[0])
 mprof = np.zeros(profs[0].shape)
-
-for prof in profs:
-    print(len(prof))
 
 for folder_idx,(tar,folder) in enumerate(zip(profs,folders)):
     logging.info('Registering axial profile plots for set %d of %d: %s.'%(folder_idx+1,len(folders),folder))
@@ -612,7 +642,7 @@ for folder_idx,(prof,shift,folder) in enumerate(zip(profs,prof_axial_shifts,fold
 
 for folder_idx,folder in enumerate(folders):
     logging.info('Making plots for folder %d of %d: %s.'%(folder_idx+1,len(folders),folder))
-    tag = make_tag(folder)
+    tag,stag = make_tag(folder)
     tags.append(tag)
     file_list = get_files(folder)
     ablock,vblock = make_blocks(folder)
@@ -643,7 +673,10 @@ for folder_idx,folder in enumerate(folders):
             layer_dict[peak_label] = [series]
             
         plt.plot(1000*t_arr,series,label=peak_label)
+        add_to_data_dictionary(tag,'layer_velocity_%s'%peak_label,series)
 
+    add_to_data_dictionary(tag,'t',1000*t_arr)
+    
     if not style in styles_with_origin:
         add_origin()
     
@@ -659,6 +692,7 @@ for folder_idx,folder in enumerate(folders):
     for a,b in layer_differences:
         dseries = layer_dict[a][-1]-layer_dict[b][-1]
         plt.plot(1000*t_arr,dseries,label='%s - %s'%(a,b))
+        add_to_data_dictionary(tag,'layer_velocity_difference_%s_%s'%(a,b),dseries)
         
     if not style in styles_with_origin:
         add_origin()
@@ -672,6 +706,8 @@ for folder_idx,folder in enumerate(folders):
     savefig('layer_velocity_differences',tag)
         
     make_profile_plot(prof,peak_dict)
+    add_to_data_dictionary(folder,'profile',prof)
+    
     plt.axhline(profile_peak_threshold)
     plt.text(0,profile_peak_threshold,'peak threshold',ha='left',va='bottom')
     opf.despine()
@@ -680,12 +716,17 @@ for folder_idx,folder in enumerate(folders):
     fig,ax = show_bscan(bscan)
     savefig('bscan_amp',tag)
     scalebars(3.0,2.5,ax=ax)
+    add_to_data_dictionary(tag,'bscan',bscan)
+    
     fig,ax = show_bscan_overlay(bscan,prestim)
     scalebars(3.0,2.5,ax=ax)
     savefig('bscan_pre_stim',tag)
+    add_to_data_dictionary(tag,'bscan_prestim',prestim)
+    
     fig,ax = show_bscan_overlay(bscan,poststim)
     scalebars(3.0,2.5,ax=ax)
     savefig('bscan_post_stim',tag)
+    add_to_data_dictionary(tag,'bscan_poststim',poststim)
 
     fig,ax = show_bscan(bscan,layer_dict=peak_dict)
     savefig('bscan_amp_layers',tag)
@@ -696,9 +737,19 @@ for folder_idx,folder in enumerate(folders):
     amp_m = nanmean(ablock[:,:,stimulated_region_start:stimulated_region_end],axis=2).T
     vel_m = nanmean(vblock[:,:,stimulated_region_start:stimulated_region_end],axis=2).T
     show_mscan_overlay(amp_m,vel_m,peak_dict=peak_dict)
-    savefig('mscan',tag)
+    savefig('mscan_overlay',tag)
+    add_to_data_dictionary(tag,'mscan_amplitude',amp_m)
+    add_to_data_dictionary(tag,'mscan_velocity',vel_m)
+    
+    plt.close('all')
+    
+    show_mscan_overlay(amp_m,vel_m,peak_dict=peak_dict,do_overlay=False)
+    savefig('mscan_no_overlay',tag)
+    
     plt.close('all')
 
+    
+    
 
 if len(tags)==0:
     sys.exit('Error.')
@@ -707,10 +758,8 @@ elif len(tags)==1:
 else:
     common_string = tags[0]
     for test_tag in tags[1:]:
-        print(common_string)
         m = SequenceMatcher(None,common_string,test_tag).find_longest_match(0,len(common_string),0,len(test_tag))
         common_string = test_tag[m.b:m.b+m.size]
-        print(common_string)
     common_string = common_string.strip('_').strip()
 
 logging.info('Working on average plots.')
@@ -726,7 +775,10 @@ for peak_label in peak_labels:
         for k in range(arr.shape[0]):
             plt.plot(1000*t_arr,arr[k,:],color=single_color,alpha=single_alpha)
             
-    
+    add_to_data_dictionary('all','single_layer_mean_%s'%peak_label,avg)
+    add_to_data_dictionary('all','single_layer_std_%s'%peak_label,std)
+
+            
 if not style in ['ggplot']:
     add_origin()
 
@@ -755,6 +807,10 @@ for a,b in layer_differences:
     if plot_single_measurements:
         for k in range(d_arr.shape[0]):
             plt.plot(1000*t_arr,d_arr[k,:],color=single_color,alpha=single_alpha)
+
+    add_to_data_dictionary('all','layer_difference_mean_%s_%s'%(a,b),d)
+    add_to_data_dictionary('all','layer_difference_std_%s_%s'%(a,b),std)
+            
     
 if not style in ['ggplot']:
     add_origin()
@@ -768,6 +824,11 @@ plt.legend(frameon=False)
 savefig('layer_velocity_differences','average_%s'%common_string)
 
 
+data_dictionary_filename = '%s_data.mat'%metatag
+logging.info('Saving plotting data to %s.'%data_dictionary_filename)
+sio.savemat(data_dictionary_filename,data_dictionary)
+
+
 logging.info('Writing report.')
 figure_list.sort(key=lambda tup: tup[0])
 
@@ -776,15 +837,18 @@ d = {}
 d['bscan_amp_layers'] = 'Amplitude B-scans'
 d['bscan_pre'] = 'Velocity (pre stimulus)'
 d['bscan_post'] = 'Velocity (post stimulus)'
-d['mscan'] = 'M-scans'
+d['mscan_overlay'] = 'M-scans with velocity overlay'
+d['mscan_no_overlay'] = 'M-scans'
 d['layer_velocities'] = 'Layer velocity plots'
 d['layer_velocity_differences'] = 'Relative layer velocity plots'
 d['peak_profiles'] = 'Axial profiles'
 
+document_figure_labels = ['bscan_amp_layers','peak_profiles','bscan_pre','bscan_post','mscan_no_overlay','mscan_overlay','layer_velocities','layer_velocity_differences']
+
 if make_pdf:
     try:
         with open('%s/figures.md'%output_folder,'w') as fid:
-            for label in ['bscan_amp_layers','peak_profiles','bscan_pre','bscan_post','mscan','layer_velocities','layer_velocity_differences']:
+            for label in document_figure_labels:
                 print(label)
                 sublist = [f for f in figure_list if f[0].find(label)>-1]
                 sublist.sort(key=lambda tup: tup[0])
@@ -806,7 +870,7 @@ try:
     with open('%s/figures.html'%output_folder,'w') as fid:
         fid.write('<head><title>Conventional flash ORG figures</title></head>\n')
         fid.write('<body>\n')
-        for label in ['bscan_amp_layers','peak_profiles','bscan_pre','bscan_post','mscan','layer_velocities','layer_velocity_differences']:
+        for label in document_figure_labels:
             sublist = [f for f in figure_list if f[0].find(label)>-1]
             sublist.sort(key=lambda tup: tup[0])
             fid.write('<h3>%d. %s</h3>\n\n'%(secn,d[label]))
@@ -831,7 +895,7 @@ try:
             fid.write('<hr>\n\n')
         fid.write('</body>')
 except Exception as e:
-    print(e)
+    print('html writing error:',e)
 
 try:
     if auto_open_report:
