@@ -363,12 +363,19 @@ class Volume:
         return volume
 
 
-    def write_tiffs(self,output_folder,filename_format='bscan_%05d.tif'):
+    def write_tiffs(self,output_folder,filename_format='bscan_%05d.tif',do_dB=False,clim=None):
         os.makedirs(output_folder,exist_ok=True)
         
         vol = self.get_volume()
         sy,sz,sx = vol.shape
         avol = np.abs(vol)
+
+        if do_dB:
+            avol = 20*np.log10(avol)
+            
+        if not clim is None:
+            avol = np.clip(avol,clim[0],clim[1])
+        
         vmax = np.nanmax(avol)
         vmin = np.nanmin(avol)
 

@@ -98,6 +98,8 @@ def process(filename,diagnostics=diagnostics,show_processed_data=show_processed_
         print(frame_index)
         frame = src.get_frame(frame_index,diagnostics=diagnostics).astype(params.dtype)
         frames.append(frame)
+        if diagnostics:
+            plt.show()
 
     frames = np.array(frames,dtype=params.dtype)
 
@@ -106,20 +108,20 @@ def process(filename,diagnostics=diagnostics,show_processed_data=show_processed_
     shutil.copyfile(xml_filename,xml_output_filename)
     
     frames.tofile(output_filename)
-        
+
+files.sort()
+
+try:
+    n_workers = params.multiprocessing_n_processes
+except Exception as e:
+    n_workers = 4
+
+def proc(f):
+    process(f,diagnostics=diagnostics,show_processed_data=show_processed_data)
+
+    
 if __name__=='__main__':
-
-
-    files.sort()
-
-    try:
-        n_workers = params.multiprocessing_n_processes
-    except Exception as e:
-        n_workers = 4
-
-    def proc(f):
-        process(f,diagnostics=diagnostics,show_processed_data=show_processed_data)
-
+    
     if use_multiprocessing:
         with mp.Pool(n_workers) as p:
             p.map(proc,files)
