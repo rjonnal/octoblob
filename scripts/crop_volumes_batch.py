@@ -21,10 +21,10 @@ color_cycle = opf.get_color_cycle()
 #    z2+outer_padding in order to crop the volumes
 # The threshold, inner_padding, and outer_padding can be set here:
 
-threshold_dB = -15
+threshold_dB = -20
 inner_padding = -30
-outer_padding = 130
-
+outer_padding = 60
+approximate_stimulus_index = 100
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,16 +55,23 @@ dB_profs = []
 bscans = []
 dB_bscans = []
 
-
-
-
 uncropped_bscan_fig = plt.figure()
 for idx,folder in enumerate(folder_list):
     print(folder)
     volume = Volume(folder)
-    bscan = np.abs(volume.get_volume()).mean(axis=0)
+
+    try:
+        subvolume = volume.get_volume()[approximate_stimulus_index-10:approximate_stimulus_index+10,:,:]
+    except Exception as e:
+        print(e)
+        subvolume = volume.get_volume()
+        
+    bscan = np.abs(subvolume).mean(axis=0)
     sz,sx = bscan.shape
-    prof = np.mean(bscan[:,:sx//2],axis=1)
+
+    x_stop = sx//2
+    
+    prof = np.mean(bscan[:,:x_stop],axis=1)
     #prof = np.abs(volume.get_volume()).mean(axis=2).mean(axis=0)
     
     profs.append(prof)
@@ -135,8 +142,8 @@ for idx,(folder,tar,bscan,dB_bscan,shift) in enumerate(zip(folder_list,profs,bsc
 
     else:
         plt.figure(uncropped_bscan_fig.number)
-        plt.axvline(tz1,color=color_cycle[idx])
-        plt.axvline(tz2,color=color_cycle[idx])
+        plt.axvline(tz1,color=color_cycle[idx%len(color_cycle)])
+        plt.axvline(tz2,color=color_cycle[idx%len(color_cycle)])
         
         plt.figure(cropped_bscan_fig.number)
         tar = tar/tar.max()
