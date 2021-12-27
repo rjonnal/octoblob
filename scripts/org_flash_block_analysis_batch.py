@@ -143,9 +143,11 @@ for bscan_folder in bscan_folders:
     blocks_processed = 0
 
     npy_output_directory = os.path.join(bscan_folder,'%s_phase_ramps_%03dms_npy'%(tag,stationary_duration*1000))
+    err_output_directory = os.path.join(bscan_folder,'%s_err_%03dms_npy'%(tag,stationary_duration*1000))
     png_output_directory = os.path.join(bscan_folder,'%s_phase_ramps_%03dms_png'%(tag,stationary_duration*1000))
 
     os.makedirs(npy_output_directory,exist_ok=True)
+    os.makedirs(err_output_directory,exist_ok=True)
     os.makedirs(png_output_directory,exist_ok=True)
 
 
@@ -317,6 +319,9 @@ for bscan_folder in bscan_folders:
 
         phase_slope_image = np.ones(signal_mask.shape)*np.nan
         phase_slope_image_all = np.zeros(signal_mask.shape)
+
+        phase_slope_fitting_error_all = np.zeros(signal_mask.shape)
+        
         nm_slope_image = np.ones(signal_mask.shape)*np.nan
         high_vals = 0
         high_vals2 = 0
@@ -347,8 +352,11 @@ for bscan_folder in bscan_folders:
             phase_slope = np.mean(dtheta_vec/dt_vec)
 
             phase_slope_image[depth,fast] = phase_slope
+            
             if not np.isnan(phase_slope):
                 phase_slope_image_all[depth,fast] = phase_slope
+                err = np.nanstd(dtheta_vec)
+                phase_slope_fitting_error_all[depth,fast] = err
 
             nm_slope_image[depth,fast] = nm_slope
 
@@ -383,6 +391,9 @@ for bscan_folder in bscan_folders:
 
         npy_outfn = os.path.join(npy_output_directory,'phase_ramp_frames_%05d-%05d.npy'%(block_start,block_start+block_size-1))
         np.save(npy_outfn,average_bscan+1j*phase_slope_image_all)
+
+        err_outfn = os.path.join(err_output_directory,'error_frames_%05d-%05d.npy'%(block_start,block_start+block_size-1))
+        np.save(err_outfn,phase_slope_fitting_error_all)
 
         if show:
             plt.pause(.0001)

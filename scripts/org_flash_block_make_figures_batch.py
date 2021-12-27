@@ -9,8 +9,11 @@ import warnings
 import octoblob as blob
 import webbrowser as wb
 from difflib import SequenceMatcher
+from org_flash_block_summary import summary_datafile
 
 ################################### Parameters ##########################################
+
+
 # parameters for now, but turn these into command line arguments
 figure_mode = 'paper' # 'paper' or 'presentation'
 
@@ -22,6 +25,10 @@ dx_um = 3.0
 dy_um = 3.0
 dz_um = 2.5
 dt_s = 0.0025
+
+# error threshold--phase fitting error ranges from about 0 rad to 0.5 rad; a reasonable
+# threshold is 0.05; to include all data use err_threshold = -np.inf
+err_threshold = -np.nan
 
 # the duration over which we assume the retina is stationary (in seconds)
 stationary_duration = 0.01
@@ -55,18 +62,16 @@ vel_lateral_smoothing_sigma = 3 # use 0 for no smoothing
 # profile, to accommodate slight variations in fixation/eccentricity:
 axial_peak_shift_tolerance = 2
 
-profile_peak_threshold = 3000
+profile_peak_threshold = 5000
 peak_labels = ['ISOS','COST']
 layer_differences = [('COST','ISOS')]#,('RPE','ISOS')]
 
 flatten = True # flatten B-scans using 1D A-scan registration
 flattening_averaging_width = 5 # number of A-scans to average for flattening
 
-profile_figure_size = (4,4)
-plots_figure_size = (4,4)
-
-bscan_figure_width = 4
-
+figure_size = (4,4)
+font = 'Arial'
+font_size = 6
 screen_dpi = 100
 print_dpi = 300
 
@@ -107,8 +112,18 @@ def add_to_data_dictionary(s1,s2,dat):
 
 
 styles_with_origin = ['ggplot']
-opf.setup_plots(mode='paper',style='ggplot')
+opf.setup_plots(style='seaborn-deep',font_size=font_size,font=font)
 color_cycle = opf.get_color_cycle()
+
+if summary_datafile=='':
+    sys.exit('Please enter a location for a summary data file in org_flash_block_summary.py.')
+
+
+summary_columns = ['filename','stationary_duration','layers','velocity min','velocity max']
+    
+if not os.path.exists(summary_datafile):
+    with open(summary_datafile,'w') as fid:
+        fid.write('%s,\n'%','.join(summary_columns))
 
 #folders = glob.glob('*_bscans/cropped/phase_ramps_007ms_npy')
 args = sys.argv[1:]
@@ -147,6 +162,9 @@ def savefig(plot_type,file_tag):
     os.makedirs(outdir,exist_ok=True)
     outfn = os.path.join(outdir,'%s_%s.png'%(plot_type,file_tag))
     plt.savefig(outfn,dpi=print_dpi)
+    svgoutfn = os.path.join(outdir,'%s_%s.svg'%(plot_type,file_tag))
+    plt.savefig(svgoutfn,dpi=print_dpi)
+    
     figure_list.append((plot_type,file_tag,outfn))
 
 opf.setup_plots(figure_mode)
@@ -188,11 +206,12 @@ if index_of_stimulus is None:
     sys.exit('stimulus_file_filter %s did not identify a stimulus frame'%stimulus_file_filter)
 
 
-t_pre_stim = index_of_stimulus*dt_s-stationary_duration/2.0
+t_pre_stim = (index_of_stimulus-1)*dt_s-stationary_duration/2.0
 
 # use temporal sampling, number of files, and the file index of the stimulus
 # to generate a time array
 t_arr = np.arange(n_files)*dt_s-t_pre_stim#index_of_stimulus)*dt_s
+
 stim_idx = np.argmin(np.abs(t_arr))
 
 new_start = tlim_ms[0]
@@ -259,15 +278,15 @@ def scalebars(x_um_per_px,y_um_per_px,ax=None):
     scalebar_y(y_um_per_px,ax=ax)
 
 def show_bscan(b,screen_dpi=100,x_stretch=1.0,y_stretch=1.0,ax=None,layer_dict={}):
-    sy,sx = b.shape
-    fy = float(sy)/screen_dpi*y_stretch
-    fx = float(sx)/screen_dpi*x_stretch*1.111
+    # sy,sx = b.shape
+    # fy = float(sy)/screen_dpi*y_stretch
+    # fx = float(sx)/screen_dpi*x_stretch*1.111
 
-    scaling_factor = bscan_figure_width/fx
-    fx = fx*scaling_factor
-    fy = fy*scaling_factor
+    # scaling_factor = bscan_figure_width/fx
+    # fx = fx*scaling_factor
+    # fy = fy*scaling_factor
     
-    fig = plt.figure(figsize=(fx,fy),dpi=screen_dpi)
+    fig = plt.figure(figsize=figure_size,dpi=screen_dpi)
     ax = fig.add_axes([0.02,0.02,.85,0.96])
     cax = fig.add_axes([0.89,0.1,0.02,0.8])
     db = 20*np.log10(b)
@@ -287,15 +306,15 @@ def show_bscan(b,screen_dpi=100,x_stretch=1.0,y_stretch=1.0,ax=None,layer_dict={
     return fig,ax
 
 def show_bscan_overlay(amp,vel,screen_dpi=100,x_stretch=1.0,y_stretch=1.0,ax=None,alpha=0.5,extent=None):
-    sy,sx = amp.shape
-    fy = float(sy)/screen_dpi*y_stretch
-    fx = float(sx)/screen_dpi*x_stretch*1.111
+    # sy,sx = amp.shape
+    # fy = float(sy)/screen_dpi*y_stretch
+    # fx = float(sx)/screen_dpi*x_stretch*1.111
     
-    scaling_factor = bscan_figure_width/fx
-    fx = fx*scaling_factor
-    fy = fy*scaling_factor
+    # scaling_factor = bscan_figure_width/fx
+    # fx = fx*scaling_factor
+    # fy = fy*scaling_factor
     
-    fig = plt.figure(figsize=(fx,fy),dpi=screen_dpi)
+    fig = plt.figure(figsize=figure_size,dpi=screen_dpi)
     ax = fig.add_axes([0.02,0.02,.85,0.96])
     cax = fig.add_axes([0.89,0.1,0.02,0.8])
     db = 20*np.log10(amp)
@@ -377,11 +396,17 @@ def roll_block(block,contour):
 def make_blocks(folder,diagnostics=False):
     tag,stag = make_tag(folder)
 
+    err_folder = folder.replace('phase_ramps','err')
+
+    
     file_list = get_files(folder)
+
+    err_file_list = get_files(err_folder)
     
     amp_block = []
     vel_block = []
-
+    err_block = []
+    
     if vel_lateral_smoothing_sigma:
         vel_lateral_smoothing_kernel = make_kernel(vel_lateral_smoothing_sigma,vel_lateral_smoothing_sigma)
 
@@ -389,7 +414,8 @@ def make_blocks(folder,diagnostics=False):
     # incoming data are stored in a weird way, due to upstream code:
     # the real component is amplitude and the imaginary component is
     # phase slope, in radians
-    for f in file_list:
+    for fidx,f in enumerate(file_list):
+        
         temp = np.load(f)
         amp = np.real(temp)
         phase_slope = -np.imag(temp) # the negative sign is here because of the location of the zero-delay line
@@ -398,9 +424,14 @@ def make_blocks(folder,diagnostics=False):
             vel = sps.convolve2d(vel,vel_lateral_smoothing_kernel,mode='same')/np.sum(vel_lateral_smoothing_kernel)
         amp_block.append(amp)
         vel_block.append(vel)
-
+        try:
+            err_block.append(np.load(err_file_list[fidx]))
+        except:
+            err_block.append(np.zeros(amp.shape))
+        
     amp_block = np.array(amp_block)
     vel_block = np.array(vel_block)
+    err_block = np.array(err_block)
     
     if flatten:
         pre_contour_amp = nanmean(amp_block[stim_idx-20:stim_idx+20,:,:],axis=0)
@@ -410,6 +441,7 @@ def make_blocks(folder,diagnostics=False):
         post_contour_amp = nanmean(amp_block[stim_idx-20:stim_idx+20,:,:],axis=0)
         
         vel_block = roll_block(vel_block,contour)
+        err_block = roll_block(err_block,contour)
         if diagnostics:
             plt.figure()
             show_bscan(pre_contour_amp)
@@ -418,7 +450,9 @@ def make_blocks(folder,diagnostics=False):
             plt.title('post_flattening')
             
 
-    return amp_block,vel_block
+    return amp_block,vel_block,err_block
+
+
 
 def make_mask(im,fractional_threshold=0.1):
     out = np.ones(im.shape)*np.nan
@@ -440,7 +474,7 @@ def get_peak_dict(prof):
     return d
 
 def make_profile_plot(prof,peak_dict):
-    plt.figure(figsize=profile_figure_size,dpi=screen_dpi)
+    plt.figure(figsize=figure_size,dpi=screen_dpi)
     plt.plot(prof)
     for kidx,key in enumerate(peak_dict.keys()):
         c = color_cycle[kidx%len(color_cycle)]
@@ -471,15 +505,7 @@ def show_mscan_overlay(amp_m,vel_m,screen_dpi=100,x_stretch=3.0,y_stretch=1.0,ax
     #for y in range(sy):
     mask = make_mask(amp_m)
 
-    sy,sx = amp_m.shape
-    fy = float(sy)/screen_dpi*y_stretch*1.4
-    fx = float(sx)/screen_dpi*x_stretch*1.111
-
-    scaling_factor = bscan_figure_width/fx
-    fx = fx*scaling_factor
-    fy = fy*scaling_factor
-    
-    fig = plt.figure(figsize=(fx,fy),dpi=screen_dpi)
+    fig = plt.figure(figsize=figure_size,dpi=screen_dpi)
     ax = fig.add_axes([0.02,0.15,.85,0.75])
     if do_overlay:
         cax = fig.add_axes([0.89,0.1,0.02,0.8])
@@ -579,7 +605,7 @@ for folder_idx,folder in enumerate(folders):
     tags.append(tag)
     stags.append(stag)
     file_list = get_files(folder)
-    ablock,vblock = make_blocks(folder,diagnostics=False)
+    ablock,vblock,eblock = make_blocks(folder,diagnostics=False)
 
     if testing_length_differences:
         ablock = ablock[:,:tempdict[folder],:]
@@ -644,8 +670,12 @@ for folder_idx,folder in enumerate(folders):
     logging.info('Making plots for folder %d of %d: %s.'%(folder_idx+1,len(folders),folder))
     tag,stag = make_tag(folder)
     tags.append(tag)
+
+    summary_row = [folder,'%0.6f'%stationary_duration]
+    
     file_list = get_files(folder)
-    ablock,vblock = make_blocks(folder)
+    ablock,vblock,eblock = make_blocks(folder)
+
     sy,sz,sx = ablock.shape
     bscan = get_amp(ablock)
 
@@ -662,11 +692,17 @@ for folder_idx,folder in enumerate(folders):
     # new way: use peak metadictionary
     peak_dict = peak_metadict[folder]
     
-    plt.figure(figsize=plots_figure_size,dpi=screen_dpi)
+    plt.figure(figsize=figure_size,dpi=screen_dpi)
     for peak_label in peak_labels:
         z = peak_dict[peak_label]
         series = get_roi(vblock,stimulated_region_start,stimulated_region_end,z-layer_thickness//2,z+layer_thickness//2+1)
-        series = series - nanmean(series[:stim_idx])
+
+        err_series = get_roi(eblock,stimulated_region_start,stimulated_region_end,z-layer_thickness//2,z+layer_thickness//2+1)
+
+        series = series - nanmean(series[stim_idx-10:stim_idx])
+
+        series[np.where(err_series<err_threshold)] = np.nan
+        
         try:
             layer_dict[peak_label].append(series)
         except KeyError:
@@ -688,12 +724,22 @@ for folder_idx,folder in enumerate(folders):
     plt.legend(frameon=False)
     savefig('layer_velocities',tag)
 
-    plt.figure(figsize=plots_figure_size,dpi=screen_dpi)
+    plt.figure(figsize=figure_size,dpi=screen_dpi)
     for a,b in layer_differences:
         dseries = layer_dict[a][-1]-layer_dict[b][-1]
         plt.plot(1000*t_arr,dseries,label='%s - %s'%(a,b))
         add_to_data_dictionary(tag,'layer_velocity_difference_%s_%s'%(a,b),dseries)
-        
+
+
+    velocity_min = np.min(dseries[np.where(np.logical_and(t_arr>=0,t_arr<0.025))])
+    velocity_max = np.max(dseries[np.where(np.logical_and(t_arr>=0.025,t_arr<0.05))])
+    summary_row.append('%s_%s'%(a,b))
+    summary_row.append('%0.3f'%velocity_min)
+    summary_row.append('%0.3f'%velocity_max)
+
+    with open(summary_datafile,'a') as fid:
+        fid.write('%s,\n'%','.join(summary_row))
+    
     if not style in styles_with_origin:
         add_origin()
         
@@ -763,7 +809,7 @@ else:
     common_string = common_string.strip('_').strip()
 
 logging.info('Working on average plots.')
-plt.figure(figsize=plots_figure_size,dpi=screen_dpi)
+plt.figure(figsize=figure_size,dpi=screen_dpi)
 for peak_label in peak_labels:
     arr = np.array(layer_dict[peak_label])
     avg = nanmean(arr,axis=0)
@@ -790,7 +836,7 @@ opf.despine()
 plt.legend(frameon=False)
 savefig('layer_velocities','average_%s'%common_string)
 
-plt.figure(figsize=plots_figure_size,dpi=screen_dpi)
+plt.figure(figsize=figure_size,dpi=screen_dpi)
 for a,b in layer_differences:
     a_arr = np.array(layer_dict[a])
     b_arr = np.array(layer_dict[b])
