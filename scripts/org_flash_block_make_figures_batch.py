@@ -66,29 +66,68 @@ profile_peak_threshold = 5000
 peak_labels = ['ISOS','COST']
 layer_differences = [('COST','ISOS')]#,('RPE','ISOS')]
 
-flatten = True # flatten B-scans using 1D A-scan registration
+# flattening of the data volumes in the fast and temporal dimensions:
+flatten_bscan = True # flatten B-scans using 1D A-scan registration
 flattening_averaging_width = 5 # number of A-scans to average for flattening
+flatten_mscan = True
 
-figure_size = (4,4)
+# figure apperance
+figure_size = (4,3) # (width_inches, height_inches)
 font = 'Arial'
-font_size = 6
+font_size = 10
 screen_dpi = 100
 print_dpi = 300
+plot_linewidth = 2
 
-stim_color = 'g'
-stim_linestyle = '-'
-output_folder = 'org_block_figures'
-auto_open_report = True
-make_pdf = False # requires pandoc
+# see https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html
+#style = 'bmh'
 style = 'ggplot'
+#style = 'seaborn-deep'
+#style = 'fivethirtyeight'
 
 # options for plotting raw data and/or noise in background of average:
 plot_error_region = True
 plot_single_measurements = True
 single_color = 'r'
 single_alpha = 0.1
+single_linewidth = 1
 noise_alpha = 0.1
 noise_color = 'k'
+
+# spines (lines at edges of plot)
+spine_color = 'k'
+spine_linewidth = 2
+
+# legend appearance
+show_legend_frame = True
+legend_linewidth = 2
+legend_edgecolor = 'k'
+legend_facecolor = 'w'
+legend_alpha = 1.0
+
+# Indiviual layers are automatically plotted in colors in order
+# of the style's color_cycle; for the difference plots, choose
+# an index (greater or equal to the number of layers), so that the difference
+# plot appears in a different color
+# The actual color that results depends on style, defined below. If
+# the style is ggplot, for example, the first two layers (ISOS and COST) are
+# plotted in red and blue, and here 5 gives a nice, contrasting green/yellow color
+layer_difference_color_index = 5
+
+velocity_label = 'μm/s'
+#velocity_label = '$\mu m/s$'
+
+
+stim_color = 'g'
+stim_linestyle = '-'
+
+
+output_folder = 'org_block_figures'
+auto_open_report = True
+make_pdf = False # requires pandoc
+
+
+
 
 testing_length_differences = False
 
@@ -111,8 +150,8 @@ def add_to_data_dictionary(s1,s2,dat):
     data_dictionary[key] = dat
 
 
-styles_with_origin = ['ggplot']
-opf.setup_plots(style='seaborn-deep',font_size=font_size,font=font)
+styles_with_origin = ['ggplot','fivethirtyeight','bmh']
+opf.setup_plots(style=style,font_size=font_size,font=font)
 color_cycle = opf.get_color_cycle()
 
 if summary_datafile=='':
@@ -158,6 +197,18 @@ os.makedirs(output_folder,exist_ok=True)
 figure_list = []
 
 def savefig(plot_type,file_tag):
+    ax = plt.gca()
+    ax.tick_params(direction='in')
+    ax.tick_params(left=True)
+    ax.tick_params(right=True)
+    ax.tick_params(top=True)
+    ax.tick_params(bottom=True)
+
+    for spine in ['top','bottom','left','right']:
+        ax.spines[spine].set_color(spine_color)
+        ax.spines[spine].set_linewidth(spine_linewidth)
+    
+    plt.tight_layout()
     outdir = os.path.join(output_folder,plot_type)
     os.makedirs(outdir,exist_ok=True)
     outfn = os.path.join(outdir,'%s_%s.png'%(plot_type,file_tag))
@@ -167,7 +218,7 @@ def savefig(plot_type,file_tag):
     
     figure_list.append((plot_type,file_tag,outfn))
 
-opf.setup_plots(figure_mode)
+#opf.setup_plots(figure_mode)
 color_cycle = opf.get_color_cycle()
 
 def get_files(folder):
@@ -433,7 +484,7 @@ def make_blocks(folder,diagnostics=False):
     vel_block = np.array(vel_block)
     err_block = np.array(err_block)
     
-    if flatten:
+    if flatten_bscan:
         pre_contour_amp = nanmean(amp_block[stim_idx-20:stim_idx+20,:,:],axis=0)
         contour = get_contour(pre_contour_amp)
         
@@ -448,8 +499,34 @@ def make_blocks(folder,diagnostics=False):
             plt.title('pre flattening')
             show_bscan(post_contour_amp)
             plt.title('post_flattening')
+
+    if flatten_mscan:
+        xproj = nanmean(amp_block,axis=2).T
+        ref = xproj[:,stim_idx-5:stim_idx+5].mean(axis=1)
+
+        oversample = 5.0
+        tcontour = []
+        for x in range(xproj.shape[1]):
+            tar = xproj[:,x]
+            xc = np.real(np.fft.ifft(np.fft.fft(ref)*np.conj(np.fft.fft(tar)),n=int(len(ref)*oversample)))
+            p = np.argmax(xc)
+            if p>len(xc)//2:
+                p = p - len(xc)
+            tcontour.append(int(round(p/oversample)))
+
+        temp = []
+        for x in range(len(tcontour)):
+            pre = np.zeros((amp_block.shape[1],amp_block.shape[2]))
+            post = np.zeros((amp_block.shape[1],amp_block.shape[2]))
+            vel_block[x,:,:] = np.roll(vel_block[x,:,:],tcontour[x],axis=0)
+            amp_block[x,:,:] = np.roll(amp_block[x,:,:],tcontour[x],axis=0)
+            err_block[x,:,:] = np.roll(err_block[x,:,:],tcontour[x],axis=0)
+            
             
 
+        temp = np.array(temp)
+        
+        xproj = nanmean(amp_block,axis=2).T
     return amp_block,vel_block,err_block
 
 
@@ -458,6 +535,13 @@ def make_mask(im,fractional_threshold=0.1):
     out = np.ones(im.shape)*np.nan
     out[im>fractional_threshold*np.nanmax(im)] = 1.0
     return out
+
+def format_legend(leg):
+    
+    leg.get_frame().set_edgecolor(legend_edgecolor)
+    leg.get_frame().set_facecolor(legend_facecolor)
+    leg.get_frame().set_linewidth(legend_linewidth)
+    leg.get_frame().set_alpha(legend_alpha)
 
 def get_peak_dict(prof):
     left = prof[2:]
@@ -474,16 +558,19 @@ def get_peak_dict(prof):
     return d
 
 def make_profile_plot(prof,peak_dict):
-    plt.figure(figsize=figure_size,dpi=screen_dpi)
-    plt.plot(prof)
+    fig = plt.figure(figsize=figure_size,dpi=screen_dpi)
+
+    ax = fig.add_axes([.2,.2,.78,.78])
+    ax.plot(prof)
     for kidx,key in enumerate(peak_dict.keys()):
         c = color_cycle[kidx%len(color_cycle)]
         idx = peak_dict[key]
-        plt.axvline(idx,color=c)
-        plt.text(idx,prof[idx],key,ha='right',va='bottom',rotation=90,color=c,fontsize=6)
+        ax.axvline(idx,color=c)
+        ax.text(idx,prof[idx],key,ha='right',va='bottom',rotation=90,color=c,fontsize=6)
     #plt.yticks([])
-    plt.ylabel('OCT amplitude')
-    opf.despine()
+    ax.set_ylabel('OCT amplitude')
+    ax.set_xlabel('depth (px)')
+    #opf.despine()
 
 def text(ax,x,y,s,ha='right',va='center',color='w'):
     h = 20
@@ -498,9 +585,10 @@ def add_labels(ax,pd,xlim=None):
         if k in peak_labels:
             text(ax,xlim[0],pd[k],k)
             
-def show_mscan_overlay(amp_m,vel_m,screen_dpi=100,x_stretch=3.0,y_stretch=1.0,ax=None,alpha=0.5,mscan_xlim=tlim_ms,peak_dict={},do_overlay=True):
+def show_mscan_overlay(amp_m,vel_m,screen_dpi=100,x_stretch=3.0,y_stretch=1.0,ax=None,alpha=0.5,mscan_xlim=tlim_ms,peak_dict={},do_overlay=True,blank_left_edge=False):
 
-    vel_m[:,:15] = np.nan
+    if blank_left_edge:
+        vel_m[:,:15] = np.nan
 
     #for y in range(sy):
     mask = make_mask(amp_m)
@@ -520,17 +608,19 @@ def show_mscan_overlay(amp_m,vel_m,screen_dpi=100,x_stretch=3.0,y_stretch=1.0,ax
     ax.axvline(0.0,color=stim_color,linestyle=stim_linestyle)
     ax.set_xlim(mscan_xlim)
     ax.set_xlabel('time (ms)')
-    ax.set_title(r'dz/dt ($\mu$m/s)')
+    ax.set_title(r'dz/dt (%s)'%velocity_label)
     ax.set_yticks([])
     ax.grid(False)
-    for peak_label in peak_labels:
-        try:
-            zpx = peak_dict[peak_label]
-            zum = zpx*dz_um
-            zum = z_arr[-1]-zum
-            ax.text(mscan_xlim[0],zum,peak_label,ha='left',va='center')
-        except:
-            pass
+
+    if blank_left_edge:
+        for peak_label in peak_labels:
+            try:
+                zpx = peak_dict[peak_label]
+                zum = zpx*dz_um
+                zum = z_arr[-1]-zum
+                ax.text(mscan_xlim[0],zum,peak_label,ha='left',va='center')
+            except:
+                pass
 
     if do_overlay:
         fig.colorbar(vh,cax=cax)
@@ -708,7 +798,7 @@ for folder_idx,folder in enumerate(folders):
         except KeyError:
             layer_dict[peak_label] = [series]
             
-        plt.plot(1000*t_arr,series,label=peak_label)
+        plt.plot(1000*t_arr,series,label=peak_label,linewidth=plot_linewidth)
         add_to_data_dictionary(tag,'layer_velocity_%s'%peak_label,series)
 
     add_to_data_dictionary(tag,'t',1000*t_arr)
@@ -717,17 +807,22 @@ for folder_idx,folder in enumerate(folders):
         add_origin()
     
     plt.xlabel('time (ms)')
-    plt.ylabel('velocity ($\mu m/s$)')
+    plt.ylabel('velocity (%s)'%velocity_label)
     plt.ylim(abs_plot_clim)
     plt.xlim(tlim_ms)
-    opf.despine()
-    plt.legend(frameon=False)
+    #opf.despine()
+    leg = plt.legend(frameon=show_legend_frame)
+    format_legend(leg)
     savefig('layer_velocities',tag)
 
     plt.figure(figsize=figure_size,dpi=screen_dpi)
     for a,b in layer_differences:
         dseries = layer_dict[a][-1]-layer_dict[b][-1]
-        plt.plot(1000*t_arr,dseries,label='%s - %s'%(a,b))
+        if a=='COST' and b=='ISOS':
+            layer_label = '$\Delta$OS'
+        else:
+            layer_label = '%s - %s'%(a,b)
+        plt.plot(1000*t_arr,dseries,label=layer_label,color=color_cycle[layer_difference_color_index%len(color_cycle)],linewidth=plot_linewidth)
         add_to_data_dictionary(tag,'layer_velocity_difference_%s_%s'%(a,b),dseries)
 
 
@@ -744,21 +839,49 @@ for folder_idx,folder in enumerate(folders):
         add_origin()
         
     plt.xlabel('time (ms)')
-    plt.ylabel('velocity ($\mu m/s$)')
+    plt.ylabel('velocity (%s)'%velocity_label)
     plt.ylim(rel_plot_clim)
     plt.xlim(tlim_ms)
-    opf.despine()
-    plt.legend(frameon=False)
+    #opf.despine()
+    leg = plt.legend(frameon=show_legend_frame)
+    format_legend(leg)
     savefig('layer_velocity_differences',tag)
         
     make_profile_plot(prof,peak_dict)
     add_to_data_dictionary(folder,'profile',prof)
-    
     plt.axhline(profile_peak_threshold)
     plt.text(0,profile_peak_threshold,'peak threshold',ha='left',va='bottom')
-    opf.despine()
+    #opf.despine()
     savefig('peak_profiles',tag)
 
+
+
+    
+    plt.figure(figsize=[figure_size[0]/2.0,figure_size[1]])
+    temp = np.arange(len(prof))
+    plt.plot(prof,temp,linewidth=plot_linewidth)
+    plt.xticks([])
+    plt.yticks([])
+
+    xlim = (np.nanmin(prof)-0.1*np.nanmax(prof),np.nanmax(prof)*2)
+    ylim = (np.max(temp),np.min(temp))
+    plt.xlim(xlim)
+    plt.ylim(ylim)
+
+    plt.text(xlim[1]*.95,np.mean(ylim),'depth',ha='right',va='center',rotation=-90)
+    #plt.text(np.mean(xlim),ylim[1]*.5,'amplitude',ha='center',va='top')
+    
+    #plt.gca().set_xlabel('amplitude',labelpad=2)
+    #plt.gca().set_ylabel('depth',rotation=-90,labelpad=amplitude_label_padding)
+    
+    #plt.gca().xaxis.set_label_position('top')
+    #plt.gca().yaxis.set_label_position('right')
+    
+    savefig('peak_profile_vertical',tag)
+
+    
+
+    
     fig,ax = show_bscan(bscan)
     savefig('bscan_amp',tag)
     scalebars(3.0,2.5,ax=ax)
@@ -777,8 +900,6 @@ for folder_idx,folder in enumerate(folders):
     fig,ax = show_bscan(bscan,layer_dict=peak_dict)
     savefig('bscan_amp_layers',tag)
     scalebars(3.0,2.5,ax=ax)
-
-    
 
     amp_m = nanmean(ablock[:,:,stimulated_region_start:stimulated_region_end],axis=2).T
     vel_m = nanmean(vblock[:,:,stimulated_region_start:stimulated_region_end],axis=2).T
@@ -814,26 +935,27 @@ for peak_label in peak_labels:
     arr = np.array(layer_dict[peak_label])
     avg = nanmean(arr,axis=0)
     std = np.nanstd(arr,axis=0)
-    plt.plot(1000*t_arr,avg,label=peak_label)
+    plt.plot(1000*t_arr,avg,label=peak_label,linewidth=plot_linewidth)
     if plot_error_region:
         plt.fill_between(1000*t_arr,y1=avg+std,y2=avg-std,color=noise_color,alpha=noise_alpha)
     if plot_single_measurements:
         for k in range(arr.shape[0]):
-            plt.plot(1000*t_arr,arr[k,:],color=single_color,alpha=single_alpha)
+            plt.plot(1000*t_arr,arr[k,:],color=single_color,alpha=single_alpha,linewidth=single_linewidth)
             
     add_to_data_dictionary('all','single_layer_mean_%s'%peak_label,avg)
     add_to_data_dictionary('all','single_layer_std_%s'%peak_label,std)
 
             
-if not style in ['ggplot']:
+if not style in styles_with_origin:
     add_origin()
 
 plt.xlabel('time (ms)')
-plt.ylabel('velocity ($\mu m/s$)')
+plt.ylabel('velocity (%s)'%velocity_label)
 plt.ylim(abs_plot_clim)
 plt.xlim(tlim_ms)
-opf.despine()
-plt.legend(frameon=False)
+#opf.despine()
+leg = plt.legend(frameon=show_legend_frame)
+format_legend(leg)
 savefig('layer_velocities','average_%s'%common_string)
 
 plt.figure(figsize=figure_size,dpi=screen_dpi)
@@ -846,27 +968,33 @@ for a,b in layer_differences:
     d_arr = a_arr-b_arr
     
     std = np.sqrt(np.nanstd(a_arr,axis=0)**2+np.nanstd(b_arr,axis=0)**2)
+    if a=='COST' and b=='ISOS':
+        layer_label = '$\Delta$OS'
+    else:
+        layer_label = '%s - %s'%(a,b)
     
-    plt.plot(1000*t_arr,d,label='%s - %s'%(a,b))
+    plt.plot(1000*t_arr,d,label=layer_label,color=color_cycle[layer_difference_color_index%len(color_cycle)],linewidth=plot_linewidth)
     if plot_error_region:
         plt.fill_between(1000*t_arr,y1=d+std,y2=d-std,color=noise_color,alpha=noise_alpha)
     if plot_single_measurements:
         for k in range(d_arr.shape[0]):
-            plt.plot(1000*t_arr,d_arr[k,:],color=single_color,alpha=single_alpha)
+            plt.plot(1000*t_arr,d_arr[k,:],color=single_color,alpha=single_alpha,linewidth=single_linewidth)
 
     add_to_data_dictionary('all','layer_difference_mean_%s_%s'%(a,b),d)
     add_to_data_dictionary('all','layer_difference_std_%s_%s'%(a,b),std)
             
     
-if not style in ['ggplot']:
+if not style in styles_with_origin:
     add_origin()
 
 plt.xlabel('time (ms)')
-plt.ylabel('velocity ($\mu m/s$)')
+plt.ylabel('velocity (%s)'%velocity_label)
 plt.ylim(rel_plot_clim)
 plt.xlim(tlim_ms)
-opf.despine()
-plt.legend(frameon=False)
+#opf.despine()
+leg = plt.legend(frameon=show_legend_frame)
+format_legend(leg)
+
 savefig('layer_velocity_differences','average_%s'%common_string)
 
 
@@ -888,8 +1016,9 @@ d['mscan_no_overlay'] = 'M-scans'
 d['layer_velocities'] = 'Layer velocity plots'
 d['layer_velocity_differences'] = 'Relative layer velocity plots'
 d['peak_profiles'] = 'Axial profiles'
+d['peak_profile_vertical'] = 'Simplified axial profile'
 
-document_figure_labels = ['bscan_amp_layers','peak_profiles','bscan_pre','bscan_post','mscan_no_overlay','mscan_overlay','layer_velocities','layer_velocity_differences']
+document_figure_labels = ['bscan_amp_layers','peak_profiles','peak_profile_vertical','bscan_pre','bscan_post','mscan_no_overlay','mscan_overlay','layer_velocities','layer_velocity_differences']
 
 if make_pdf:
     try:
@@ -933,7 +1062,7 @@ try:
                 fid.write('<p>')
                 
                 fid.write('<a href=\"%s\">\n'%outfn)
-                fid.write('<img src=\"%s\" alt=\"%s: %s\" width=\"33%%\">\n'%(outfn,plot_type,file_tag))
+                fid.write('<img src=\"%s\" alt=\"%s: %s\" height=\"50%%\">\n'%(outfn,plot_type,file_tag))
                 fid.write('</a>\n')
                 fid.write('</p>\n')
                 fid.write('<p>Fig. %d. %s / %s</p>\n'%(fign,plot_type,file_tag))
