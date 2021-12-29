@@ -819,7 +819,7 @@ for folder_idx,folder in enumerate(folders):
     for a,b in layer_differences:
         dseries = layer_dict[a][-1]-layer_dict[b][-1]
         if a=='COST' and b=='ISOS':
-            layer_label = '$\Delta$OS'
+            layer_label = '$v_{OS}$'
         else:
             layer_label = '%s - %s'%(a,b)
         plt.plot(1000*t_arr,dseries,label=layer_label,color=color_cycle[layer_difference_color_index%len(color_cycle)],linewidth=plot_linewidth)
@@ -969,7 +969,7 @@ for a,b in layer_differences:
     
     std = np.sqrt(np.nanstd(a_arr,axis=0)**2+np.nanstd(b_arr,axis=0)**2)
     if a=='COST' and b=='ISOS':
-        layer_label = '$\Delta$OS'
+        layer_label = '$v_{OS}$'
     else:
         layer_label = '%s - %s'%(a,b)
     
