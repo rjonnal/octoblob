@@ -10,6 +10,8 @@ import octoblob as blob
 import webbrowser as wb
 from difflib import SequenceMatcher
 from org_flash_block_summary import summary_datafile
+import pandas as pd
+import pathlib
 
 ################################### Parameters ##########################################
 
@@ -158,11 +160,12 @@ if summary_datafile=='':
     sys.exit('Please enter a location for a summary data file in org_flash_block_summary.py.')
 
 
-summary_columns = ['filename','stationary_duration','layers','velocity min','velocity max']
-    
+summary_columns = ['filename','date','time','stationary_duration','layers','vmin_0_20','vmax_20_40','vmean_20_40','amin_0_50','amax_0_50','std_0_50','mad_0_50']
+
 if not os.path.exists(summary_datafile):
-    with open(summary_datafile,'w') as fid:
-        fid.write('%s,\n'%','.join(summary_columns))
+    summary_df = pd.DataFrame(columns=summary_columns)
+else:
+    summary_df = pd.read_csv(summary_datafile,index_col=0)
 
 #folders = glob.glob('*_bscans/cropped/phase_ramps_007ms_npy')
 args = sys.argv[1:]
@@ -654,6 +657,15 @@ def all_ints(items):
             return False
     return True
 
+def is_list_of_ints(L):
+    for item in L:
+        try:
+            junk = int(item)
+        except:
+            return False
+    return True
+    
+
 def make_tag(path):
     toks = []
     short_toks = []
@@ -662,13 +674,26 @@ def make_tag(path):
         tup = os.path.split(path)
         temp = tup[1].split('_')
         if all_ints(temp):
-            short_toks.append(tup[1][:8])
+            cand = tup[1][:8]
+            if not cand in short_toks:
+                short_toks.append(cand)
         
         toks = [tup[1]]+toks
         path = tup[0]
         if len(path)==0:
             break
     return '_'.join(toks),'_'.join(short_toks)
+
+
+def find_date(path):
+    head = path
+    while len(head)>0:
+        head,tail = os.path.split(head)
+        toks = tail.split('.')
+        if is_list_of_ints(toks) and len(toks)==3:
+            if int(toks[0])>2000 and int(toks[1])<=12 and int(toks[2])<=31:
+                return tail
+    return None
 
 def add_origin():
     alpha = 0.5
@@ -761,7 +786,18 @@ for folder_idx,folder in enumerate(folders):
     tag,stag = make_tag(folder)
     tags.append(tag)
 
-    summary_row = [folder,'%0.6f'%stationary_duration]
+    summary_dict = {}
+    
+    cwd = str(pathlib.Path(__file__).parent.resolve())
+    
+    date = find_date(folder)
+    if date is None:
+        date = find_date(cwd)
+
+    summary_dict['filename'] = os.path.join(cwd,folder)
+    summary_dict['date'] = date
+    summary_dict['time'] = stag
+    summary_dict['stationary_duration'] = stationary_duration
     
     file_list = get_files(folder)
     ablock,vblock,eblock = make_blocks(folder)
@@ -826,14 +862,36 @@ for folder_idx,folder in enumerate(folders):
         add_to_data_dictionary(tag,'layer_velocity_difference_%s_%s'%(a,b),dseries)
 
 
-    velocity_min = np.min(dseries[np.where(np.logical_and(t_arr>=0,t_arr<0.025))])
-    velocity_max = np.max(dseries[np.where(np.logical_and(t_arr>=0.025,t_arr<0.05))])
-    summary_row.append('%s_%s'%(a,b))
-    summary_row.append('%0.3f'%velocity_min)
-    summary_row.append('%0.3f'%velocity_max)
+    vmin_0_20 = np.nanmin(dseries[np.where(np.logical_and(t_arr>=0,t_arr<=0.02))])
+    vmax_20_40 = np.nanmax(dseries[np.where(np.logical_and(t_arr>=0.02,t_arr<=0.04))])
+    vmean_20_40 = np.nanmean(dseries[np.where(np.logical_and(t_arr>=0.02,t_arr<=0.04))])
+    amin_0_50 = np.nanmin(np.diff(dseries[np.where(np.logical_and(t_arr>=0,t_arr<=0.05))]))
+    amax_0_50 = np.nanmax(np.diff(dseries[np.where(np.logical_and(t_arr>=0,t_arr<=0.05))]))
+    std_0_50 = np.nanstd(dseries[np.where(np.logical_and(t_arr>=0,t_arr<=0.05))])
+    mad_0_50 = np.nanmean(np.abs(dseries[np.where(np.logical_and(t_arr>=0,t_arr<=0.05))]))
+    #mad_0_50 = np.nanmean(np.abs(dseries[np.where(np.logical_and(t_arr>=0,t_arr<=0.05))]-np.nanmean(dseries[np.where(np.logical_and(t_arr>=0,t_arr<=0.05))])))
+    
+    summary_dict['vmin_0_20'] = vmin_0_20
+    summary_dict['vmax_20_40'] = vmax_20_40
+    summary_dict['vmean_20_40'] = vmean_20_40
+    summary_dict['amin_0_50'] = amin_0_50
+    summary_dict['amax_0_50'] = amax_0_50
+    summary_dict['std_0_50'] = std_0_50
+    summary_dict['mad_0_50'] = mad_0_50
+    summary_dict['layers'] = ','.join(layer_differences[0])
 
-    with open(summary_datafile,'a') as fid:
-        fid.write('%s,\n'%','.join(summary_row))
+    print(summary_df.columns)
+    
+    indices_to_drop = summary_df[ (summary_df['date']==summary_dict['date']) & (summary_df['time']==summary_dict['time'])].index
+    if len(indices_to_drop)>0:
+        logging.info('Duplicate item found in summary CSV. Replacing old version with new.')
+        
+    summary_df.drop(indices_to_drop, inplace=True)
+    new_row = pd.Series(summary_dict)
+    print(new_row)
+
+    #summary_df = pd.concat([summary_df,new_df],axis=0)
+    summary_df = summary_df.append(new_row,ignore_index=True)
     
     if not style in styles_with_origin:
         add_origin()
@@ -916,7 +974,7 @@ for folder_idx,folder in enumerate(folders):
     plt.close('all')
 
     
-    
+summary_df.to_csv(summary_datafile)    
 
 if len(tags)==0:
     sys.exit('Error.')

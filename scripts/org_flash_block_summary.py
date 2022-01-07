@@ -2,7 +2,7 @@
 # to store output from all the analysis/visualization scripts
 
 # E.g.:
-# summary_datafile = 'C:\summary.csv'
-# summary_datafile = '/home/rjonnal/Dropbox/Data/conventional_org/flash/summary.csv'
+# summary_datafile = 'C:\analysis_parameters_log.csv'
+# summary_datafile = '/home/rjonnal/Dropbox/Data/conventional_org/flash/analysis_parameters_log.csv'
 
 summary_datafile = ''
