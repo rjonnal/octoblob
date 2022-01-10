@@ -3,10 +3,10 @@ from matplotlib import pyplot as plt
 import pandas as pd
 import sys
 import octoblob.plotting_functions as opf
+from matplotlib.lines import Line2D
 
 
-
-edf = pd.read_csv('experimental_parameters_log_testing.csv')
+edf = pd.read_csv('experimental_parameters_log.csv')
 adf = pd.read_csv('analysis_parameters_log.csv')
 
 bleaching_subject = 1
@@ -27,7 +27,7 @@ figure_size = (4,3) # w,h in inches
 label_dict = {}
 label_dict['vmin_0_20'] = '$v_{min}$ ($\mu m/s$)'
 label_dict['vmax_20_40'] = '$v_{max}$ ($\mu m/s$)'
-label_dict['vmean_20_40'] = '$\overline{v_{20,40}}$ ($\mu m/s$)'
+label_dict['vmean_20_40'] = '$\overline{v}_{20,40}$ ($\mu m/s$)'
 label_dict['amin_0_50'] = '$(\Delta v)_{min}$ ($\mu m/s^2$)'
 label_dict['amax_0_50'] = '$(\Delta v)_{max}$ ($\mu m/s^2$)'
 label_dict['std_0_50'] = '$\sigma_{0,50}$ ($\mu m/s$)'
@@ -74,6 +74,7 @@ for fig_idx in range(1,2*len(figures_of_merit)+1):
 
 
 df_list = []
+bad_df_list = []
 
 ecols = edf.columns
 acols = adf.columns
@@ -82,6 +83,12 @@ for aidx,arow in adf.iterrows():
     adate = arow['date']
     atime = arow['time']
 
+    # in case anything was appended to the original time, just take
+    # the first three items delineated by underscores:
+    atime = '_'.join(atime.split('_')[:3])
+
+    arow['time'] = atime
+    
     d = {}
 
     
@@ -93,22 +100,32 @@ for aidx,arow in adf.iterrows():
         etime = erow['time']
 
         if edate==adate and etime==atime:
+
             for ecol in ecols:
                 d[ecol] = erow[ecol]
             for acol in acols:
                 d[acol] = arow[acol]
 
-    df_list.append(d)
-
+    if len(d.keys())<16:
+        bad_df_list.append(d)
+    else:
+        df_list.append(d)
+    
 df_all = pd.DataFrame(df_list)
 df_all.to_csv('merged_parameters_log.csv')
-
-
+bad_df_all = pd.DataFrame(bad_df_list)
+bad_df_all.to_csv('merged_parameters_log_bad_data.csv')
 
 subject_array = list(df_all['subject'].unique())
 
-print(subject_array)
+#print(subject_array)
 subject_marker_array = ['s','o','x']
+temp = list(Line2D.markers.keys())
+for item in temp:
+    if not item in subject_marker_array:
+        subject_marker_array.append(item)
+
+
 eccentricity_array = list(df_all['eccentricity'].unique())
 bleaching_array = list(df_all['bleaching'].unique())
 eccentricity_marker_array = ['s','o','x','^']
