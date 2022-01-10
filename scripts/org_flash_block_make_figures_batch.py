@@ -73,6 +73,13 @@ flatten_bscan = True # flatten B-scans using 1D A-scan registration
 flattening_averaging_width = 5 # number of A-scans to average for flattening
 flatten_mscan = True
 
+# B-scans are flattened incorrectly if the NFL or ILM are brighter than the outer
+# retinal bands, since the flatness of those layers becomes the key figure of merit
+# if set to True, all peaks inside a boundary are ignored during flattening; the
+# boundary is set by computing the axial center of mass and offsetting it:
+ignore_inner_peaks = True
+ignore_inner_peaks_com_offset = -10
+
 # figure apperance
 figure_size = (4,3) # (width_inches, height_inches)
 font = 'Arial'
@@ -418,6 +425,19 @@ def get_contour0(b):
     return np.round(out).astype(np.int)
 
 def get_contour(b,maxtilt=20,tilt_step=0.1):
+    b_filtered = np.zeros(b.shape)
+    
+    if ignore_inner_peaks:
+        p = np.nanmean(b,axis=1)
+        p = p-np.nanmin(p)
+        z = np.arange(len(p))
+        com = int(np.floor(np.sum(p*z)/np.sum(p)))
+        cutoff = com+ignore_inner_peaks_com_offset
+        b_filtered[cutoff:,:] = b[cutoff:,:]
+    else:
+        b_filtered[:,:] = b[:,:]
+    
+        
     tmaxes = np.arange(-maxtilt,maxtilt+1,tilt_step)
     contrasts = np.zeros(tmaxes.shape)
     amaxes = np.zeros(tmaxes.shape)
@@ -425,9 +445,9 @@ def get_contour(b,maxtilt=20,tilt_step=0.1):
     contours = [[]]*len(tmaxes)
     
     for idx,tmax in enumerate(tmaxes):
-        tilt = np.round(np.linspace(0,tmax,b.shape[1])).astype(int)
-        temp = np.zeros(b.shape)
-        for x in range(b.shape[1]):
+        tilt = np.round(np.linspace(0,tmax,b_filtered.shape[1])).astype(int)
+        temp = np.zeros(b_filtered.shape)
+        for x in range(b_filtered.shape[1]):
             temp[:,x] = np.roll(b[:,x],tilt[x])
         temp[:,:stimulated_region_start] = np.nan
         temp[:,stimulated_region_end:] = np.nan
