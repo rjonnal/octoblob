@@ -77,7 +77,7 @@ flatten_mscan = True
 # retinal bands, since the flatness of those layers becomes the key figure of merit
 # if set to True, all peaks inside a boundary are ignored during flattening; the
 # boundary is set by computing the axial center of mass and offsetting it:
-ignore_inner_peaks = True
+ignore_inner_peaks = False
 ignore_inner_peaks_com_offset = -10
 
 # figure apperance
@@ -424,7 +424,7 @@ def get_contour0(b):
     out = np.polyval(np.polyfit(x,out,1),x)
     return np.round(out).astype(np.int)
 
-def get_contour(b,maxtilt=20,tilt_step=0.1):
+def get_contour(b,maxtilt=20,tilt_step=0.1,diagnostics=False):
     b_filtered = np.zeros(b.shape)
     
     if ignore_inner_peaks:
@@ -439,24 +439,67 @@ def get_contour(b,maxtilt=20,tilt_step=0.1):
     
         
     tmaxes = np.arange(-maxtilt,maxtilt+1,tilt_step)
-    contrasts = np.zeros(tmaxes.shape)
-    amaxes = np.zeros(tmaxes.shape)
-
-    contours = [[]]*len(tmaxes)
+    contrasts = np.ones(tmaxes.shape)*np.nan
+    amaxes = np.ones(tmaxes.shape)*np.nan
     
+    contours = [[]]*len(tmaxes)
+
+    if diagnostics:
+        flattened_profiles = np.zeros((b.shape[0],len(tmaxes)))
+        plt.figure(figsize=(6,4))
+        
     for idx,tmax in enumerate(tmaxes):
         tilt = np.round(np.linspace(0,tmax,b_filtered.shape[1])).astype(int)
         temp = np.zeros(b_filtered.shape)
         for x in range(b_filtered.shape[1]):
-            temp[:,x] = np.roll(b[:,x],tilt[x])
+            temp[:,x] = np.roll(b_filtered[:,x],tilt[x])
         temp[:,:stimulated_region_start] = np.nan
         temp[:,stimulated_region_end:] = np.nan
-        p = nanmean(temp,axis=1)
-        contrast = (p.max()-p.min())/(p.max()+p.min())
-        contrasts[idx] = contrast
-        amaxes[idx] = p.max()
-        contours[idx] = tilt
 
+        temp[np.where(temp==0)] = np.nan
+
+        
+        p = nanmean(temp,axis=1)
+
+        contrast = (np.nanmax(p)-np.nanmin(p))/(np.nanmax(p)+np.nanmin(p))
+        #contrast = (p.max()-p.min())/(p.max()+p.min())
+        contrasts[idx] = contrast
+        amaxes[idx] = np.nanmax(p)
+        contours[idx] = tilt
+        
+        if diagnostics:
+            flattened_profiles[:,idx] = p
+            if idx%10==0:
+                plt.clf()
+
+                plt.subplot(2,2,1)
+                plt.cla()
+                plt.imshow(flattened_profiles,cmap='gray',aspect='auto')
+                plt.colorbar()
+
+                plt.subplot(2,2,2)
+                plt.cla()
+                plt.imshow(20*np.log10(temp),cmap='gray',clim=(40,90),aspect='auto')
+                plt.colorbar()
+
+
+                plt.subplot(2,2,3)
+                plt.cla()
+                plt.plot(tmaxes,contrasts)
+                plt.xlabel('shear')
+                plt.ylabel('contrast')
+
+                plt.subplot(2,2,4)
+                plt.cla()
+                plt.plot(tmaxes,amaxes)
+                plt.xlabel('shear')
+                plt.ylabel('profile max')
+
+                plt.pause(.01)
+
+    if diagnostics:
+        plt.show()
+        
     return contours[np.argmax(contrasts)]
     
 
@@ -705,14 +748,19 @@ def make_tag(path):
     return '_'.join(toks),'_'.join(short_toks)
 
 
-def find_date(path):
+def find_date(path,max_iterations=50):
     head = path
+    count = 0
     while len(head)>0:
         head,tail = os.path.split(head)
         toks = tail.split('.')
         if is_list_of_ints(toks) and len(toks)==3:
             if int(toks[0])>2000 and int(toks[1])<=12 and int(toks[2])<=31:
                 return tail
+        count = count + 1
+        if count>=max_iterations:
+            sys.exit('Could not find a date of the form 2XXX.XX.XX in %s.'%path)
+    
     return None
 
 def add_origin():
