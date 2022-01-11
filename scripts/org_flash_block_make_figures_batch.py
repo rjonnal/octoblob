@@ -134,10 +134,6 @@ stim_linestyle = '-'
 output_folder = 'org_block_figures'
 auto_open_report = True
 make_pdf = False # requires pandoc
-
-
-
-
 testing_length_differences = False
 
 ################################### End parameters ######################################
@@ -159,9 +155,11 @@ def add_to_data_dictionary(s1,s2,dat):
     data_dictionary[key] = dat
 
 
+
 styles_with_origin = ['ggplot','fivethirtyeight','bmh']
 opf.setup_plots(style=style,font_size=font_size,font=font)
 color_cycle = opf.get_color_cycle()
+
 
 if summary_datafile=='':
     sys.exit('Please enter a location for a summary data file in org_flash_block_summary.py.')
@@ -177,6 +175,7 @@ else:
 #folders = glob.glob('*_bscans/cropped/phase_ramps_007ms_npy')
 args = sys.argv[1:]
 folders = []
+
 
 args = blob.expand_wildcard_arguments(args)
 
