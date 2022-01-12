@@ -6,7 +6,6 @@ import octoblob.plotting_functions as opf
 from matplotlib.lines import Line2D
 
 
-
 ##############################################################################
 bleaching_subject = 1
 
@@ -262,6 +261,13 @@ for f in range(1,mult*len(figures_of_merit)+1):
         ax.tick_params(bottom=True)
         if not autoscale:
             ax.set_ylim(ylim_dict[fom])
+        else:
+            ylim = [x for x in ax.get_ylim()]
+            if ylim[0]<0:
+                ylim[1] = 0
+            elif ylim[0]>0:
+                ylim[0] = 0
+            ax.set_ylim(ylim)
 
         for spine in ['top','bottom','left','right']:
             ax.spines[spine].set_color(spine_color)
