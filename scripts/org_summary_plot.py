@@ -36,6 +36,7 @@ label_dict['amax_0_50'] = '$(\Delta v)_{max}$ ($\mu m/s^2$)'
 label_dict['std_0_50'] = '$\sigma_{0,50}$ ($\mu m/s$)'
 label_dict['mad_0_50'] = '$\overline{|v|_{0,50}}$ ($\mu m/s$)'
 
+autoscale = True
 ylim_dict = {}
 ylim_dict['vmin_0_20'] = [-3.5,0]
 ylim_dict['vmax_20_40'] = [0,3]
@@ -259,7 +260,8 @@ for f in range(1,mult*len(figures_of_merit)+1):
         ax.tick_params(right=True)
         ax.tick_params(top=True)
         ax.tick_params(bottom=True)
-        ax.set_ylim(ylim_dict[fom])
+        if not autoscale:
+            ax.set_ylim(ylim_dict[fom])
 
         for spine in ['top','bottom','left','right']:
             ax.spines[spine].set_color(spine_color)
