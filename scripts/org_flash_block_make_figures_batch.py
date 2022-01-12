@@ -77,7 +77,7 @@ flatten_mscan = True
 # retinal bands, since the flatness of those layers becomes the key figure of merit
 # if set to True, all peaks inside a boundary are ignored during flattening; the
 # boundary is set by computing the axial center of mass and offsetting it:
-ignore_inner_peaks = False
+ignore_inner_peaks = True
 ignore_inner_peaks_com_offset = -10
 
 # figure apperance
@@ -166,6 +166,9 @@ if summary_datafile=='':
 
 
 summary_columns = ['filename','date','time','stationary_duration','layers','vmin_0_20','vmax_20_40','vmean_20_40','amin_0_50','amax_0_50','std_0_50','mad_0_50']
+for ld in layer_differences:
+    summary_columns.append('%s_%s_px'%(ld[0],ld[1]))
+
 
 if not os.path.exists(summary_datafile):
     summary_df = pd.DataFrame(columns=summary_columns)
@@ -884,6 +887,12 @@ for folder_idx,folder in enumerate(folders):
     #peak_dict = get_peak_dict(prof)
     # new way: use peak metadictionary
     peak_dict = peak_metadict[folder]
+
+    thickness_dict = {}
+    for a,b in layer_differences:
+        key = '%s_%s_px'%(a,b)
+        dpx = peak_dict[a]-peak_dict[b]
+        thickness_dict[key] = dpx
     
     plt.figure(figsize=figure_size,dpi=screen_dpi)
     for peak_label in peak_labels:
@@ -946,16 +955,17 @@ for folder_idx,folder in enumerate(folders):
     summary_dict['std_0_50'] = std_0_50
     summary_dict['mad_0_50'] = mad_0_50
     summary_dict['layers'] = ','.join(layer_differences[0])
+    for ld in layer_differences:
+        key = '%s_%s_px'%(ld[0],ld[1])
+        thickness = thickness_dict[key]
+        summary_dict[key] = thickness
 
-    print(summary_df.columns)
-    
     indices_to_drop = summary_df[ (summary_df['date']==summary_dict['date']) & (summary_df['time']==summary_dict['time'])].index
     if len(indices_to_drop)>0:
         logging.info('Duplicate item found in summary CSV. Replacing old version with new.')
         
     summary_df.drop(indices_to_drop, inplace=True)
     new_row = pd.Series(summary_dict)
-    print(new_row)
 
     #summary_df = pd.concat([summary_df,new_df],axis=0)
     summary_df = summary_df.append(new_row,ignore_index=True)
@@ -1149,7 +1159,6 @@ if make_pdf:
     try:
         with open('%s/figures.md'%output_folder,'w') as fid:
             for label in document_figure_labels:
-                print(label)
                 sublist = [f for f in figure_list if f[0].find(label)>-1]
                 sublist.sort(key=lambda tup: tup[0])
                 fid.write('### %s\n\n'%d[label])
