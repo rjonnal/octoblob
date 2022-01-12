@@ -6,10 +6,14 @@ import octoblob.plotting_functions as opf
 from matplotlib.lines import Line2D
 
 
-edf = pd.read_csv('experimental_parameters_log.csv')
-adf = pd.read_csv('analysis_parameters_log.csv')
 
+##############################################################################
 bleaching_subject = 1
+
+# oct parameters
+lambda_1 = 930e-9
+lambda_2 = 1180e-9
+n_samples = 1536
 
 # the analysis parameters log contains the following figures of merit; for any run of this program, we must specify
 # which figures of merit to plot; a separate figure will be created for each figure of merit
@@ -21,9 +25,8 @@ bleaching_subject = 1
 # 'std_0_50': the standard deviation of the response between 0 and 50 ms
 # 'mad_0_50': the mean absolute deviation of the response between 0 and 50 ms
 figures_of_merit = ['vmin_0_20','vmean_20_40','amax_0_50', 'amin_0_50']
-eccentricities_to_omit = []
-x_offset_fraction = 0.02
-figure_size = (4,3) # w,h in inches
+normalization_column = 'COST_ISOS_px'
+
 label_dict = {}
 label_dict['vmin_0_20'] = '$v_{min}$ ($\mu m/s$)'
 label_dict['vmax_20_40'] = '$v_{max}$ ($\mu m/s$)'
@@ -42,7 +45,12 @@ ylim_dict['amax_0_50'] = [0,1.75]
 ylim_dict['std_0_50'] = [0,3]
 ylim_dict['mad_0_50'] = [0,3]
 
-figure_size = (4,3) # (width_inches, height_inches)
+# edit filenames below as needed:
+edf = pd.read_csv('experimental_parameters_log.csv')
+adf = pd.read_csv('analysis_parameters_log.csv')
+
+figure_size = (4,4) # (width_inches, height_inches)
+ax_box = [.16,.15,.79,.80]
 font = 'Arial'
 font_size = 10
 screen_dpi = 100
@@ -65,7 +73,34 @@ legend_alpha = 1.0
 style = 'ggplot'
 #style = 'seaborn-deep'
 #style = 'fivethirtyeight'
-#############################################################################################################
+
+##############################################################################
+
+# calculate oct sampling interval
+k_1 = 1/lambda_1
+k_2 = 1/lambda_2
+k_range = k_2-k_1
+oct_m_per_pixel = -1/k_range
+oct_um_per_pixel = oct_m_per_pixel*1e6
+
+normalized_figures_of_merit = []
+for fom in figures_of_merit:
+    normalized_fom = '%s_normalized'%fom
+    dat = adf[fom]/adf[normalization_column]/oct_um_per_pixel
+    adf[normalized_fom] = dat
+    normalized_figures_of_merit.append(normalized_fom)
+    old_label = label_dict[fom]
+    new_label = old_label.replace('\mu m','\mathrm{OS}')
+    label_dict[normalized_fom] = new_label
+    old_ylim = ylim_dict[fom]
+    new_ylim = [yl/np.min(adf[normalization_column])/oct_um_per_pixel for yl in old_ylim]
+    ylim_dict[normalized_fom] = new_ylim
+    
+figures_of_merit = figures_of_merit + normalized_figures_of_merit
+assert all(fom in adf.columns for fom in normalized_figures_of_merit)
+
+eccentricities_to_omit = []
+x_offset_fraction = 0.02
 
 opf.setup_plots(style=style,font_size=font_size,font=font)
 
@@ -142,7 +177,6 @@ def format_legend(leg):
     leg.get_frame().set_linewidth(legend_linewidth)
     leg.get_frame().set_alpha(legend_alpha)
 
-
 def err(vec):
     return np.std(vec)/np.sqrt(len(vec))
 
@@ -169,11 +203,12 @@ for idx,subject in enumerate(subject_array):
 
             y_arr = np.array(ecc_df[fom])
 
-            plt.figure(fidx+1)
-            plt.plot(eccentricity+x_offset,np.mean(y_arr),color_marker,label=label)
-            plt.errorbar(eccentricity+x_offset,np.mean(y_arr),yerr=err(y_arr),ecolor='k',capsize=4)
-            plt.xlabel('eccentricity (deg)')
-            plt.ylabel(label_dict[fom])
+            fig = plt.figure(fidx+1)
+            ax = fig.add_axes(ax_box)
+            ax.plot(eccentricity+x_offset,np.mean(y_arr),color_marker,label=label)
+            ax.errorbar(eccentricity+x_offset,np.mean(y_arr),yerr=err(y_arr),ecolor='k',capsize=4)
+            ax.set_xlabel('eccentricity (deg)')
+            ax.set_ylabel(label_dict[fom])
 
             
 # done with df, so delete and reuse
@@ -203,17 +238,18 @@ if len(df)>0:
 
             for fidx,fom in enumerate(figures_of_merit):
                 y_arr = np.array(bleach_df[fom])
-                plt.figure(len(figures_of_merit)+fidx+1)
-                plt.plot(bleaching+x_offset,np.mean(y_arr),'k'+ecc_marker,label=label)
-                plt.errorbar(bleaching+x_offset,np.mean(y_arr),yerr=err(y_arr),ecolor='k',capsize=4)
-                plt.xlabel('bleaching %')
-                plt.ylabel(label_dict[fom])
+                fig = plt.figure(len(figures_of_merit)+fidx+1)
+                ax = fig.add_axes(ax_box)
+                ax.plot(bleaching+x_offset,np.mean(y_arr),'k'+ecc_marker,label=label)
+                ax.errorbar(bleaching+x_offset,np.mean(y_arr),yerr=err(y_arr),ecolor='k',capsize=4)
+                ax.set_xlabel('bleaching %')
+                ax.set_ylabel(label_dict[fom])
 
 
 for f in range(1,mult*len(figures_of_merit)+1):
     fom = figures_of_merit[(f-1)%len(figures_of_merit)]
     try:
-        plt.figure(f)
+        fig = plt.figure(f)
         leg = plt.legend()
         format_legend(leg)
         
@@ -229,7 +265,7 @@ for f in range(1,mult*len(figures_of_merit)+1):
             ax.spines[spine].set_color(spine_color)
             ax.spines[spine].set_linewidth(spine_linewidth)
 
-        plt.tight_layout()
+        fig.tight_layout()
 
         
         if f<=len(figures_of_merit):
