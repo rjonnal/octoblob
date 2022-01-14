@@ -50,7 +50,7 @@ edf = pd.read_csv('experimental_parameters_log.csv')
 adf = pd.read_csv('analysis_parameters_log.csv')
 
 figure_size = (4,4) # (width_inches, height_inches)
-ax_box = [.16,.15,.79,.80]
+ax_box = [.18,.15,.77,.80]
 font = 'Arial'
 font_size = 10
 screen_dpi = 100
@@ -263,10 +263,12 @@ for f in range(1,mult*len(figures_of_merit)+1):
             ax.set_ylim(ylim_dict[fom])
         else:
             ylim = [x for x in ax.get_ylim()]
-            if ylim[0]<0:
-                ylim[1] = 0
-            elif ylim[0]>0:
-                ylim[0] = 0
+            if abs(ylim[0])<abs(ylim[1]):
+                ylim[0] = ylim[0]
+                ylim[1] = ylim[1]*1.1
+            elif abs(ylim[0])>abs(ylim[1]):
+                ylim[1] = ylim[1]
+                ylim[0] = ylim[0]*1.1
             ax.set_ylim(ylim)
 
         for spine in ['top','bottom','left','right']:

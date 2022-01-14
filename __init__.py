@@ -136,9 +136,7 @@ class OCTRawData:
             temp = temp.replace('\t',' ')
         return temp
     
-
-
-    def align_to_fbg(self,frame,region_height=48,smoothing_size=5,sign=1,use_cross_correlation=False,diagnostics=False):
+    def align_to_fbg(self,frame,region_height=60,smoothing_size=5,sign=1,use_cross_correlation=False,diagnostics=False):
         # The algorithm here is copied from Justin Migacz's MATLAB prototype; one
         # key difference is that Justin cats 5 sets of spectra together, such that
         # they share the same k-axis; this step is performed on a "compound" frame,
