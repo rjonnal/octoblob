@@ -1,14 +1,15 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import pandas as pd
-import sys
+import sys,os
 import octoblob.plotting_functions as opf
 from matplotlib.lines import Line2D
 
 
 ##############################################################################
 bleaching_subject = 1
-bleaching_plotting_function = plt.semilogx
+plot_folder = './summary_plots'
+
 # oct parameters
 lambda_1 = 930e-9
 lambda_2 = 1180e-9
@@ -90,7 +91,7 @@ style = 'ggplot'
 #style = 'fivethirtyeight'
 
 # how much to offset (jitter) markers for visibility:
-x_offset_fraction = 0.02
+x_offset_fraction = 0.015
 
 # Determines whether to use automatic x-ticks or the values of x in the data:
 ecc_xticks_actual = False
@@ -112,6 +113,8 @@ bleaching_logx = True
 rebuild = False
 ##############################################################################
 
+
+os.makedirs(plot_folder,exist_ok=True)
 
 # Basic plot setup:
 opf.setup_plots(style=style,font_size=font_size,font=font)
@@ -201,9 +204,10 @@ def unique(LL):
                 output.append(item)
     return output
 
-subject_array = list(df_all['subject'].unique())
+subject_array = sorted(list(df_all['subject'].unique()))
 ecc_array = sorted(list(df_all['eccentricity'].unique()))
 bleaching_array = sorted(list(df_all['bleaching'].unique()))
+max_bleaching = np.max(bleaching_array)
 
 try:
     assert len(subject_array)<=len(subject_marker_array)
@@ -289,9 +293,13 @@ for fom in figures_of_merit:
     format_legend(leg)
     nax.yaxis.grid(False)
     nax.xaxis.grid(False)
+    ax.set_xlabel('eccentricity ($^\circ$)')
+    plt.savefig(os.path.join(plot_folder,'ecc_dependence_%s.svg'%fom))
 
 
+    
 # Build the bleaching data plots:
+ba_xticks = [b for b in bleaching_array if b>0]
 for fom in figures_of_merit:
     fig = plt.figure(figsize=figure_size)
 
@@ -320,21 +328,32 @@ for fom in figures_of_merit:
 
         if bleaching_logx:
             for b,ym,ye in zip(bleaching_array,ymean,yerr):
-                xolog = centered_idx*np.log10(bleaching)*3.5*x_offset_fraction
+                xolog = b*x_offset_fraction*centered_idx*5
+                if b==np.max(bleaching_array):
+                    label = '$%d^\circ$'%ecc
+                else:
+                    label = None
                 if b==0:
                     lax.plot(b+xo,ym,marker=marker,markerfacecolor='w',
-                             label='$%d^\circ$'%ecc,linestyle='none',markeredgecolor='k')
+                             linestyle='none',markeredgecolor='k')
+                    lax.errorbar(b+xo,ym,yerr=ye,ecolor='k',capsize=4,linestyle='none')
                 else:
                     rax.semilogx(b+xolog,ym,marker=marker,markerfacecolor='w',
-                             linestyle='none',markeredgecolor='k')
+                                 label=label,linestyle='none',markeredgecolor='k')
+                    rax.errorbar(b+xolog,ym,yerr=ye,ecolor='k',capsize=4,linestyle='none')
+                    
         else:
             lax.plot(bleaching_array+xo,ymean,marker=marker,markerfacecolor='k',
                      linestyle='none',markeredgecolor='none',label='$%d^\circ$'%ecc)
+
+            
 
     lax.set_ylabel(label_dict[fom])
     lax.set_ylim(ylim_dict[fom])
     if bleaching_logx:
         rax.set_ylim(ylim_dict[fom])
+        rax.set_xticks(ba_xticks)
+        rax.set_xticklabels(ba_xticks)
         
     for spine in ['top','bottom','left','right']:
         lax.spines[spine].set_color(spine_color)
@@ -349,194 +368,14 @@ for fom in figures_of_merit:
 
     if bleaching_logx:
         leg = rax.legend(loc=legendloc_dict[fom])
+        rax.set_xlabel('bleaching (%)                   ')
     else:
         leg = lax.legend(loc=legendloc_dict[fom])
+        lax.set_xlabel('bleaching (%)')
         
     format_legend(leg)
+    plt.savefig(os.path.join(plot_folder,'bleaching_dependence_%s.svg'%fom))
 
 
     
-plt.show()
-
-    
-sys.exit()
-
-for idx,subject in enumerate(subject_array):
-    subject_df = df[df['subject']==subject]
-    subject_marker = subject_marker_array[idx]
-    color_marker = 'k'+subject_marker
-
-    x_offset = (idx-1)*ecc_offset_factor
-
-    for eidx,ecc in enumerate(ecc_array):
-
-        if eidx==0:
-            label = 'subject %d'%subject
-        else:
-            label = None
-
-        ecc_df = subject_df[subject_df['ecc']==ecc]
-
-        for fidx,fom in enumerate(figures_of_merit):
-
-            y_arr = np.array(ecc_df[fom])
-            lax = eaxes[fom]
-            lax.plot(ecc+x_offset,np.mean(y_arr),color_marker,label=label)
-            lax.errorbar(ecc+x_offset,np.mean(y_arr),yerr=err(y_arr),ecolor='k',capsize=4)
-            lax.set_xlabel('ecc (deg)')
-            
-            if plot_normalized:
-                nfom = '%s_normalized'%fom
-                y_arr = np.array(ecc_df[nfom])
-                ncolor_marker = normalized_color+subject_marker
-                rax = eaxes[nfom]
-                rax.plot(ecc+x_offset,np.mean(y_arr),ncolor_marker,label=None)
-                rax.errorbar(ecc+x_offset,np.mean(y_arr),yerr=err(y_arr),ecolor='k',capsize=4)
-
-
-
-
-sys.exit()
-
-
-
-
-
-for fom in figures_of_merit:
-    normalized_fom = '%s_normalized'%fom
-    dat = adf[fom]/adf[normalization_column]/oct_um_per_pixel
-    adf[normalized_fom] = dat
-    old_label = label_dict[fom]
-    new_label = old_label.replace('\mu m','\mathrm{OS}')
-    label_dict[normalized_fom] = new_label
-    old_ylim = ylim_dict[fom]
-    new_ylim = [yl/np.min(adf[normalization_column])/oct_um_per_pixel for yl in old_ylim]
-    ylim_dict[normalized_fom] = new_ylim
-    
-efigs = {}
-bfigs = {}
-eaxes = {}
-baxes = {}
-
-for fig_idx in range(1,len(figures_of_merit)+1):
-    fom = figures_of_merit[fig_idx-1]
-    f = plt.figure(figsize=figure_size)
-    efigs[fom] = f
-    lax = f.add_axes(ax_box)
-    lax.set_ylabel(label_dict[fom])
-    rax = f.add_axes(ax_box)
-    nfom = '%s_normalized'%fom
-    rax.set_ylabel(label_dict[nfom])
-    rax.yaxis.set_label_position('right')
-    rax.yaxis.tick_right()
-    eaxes[fom] = lax
-    eaxes[nfom] = rax
-    
-for fig_idx in range(1,len(figures_of_merit)+1):
-    fom = figures_of_merit[fig_idx-1]
-    f = plt.figure(figsize=figure_size)
-    bfigs[fom] = f
-    lax = f.add_axes(ax_box)
-    lax.set_ylabel(label_dict[fom])
-    baxes[fom] = lax
-
-    
-
-
-
-# first, let's look at ecc-dependence, with only 66% bleaching
-df = df_all[df_all['bleaching']==66]
-
-
-plt.show()
-sys.exit()
-# done with df, so delete and reuse for bleaching dependence
-logx = bleaching_plotting_function==plt.semilogx
-    
-df = df_all[df_all['subject']==bleaching_subject]
-mult = 1
-if len(df)>0:
-    mult = 2
-    for idx,ecc in enumerate(ecc_array):
-        ecc_df = df[df['ecc']==ecc]
-        centered_idx = idx-len(ecc_array)//2
-        x_offset = centered_idx*b_offset_factor
-        
-        if ecc in eccentricities_to_omit:
-            continue
-
-        for bidx,bleaching in enumerate(bleaching_array):
-            
-            if logx:
-                x_offset = centered_idx*bleaching*3.5*x_offset_fraction
-                print(x_offset)
-                
-            if bidx==0:
-                label = 'ecc %d'%ecc
-            else:
-                label = None
-
-
-            bleach_df = ecc_df[ecc_df['bleaching']==bleaching]
-            ecc_marker = ecc_marker_array[idx]
-
-            for fidx,fom in enumerate(figures_of_merit):
-                y_arr = np.array(bleach_df[fom])
-                fig = plt.figure(len(figures_of_merit)+fidx+1)
-                ax = fig.add_axes(ax_box)
-                xbleaching = bleaching
-                ax.plot(xbleaching+x_offset,np.mean(y_arr),'k'+ecc_marker,label=label)
-                ax.set_xscale('symlog', linthresh=1e0)
-                ax.errorbar(xbleaching+x_offset,np.mean(y_arr),yerr=err(y_arr),ecolor='k',capsize=4)
-                ax.set_xlabel('bleaching %')
-                ax.set_ylabel(label_dict[fom])
-
-
-for f in range(1,mult*len(figures_of_merit)+1):
-    fom = figures_of_merit[(f-1)%len(figures_of_merit)]
-    try:
-        fig = plt.figure(f)
-        leg = plt.legend()
-        format_legend(leg)
-        
-        ax = plt.gca()
-        ax.tick_params(direction='in')
-        ax.tick_params(left=True)
-        ax.tick_params(right=True)
-        ax.tick_params(top=True)
-        ax.tick_params(bottom=True)
-        if not autoscale:
-            ax.set_ylim(ylim_dict[fom])
-        else:
-            ylim = [x for x in ax.get_ylim()]
-            if abs(ylim[0])<abs(ylim[1]):
-                ylim[0] = ylim[0]
-                ylim[1] = ylim[1]*1.1
-            elif abs(ylim[0])>abs(ylim[1]):
-                ylim[1] = ylim[1]
-                ylim[0] = ylim[0]*1.1
-            ax.set_ylim(ylim)
-
-        for spine in ['top','bottom','left','right']:
-            ax.spines[spine].set_color(spine_color)
-            ax.spines[spine].set_linewidth(spine_linewidth)
-
-        fig.tight_layout()
-
-        
-        if f<=len(figures_of_merit):
-            if ecc_xticks_actual:
-                plt.xticks(ecc_array)
-            plt.savefig('ecc_dependence_%s.svg'%fom)
-        else:
-            if bleaching_xticks_actual:
-                plt.xticks(bleaching_array)
-                xlim = (np.min(bleaching_array)-1,np.max(bleaching_array)*2.0)
-                plt.xlim(xlim)
-            plt.savefig('bleaching_dependence_%s.svg'%fom)
-    except Exception as e:
-        print(e)
-        sys.exit(e)
-    
-        
 plt.show()
