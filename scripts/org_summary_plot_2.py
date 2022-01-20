@@ -8,7 +8,7 @@ from matplotlib.lines import Line2D
 
 ##############################################################################
 bleaching_subject = 1
-
+bleaching_plotting_function = plt.semilogx
 # oct parameters
 lambda_1 = 930e-9
 lambda_2 = 1180e-9
@@ -23,7 +23,7 @@ n_samples = 1536
 # 'amax_0_50': the maximum (most positive) change in velocity (acceleration) between 0 and 50 ms
 # 'std_0_50': the standard deviation of the response between 0 and 50 ms
 # 'mad_0_50': the mean absolute deviation of the response between 0 and 50 ms
-figures_of_merit = ['vmin_0_20','vmean_20_40','amax_0_50', 'amin_0_50','std_0_50','mad_0_50']
+figures_of_merit = ['vmin_0_20','vmean_20_40','amax_0_50', 'amin_0_50']
 normalization_column = 'COST_ISOS_px'
 
 label_dict = {}
@@ -37,11 +37,11 @@ label_dict['mad_0_50'] = '$\overline{|v|_{0,50}}$ ($\mu m/s$)'
 
 autoscale = True
 ylim_dict = {}
-ylim_dict['vmin_0_20'] = [-3.75,0]
-ylim_dict['vmax_20_40'] = [-0.75,3]
-ylim_dict['vmean_20_40'] = [-0.5,2]
+ylim_dict['vmin_0_20'] = [-3.5,0]
+ylim_dict['vmax_20_40'] = [0,3]
+ylim_dict['vmean_20_40'] = [0,2]
 ylim_dict['amin_0_50'] = [-2.5,0]
-ylim_dict['amax_0_50'] = [0,2.5]
+ylim_dict['amax_0_50'] = [0,1.75]
 ylim_dict['std_0_50'] = [0,3]
 ylim_dict['mad_0_50'] = [0,3]
 
@@ -49,8 +49,8 @@ ylim_dict['mad_0_50'] = [0,3]
 edf = pd.read_csv('experimental_parameters_log.csv')
 adf = pd.read_csv('analysis_parameters_log.csv')
 
-figure_size = (5,5) # (width_inches, height_inches)
-ax_box = [.16,.15,.79,.80]
+figure_size = (4,4) # (width_inches, height_inches)
+ax_box = [.18,.15,.77,.80]
 font = 'Arial'
 font_size = 10
 screen_dpi = 100
@@ -74,6 +74,18 @@ style = 'ggplot'
 #style = 'seaborn-deep'
 #style = 'fivethirtyeight'
 
+# how much to offset (jitter) markers for visibility:
+x_offset_fraction = 0.02
+
+# Determines whether to use automatic x-ticks or the values of x in the data:
+ecc_xticks_actual = False
+bleaching_xticks_actual = True
+
+# plot markers
+subject_marker_array = ['s','o','x']
+eccentricity_marker_array = ['^','v','<','>']
+normalized_color = 'g'
+plot_normalized = True
 ##############################################################################
 
 # calculate oct sampling interval
@@ -83,12 +95,10 @@ k_range = k_2-k_1
 oct_m_per_pixel = -1/k_range
 oct_um_per_pixel = oct_m_per_pixel*1e6
 
-normalized_figures_of_merit = []
 for fom in figures_of_merit:
     normalized_fom = '%s_normalized'%fom
     dat = adf[fom]/adf[normalization_column]/oct_um_per_pixel
     adf[normalized_fom] = dat
-    normalized_figures_of_merit.append(normalized_fom)
     old_label = label_dict[fom]
     new_label = old_label.replace('\mu m','\mathrm{OS}')
     label_dict[normalized_fom] = new_label
@@ -96,18 +106,37 @@ for fom in figures_of_merit:
     new_ylim = [yl/np.min(adf[normalization_column])/oct_um_per_pixel for yl in old_ylim]
     ylim_dict[normalized_fom] = new_ylim
     
-figures_of_merit = figures_of_merit + normalized_figures_of_merit
-assert all(fom in adf.columns for fom in normalized_figures_of_merit)
-
 eccentricities_to_omit = []
-x_offset_fraction = 0.02
-
 opf.setup_plots(style=style,font_size=font_size,font=font)
 
-for fig_idx in range(1,2*len(figures_of_merit)+1):
-    plt.figure(figsize=figure_size)
+efigs = {}
+bfigs = {}
+eaxes = {}
+baxes = {}
 
+for fig_idx in range(1,len(figures_of_merit)+1):
+    fom = figures_of_merit[fig_idx-1]
+    f = plt.figure(figsize=figure_size)
+    efigs[fom] = f
+    lax = f.add_axes(ax_box)
+    lax.set_ylabel(label_dict[fom])
+    rax = f.add_axes(ax_box)
+    nfom = '%s_normalized'%fom
+    rax.set_ylabel(label_dict[nfom])
+    rax.yaxis.set_label_position('right')
+    rax.yaxis.tick_right()
+    eaxes[fom] = lax
+    eaxes[nfom] = rax
+    
+for fig_idx in range(1,len(figures_of_merit)+1):
+    fom = figures_of_merit[fig_idx-1]
+    f = plt.figure(figsize=figure_size)
+    bfigs[fom] = f
+    lax = f.add_axes(ax_box)
+    lax.set_ylabel(label_dict[fom])
+    baxes[fom] = lax
 
+    
 df_list = []
 bad_df_list = []
 
@@ -153,17 +182,14 @@ bad_df_all.to_csv('merged_parameters_log_bad_data.csv')
 
 subject_array = list(df_all['subject'].unique())
 
-#print(subject_array)
-subject_marker_array = ['s','o','x']
 temp = list(Line2D.markers.keys())
 for item in temp:
     if not item in subject_marker_array:
         subject_marker_array.append(item)
 
 
-eccentricity_array = list(df_all['eccentricity'].unique())
-bleaching_array = list(df_all['bleaching'].unique())
-eccentricity_marker_array = ['s','o','x','^']
+eccentricity_array = sorted(list(df_all['eccentricity'].unique()))
+bleaching_array = sorted(list(df_all['bleaching'].unique()))
 
 ecc_range = np.max(eccentricity_array)-np.min(eccentricity_array)
 ecc_offset_factor = ecc_range*x_offset_fraction
@@ -202,31 +228,42 @@ for idx,subject in enumerate(subject_array):
         for fidx,fom in enumerate(figures_of_merit):
 
             y_arr = np.array(ecc_df[fom])
-
-            fig = plt.figure(fidx+1)
-            ax = fig.add_axes(ax_box)
-            ax.plot(eccentricity+x_offset,np.mean(y_arr),color_marker,label=label)
-            ax.errorbar(eccentricity+x_offset,np.mean(y_arr),yerr=err(y_arr),ecolor='k',capsize=4)
-            ax.set_xlabel('eccentricity (deg)')
-            ax.set_ylabel(label_dict[fom])
-
+            lax = eaxes[fom]
+            lax.plot(eccentricity+x_offset,np.mean(y_arr),color_marker,label=label)
+            lax.errorbar(eccentricity+x_offset,np.mean(y_arr),yerr=err(y_arr),ecolor='k',capsize=4)
+            lax.set_xlabel('eccentricity (deg)')
             
-# done with df, so delete and reuse
+            if plot_normalized:
+                nfom = '%s_normalized'%fom
+                y_arr = np.array(ecc_df[nfom])
+                ncolor_marker = normalized_color+subject_marker
+                rax = eaxes[nfom]
+                rax.plot(eccentricity+x_offset,np.mean(y_arr),ncolor_marker,label=None)
+                rax.errorbar(eccentricity+x_offset,np.mean(y_arr),yerr=err(y_arr),ecolor='k',capsize=4)
 
+plt.show()
+sys.exit()
+# done with df, so delete and reuse for bleaching dependence
+logx = bleaching_plotting_function==plt.semilogx
+    
 df = df_all[df_all['subject']==bleaching_subject]
 mult = 1
 if len(df)>0:
     mult = 2
     for idx,eccentricity in enumerate(eccentricity_array):
         ecc_df = df[df['eccentricity']==eccentricity]
-
-        x_offset = (idx-1)*b_offset_factor
-
+        centered_idx = idx-len(eccentricity_array)//2
+        x_offset = centered_idx*b_offset_factor
+        
         if eccentricity in eccentricities_to_omit:
             continue
 
         for bidx,bleaching in enumerate(bleaching_array):
-
+            
+            if logx:
+                x_offset = centered_idx*bleaching*3.5*x_offset_fraction
+                print(x_offset)
+                
             if bidx==0:
                 label = 'ecc %d'%eccentricity
             else:
@@ -240,8 +277,10 @@ if len(df)>0:
                 y_arr = np.array(bleach_df[fom])
                 fig = plt.figure(len(figures_of_merit)+fidx+1)
                 ax = fig.add_axes(ax_box)
-                ax.plot(bleaching+x_offset,np.mean(y_arr),'k'+ecc_marker,label=label)
-                ax.errorbar(bleaching+x_offset,np.mean(y_arr),yerr=err(y_arr),ecolor='k',capsize=4)
+                xbleaching = bleaching
+                ax.plot(xbleaching+x_offset,np.mean(y_arr),'k'+ecc_marker,label=label)
+                ax.set_xscale('symlog', linthresh=1e0)
+                ax.errorbar(xbleaching+x_offset,np.mean(y_arr),yerr=err(y_arr),ecolor='k',capsize=4)
                 ax.set_xlabel('bleaching %')
                 ax.set_ylabel(label_dict[fom])
 
@@ -263,10 +302,12 @@ for f in range(1,mult*len(figures_of_merit)+1):
             ax.set_ylim(ylim_dict[fom])
         else:
             ylim = [x for x in ax.get_ylim()]
-            if ylim[0]<0:
-                ylim[1] = 0
-            elif ylim[0]>0:
-                ylim[0] = 0
+            if abs(ylim[0])<abs(ylim[1]):
+                ylim[0] = ylim[0]
+                ylim[1] = ylim[1]*1.1
+            elif abs(ylim[0])>abs(ylim[1]):
+                ylim[1] = ylim[1]
+                ylim[0] = ylim[0]*1.1
             ax.set_ylim(ylim)
 
         for spine in ['top','bottom','left','right']:
@@ -277,11 +318,18 @@ for f in range(1,mult*len(figures_of_merit)+1):
 
         
         if f<=len(figures_of_merit):
+            if ecc_xticks_actual:
+                plt.xticks(eccentricity_array)
             plt.savefig('ecc_dependence_%s.svg'%fom)
         else:
+            if bleaching_xticks_actual:
+                plt.xticks(bleaching_array)
+                xlim = (np.min(bleaching_array)-1,np.max(bleaching_array)*2.0)
+                plt.xlim(xlim)
             plt.savefig('bleaching_dependence_%s.svg'%fom)
-    except:
-        pass
+    except Exception as e:
+        print(e)
+        sys.exit(e)
     
         
 plt.show()
