@@ -38,14 +38,13 @@ label_dict['mad_0_50'] = '$\overline{|v|_{0,50}}$ ($\mu m/s$)'
 
 autoscale = True
 ylim_dict = {}
-zero_overshoot = 1.5
-ylim_dict['vmin_0_20'] = [-4,zero_overshoot]
-ylim_dict['vmax_20_40'] = [-zero_overshoot,3]
-ylim_dict['vmean_20_40'] = [-zero_overshoot,2]
-ylim_dict['amin_0_50'] = [-2.5,zero_overshoot]
-ylim_dict['amax_0_50'] = [-zero_overshoot,2.5]
-ylim_dict['std_0_50'] = [-zero_overshoot,3]
-ylim_dict['mad_0_50'] = [-zero_overshoot,3]
+ylim_dict['vmin_0_20'] = [-4,0.5]
+ylim_dict['vmax_20_40'] = [-0.5,3]
+ylim_dict['vmean_20_40'] = [-0.5,2]
+ylim_dict['amin_0_50'] = [-2.5,0.5]
+ylim_dict['amax_0_50'] = [-0.5,2.5]
+ylim_dict['std_0_50'] = [-0.5,3]
+ylim_dict['mad_0_50'] = [-0.5,3]
 
 legendloc_dict = {}
 legendloc_dict['vmin_0_20'] = 4
@@ -98,7 +97,7 @@ ecc_xticks_actual = False
 bleaching_xticks_actual = True
 
 # plot markers
-normalized_color = 'g'
+normalized_color = [0.66,0.66,0.66]
 plot_normalized = True
 normalize_text = lambda x: x.replace('\mu m','\mathrm{OS}')
 
@@ -247,7 +246,7 @@ for fom in figures_of_merit:
         xo = exr*x_offset_fraction*(sidx-len(subject_array)//2)
         marker = subject_marker_array[sidx]
         color_marker = 'k'+marker
-        ncolor_marker = normalized_color+subject_marker_array[sidx]
+        #ncolor_marker = normalized_color+subject_marker_array[sidx]
         ymean = []
         yerr = []
         nymean = []
