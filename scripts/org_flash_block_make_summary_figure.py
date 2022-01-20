@@ -37,23 +37,42 @@ label_dict['std_0_50'] = '$\sigma_{0,50}$ ($\mu m/s$)'
 label_dict['mad_0_50'] = '$\overline{|v|_{0,50}}$ ($\mu m/s$)'
 
 autoscale = True
-ylim_dict = {}
-ylim_dict['vmin_0_20'] = [-4,0.5]
-ylim_dict['vmax_20_40'] = [-0.5,3]
-ylim_dict['vmean_20_40'] = [-0.5,2]
-ylim_dict['amin_0_50'] = [-2.5,0.5]
-ylim_dict['amax_0_50'] = [-0.5,2.5]
-ylim_dict['std_0_50'] = [-0.5,3]
-ylim_dict['mad_0_50'] = [-0.5,3]
+ecc_ylim_dict = {}
+ecc_ylim_dict['vmin_0_20'] = [-4,0.0]
+ecc_ylim_dict['vmax_20_40'] = [-0.0,3]
+ecc_ylim_dict['vmean_20_40'] = [-0.5,2.0]
+ecc_ylim_dict['amin_0_50'] = [-2.25,0.0]
+ecc_ylim_dict['amax_0_50'] = [-0.0,2.5]
+ecc_ylim_dict['std_0_50'] = [-0.0,3]
+ecc_ylim_dict['mad_0_50'] = [-0.0,3]
 
-legendloc_dict = {}
-legendloc_dict['vmin_0_20'] = 4
-legendloc_dict['vmax_20_40'] = 1
-legendloc_dict['vmean_20_40'] = 1
-legendloc_dict['amin_0_50'] = 1
-legendloc_dict['amax_0_50'] = 1
-legendloc_dict['std_0_50'] = 1
-legendloc_dict['mad_0_50'] = 1
+ecc_legendloc_dict = {}
+ecc_legendloc_dict['vmin_0_20'] = 4
+ecc_legendloc_dict['vmax_20_40'] = 0
+ecc_legendloc_dict['vmean_20_40'] = 0
+ecc_legendloc_dict['amin_0_50'] = 4
+ecc_legendloc_dict['amax_0_50'] = 0
+ecc_legendloc_dict['std_0_50'] = 0
+ecc_legendloc_dict['mad_0_50'] = 0
+
+
+bleaching_ylim_dict = {}
+bleaching_ylim_dict['vmin_0_20'] = [-2.75,0.0]
+bleaching_ylim_dict['vmax_20_40'] = [-0.0,3]
+bleaching_ylim_dict['vmean_20_40'] = [-0.5,1.75]
+bleaching_ylim_dict['amin_0_50'] = [-2.5,0.0]
+bleaching_ylim_dict['amax_0_50'] = [-0.0,2.5]
+bleaching_ylim_dict['std_0_50'] = [-0.0,3]
+bleaching_ylim_dict['mad_0_50'] = [-0.0,3]
+
+bleaching_legendloc_dict = {}
+bleaching_legendloc_dict['vmin_0_20'] = 0
+bleaching_legendloc_dict['vmax_20_40'] = 0
+bleaching_legendloc_dict['vmean_20_40'] = 4
+bleaching_legendloc_dict['amin_0_50'] = 4
+bleaching_legendloc_dict['amax_0_50'] = 0
+bleaching_legendloc_dict['std_0_50'] = 0
+bleaching_legendloc_dict['mad_0_50'] = 0
 
 
 # edit filenames below as needed:
@@ -63,8 +82,8 @@ adf = pd.read_csv('analysis_parameters_log.csv')
 figure_size = (4,4) # (width_inches, height_inches)
 ax_box = [.18,.15,.77,.80]
 nax_box = [.18,.15,.64,.80]
-ax_box_log_zero = [.18,.15,.15,.80]
-ax_box_log_nonzero = [.35,.15,.47,.80]
+ax_box_log_zero = [.18,.15,.17,.80]
+ax_box_log_nonzero = [.37,.15,.58,.80]
 
 font = 'Arial'
 font_size = 10
@@ -72,9 +91,11 @@ screen_dpi = 100
 print_dpi = 300
 plot_linewidth = 2
 
+errorbar_capsize = 2
+
 # spines (lines at edges of plot)
 spine_color = 'k'
-spine_linewidth = 1
+spine_linewidth = 2
 
 # legend appearance
 show_legend_frame = True
@@ -82,6 +103,7 @@ legend_linewidth = 2
 legend_edgecolor = 'k'
 legend_facecolor = 'w'
 legend_alpha = 1.0
+
 
 # see https://matplotlib.org/stable/gallery/style_sheets/style_sheets_reference.html
 #style = 'bmh'
@@ -97,19 +119,27 @@ ecc_xticks_actual = False
 bleaching_xticks_actual = True
 
 # plot markers
-normalized_color = [0.66,0.66,0.66]
+main_marker_color = [0.0,0.0,0.0]
+normalized_color = [0.5,0.5,0.5]
+face_color = [1.0,1.0,1.0]
+
 plot_normalized = True
 normalize_text = lambda x: x.replace('\mu m','\mathrm{OS}')
 
 
-subject_marker_array = ['o','s','d']
-ecc_marker_array = ['o','s','d','*']
-
+subject_marker_array = ['o','s','X']
+subject_marker_size_array = [7,7,9]
+ecc_marker_array = ['o','s','X','P']
+ecc_marker_size_array = [7,7,9,9]
 eccentricities_to_omit = []
 
 bleaching_logx = True
 
-rebuild = False
+# Set rebuild to False to speed things up, if you've already run this before;
+# When False, the script reads the merged CSV file instead of re-merging them
+# Make sure to set this to True if there have been any changes in the analysis
+# or experimental parameter logs:
+rebuild = True
 ##############################################################################
 
 
@@ -134,7 +164,30 @@ def format_legend(leg):
     leg.get_frame().set_alpha(legend_alpha)
 
 
+def draw_break(ax_box,side,angle=30,relative_length=0.02):
+    if side=='left':
+        x0 = ax_box[0]
+    elif side=='right':
+        x0 = ax_box[2]+ax_box[0]
+    y0list = [ax_box[1],ax_box[1]+ax_box[3]]
+    ax = plt.gcf().add_axes([0,0,1,1])
+    ax.axis('off')
+    #ax.spines['top'].set_visible(False)
+    #ax.spines['right'].set_visible(False)
+    #ax.spines['bottom'].set_visible(False)
+    #ax.spines['left'].set_visible(False)
+
+    #ax.get_xaxis().set_ticks([])
+    #ax.get_yaxis().set_ticks([])
+    ax.set_alpha(0.0)
+    ax.autoscale(False)
     
+    theta = angle*np.pi/180.0
+    dx = relative_length*np.sin(theta)
+    dy = relative_length*np.cos(theta)
+    for y0 in y0list:
+        ax.plot([x0-dx,x0+dx],[y0-dy,y0+dy],linestyle='-',linewidth=spine_linewidth,color=main_marker_color)
+        
 #################################
 # calculate oct sampling interval
 #################################
@@ -245,8 +298,6 @@ for fom in figures_of_merit:
     for sidx,subject in enumerate(subject_array):
         xo = exr*x_offset_fraction*(sidx-len(subject_array)//2)
         marker = subject_marker_array[sidx]
-        color_marker = 'k'+marker
-        #ncolor_marker = normalized_color+subject_marker_array[sidx]
         ymean = []
         yerr = []
         nymean = []
@@ -262,23 +313,22 @@ for fom in figures_of_merit:
             nyerr.append(err(nydat))
             
             
-        ax.plot(ecc_array+xo,ymean,marker=marker,markerfacecolor='k',
-                label='subject %d'%subject,linestyle='none',markeredgecolor='none')
-        ax.errorbar(ecc_array+xo,ymean,yerr=yerr,ecolor='k',capsize=4,linestyle='none')
+        ax.plot(ecc_array+xo,ymean,marker=marker,markerfacecolor=main_marker_color,
+                label='subject %d'%subject,linestyle='none',markeredgecolor='none',markersize=subject_marker_size_array[sidx])
+        ax.errorbar(ecc_array+xo,ymean,yerr=yerr,ecolor=main_marker_color,capsize=errorbar_capsize,linestyle='none')
 
         if plot_normalized:
             nax.plot(ecc_array+xo,nymean,marker=marker,markerfacecolor=normalized_color,
-                     linestyle='none',markeredgecolor='none')
-            #nax.plot(ecc_array+xo,nymean,ncolor_marker)
-            nax.errorbar(ecc_array+xo,nymean,yerr=nyerr,ecolor=normalized_color,capsize=4,linestyle='none')
+                     linestyle='none',markeredgecolor='none',markersize=subject_marker_size_array[sidx])
+            nax.errorbar(ecc_array+xo,nymean,yerr=nyerr,ecolor=normalized_color,capsize=errorbar_capsize,linestyle='none')
 
     ax.set_ylabel(label_dict[fom])
-    ax.set_ylim(ylim_dict[fom])
+    ax.set_ylim(ecc_ylim_dict[fom])
     if plot_normalized:
         nax.set_ylabel(normalize_text(label_dict[fom]))
         nax.set_yticks(ax.get_yticks())
         #nax.set_yticks([])
-        nax.set_ylim(ylim_dict[fom])
+        nax.set_ylim(ecc_ylim_dict[fom])
         
     for spine in ['top','bottom','left','right']:
         nax.spines[spine].set_visible(False)
@@ -288,7 +338,7 @@ for fom in figures_of_merit:
     ax.set_axisbelow(True)
     if plot_normalized:
         nax.set_axisbelow(True)
-    leg = ax.legend(loc=legendloc_dict[fom])
+    leg = ax.legend(loc=ecc_legendloc_dict[fom])
     format_legend(leg)
     nax.yaxis.grid(False)
     nax.xaxis.grid(False)
@@ -307,7 +357,7 @@ for fom in figures_of_merit:
         lax.set_xlim([-.5,.5])
         lax.set_xticks([0])
         rax = fig.add_axes(ax_box_log_nonzero)
-        rax.yaxis.set_label_position('right')
+        #rax.yaxis.set_label_position('right')
         rax.yaxis.tick_right()
     else:
         lax = fig.add_axes(ax_box)
@@ -333,26 +383,32 @@ for fom in figures_of_merit:
                 else:
                     label = None
                 if b==0:
-                    lax.plot(b+xo,ym,marker=marker,markerfacecolor='w',
-                             linestyle='none',markeredgecolor='k')
-                    lax.errorbar(b+xo,ym,yerr=ye,ecolor='k',capsize=4,linestyle='none')
+                    lax.plot(b+xo,ym,marker=marker,markerfacecolor=face_color,
+                             linestyle='none',markeredgecolor=main_marker_color,markersize=ecc_marker_size_array[eidx])
+                    lax.errorbar(b+xo,ym,yerr=ye,ecolor=main_marker_color,capsize=errorbar_capsize,linestyle='none')
                 else:
-                    rax.semilogx(b+xolog,ym,marker=marker,markerfacecolor='w',
-                                 label=label,linestyle='none',markeredgecolor='k')
-                    rax.errorbar(b+xolog,ym,yerr=ye,ecolor='k',capsize=4,linestyle='none')
+                    rax.semilogx(b+xolog,ym,marker=marker,markerfacecolor=face_color,
+                                 label=label,linestyle='none',markeredgecolor=main_marker_color,
+                                 markersize=ecc_marker_size_array[eidx])
+                    rax.errorbar(b+xolog,ym,yerr=ye,ecolor=main_marker_color,capsize=errorbar_capsize,linestyle='none')
                     
         else:
-            lax.plot(bleaching_array+xo,ymean,marker=marker,markerfacecolor='k',
-                     linestyle='none',markeredgecolor='none',label='$%d^\circ$'%ecc)
+            lax.plot(bleaching_array+xo,ymean,marker=marker,markerfacecolor=main_marker_color,
+                     linestyle='none',markeredgecolor='none',label='$%d^\circ$'%ecc,markersize=ecc_marker_size_array[eidx])
+            lax.errorbar(bleaching_array+xo,ymean,yerr=yerr,ecolor=main_marker_color,capsize=errorbar_capsize,linestyle='none')
 
             
 
     lax.set_ylabel(label_dict[fom])
-    lax.set_ylim(ylim_dict[fom])
+    lax.set_ylim(bleaching_ylim_dict[fom])
     if bleaching_logx:
-        rax.set_ylim(ylim_dict[fom])
+        rax.set_ylim(bleaching_ylim_dict[fom])
         rax.set_xticks(ba_xticks)
         rax.set_xticklabels(ba_xticks)
+        
+    if bleaching_logx:
+        draw_break(ax_box_log_nonzero,'left')
+        draw_break(ax_box_log_zero,'right')
         
     for spine in ['top','bottom','left','right']:
         lax.spines[spine].set_color(spine_color)
@@ -366,13 +422,17 @@ for fom in figures_of_merit:
                 lax.spines[spine].set_visible(False)
 
     if bleaching_logx:
-        leg = rax.legend(loc=legendloc_dict[fom])
-        rax.set_xlabel('bleaching (%)                   ')
+        leg = rax.legend(loc=bleaching_legendloc_dict[fom])
+        label_x = (ax_box_log_zero[0]+ax_box_log_nonzero[0]+ax_box_log_nonzero[2])/2.0
+        fig.text(label_x,ax_box_log_zero[1]-0.075,'bleaching (%)',ha='center',va='top')
+        #rax.set_xlabel('bleaching (%)                   ')
+        rax.set_yticklabels([])
     else:
-        leg = lax.legend(loc=legendloc_dict[fom])
+        leg = lax.legend(loc=bleaching_legendloc_dict[fom])
         lax.set_xlabel('bleaching (%)')
         
     format_legend(leg)
+    
     plt.savefig(os.path.join(plot_folder,'bleaching_dependence_%s.svg'%fom))
 
 
