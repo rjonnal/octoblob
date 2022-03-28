@@ -68,7 +68,7 @@ class OCTRawData:
 
     def __init__(self,filename,n_vol,n_slow,n_fast,n_depth,
                  n_repeats=1,dtype=np.uint16,
-                 fbg_position=None,spectrum_start=None,spectrum_end=None,
+                 fbg_position=None,fbg_region_height=64,spectrum_start=None,spectrum_end=None,
                  bit_shift_right=0,n_skip=0,fbg_sign=1,
                  bscan_x1=None,bscan_x2=None):
 
@@ -96,6 +96,7 @@ class OCTRawData:
         self.filename = filename
         self.has_fbg = not fbg_position is None
         self.fbg_position = fbg_position
+        self.fbg_region_height = fbg_region_height
         self.bit_shift_right = bit_shift_right
         self.n_skip = n_skip
         self.fbg_sign = fbg_sign
@@ -136,16 +137,19 @@ class OCTRawData:
             temp = temp.replace('\t',' ')
         return temp
     
-    def align_to_fbg(self,frame,region_height=60,smoothing_size=5,sign=1,use_cross_correlation=False,diagnostics=False):
+    def align_to_fbg(self,frame,smoothing_size=5,sign=1,use_cross_correlation=False,diagnostics=False):
         # The algorithm here is copied from Justin Migacz's MATLAB prototype; one
         # key difference is that Justin cats 5 sets of spectra together, such that
         # they share the same k-axis; this step is performed on a "compound" frame,
         # with shape (n_k,n_fast*n_repeats)
         if not self.has_fbg:
             return frame
+        
+        region_height = self.fbg_region_height
+        
         z1 = self.fbg_position-region_height//2
         z2 = self.fbg_position+region_height//2
-
+        
         # crop the relevant region:
         fbg_region = np.zeros((z2-z1,frame.shape[1]))
         fbg_region[:,:] = frame[z1:z2,:]

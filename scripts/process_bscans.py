@@ -80,7 +80,7 @@ def process(filename,diagnostics=diagnostics,show_processed_data=show_processed_
         diagnostics_directory = filename.replace('.unp','')+'_diagnostics'
         os.makedirs(diagnostics_directory,exist_ok=True)
 
-    src = blob.OCTRawData(filename,n_vol,n_slow,n_fast,n_depth,n_repeats,fbg_position=params.fbg_position,spectrum_start=params.spectrum_start,spectrum_end=params.spectrum_end,bit_shift_right=params.bit_shift_right,n_skip=params.n_skip,dtype=params.dtype)
+    src = blob.OCTRawData(filename,n_vol,n_slow,n_fast,n_depth,n_repeats,fbg_position=params.fbg_position,fbg_region_height=params.fbg_region_height,spectrum_start=params.spectrum_start,spectrum_end=params.spectrum_end,bit_shift_right=params.bit_shift_right,n_skip=params.n_skip,dtype=params.dtype)
 
     if show_processed_data:
         processing_fig = plt.figure(0)
