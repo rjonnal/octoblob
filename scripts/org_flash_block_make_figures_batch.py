@@ -851,6 +851,14 @@ for folder_idx,(prof,shift,folder) in enumerate(zip(profs,prof_axial_shifts,fold
     peak_metadict[folder] = peak_dict
 
 
+logging.info('Dictionaries of peaks for all folders:')
+for k in peak_metadict.keys():
+    pd = peak_metadict[k]
+    logging.info(k)
+    for sk in pd.keys():
+        logging.info('\t%s:\t%d'%(sk,pd[sk]))
+
+        
 for folder_idx,folder in enumerate(folders):
     logging.info('Making plots for folder %d of %d: %s.'%(folder_idx+1,len(folders),folder))
     tag,stag = make_tag(folder)
@@ -888,6 +896,8 @@ for folder_idx,folder in enumerate(folders):
     # new way: use peak metadictionary
     peak_dict = peak_metadict[folder]
 
+    
+    
     thickness_dict = {}
     for a,b in layer_differences:
         key = '%s_%s_px'%(a,b)
