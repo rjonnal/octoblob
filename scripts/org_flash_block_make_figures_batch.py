@@ -851,12 +851,13 @@ for folder_idx,(prof,shift,folder) in enumerate(zip(profs,prof_axial_shifts,fold
     peak_metadict[folder] = peak_dict
 
 
+# print some debugging info to help with later peak-detection errors
 logging.info('Dictionaries of peaks for all folders:')
 for k in peak_metadict.keys():
-    pd = peak_metadict[k]
+    peak_dict = peak_metadict[k]
     logging.info(k)
-    for sk in pd.keys():
-        logging.info('\t%s:\t%d'%(sk,pd[sk]))
+    for sk in peak_dict.keys():
+        logging.info('\t%s:\t%d'%(sk,peak_dict[sk]))
 
         
 for folder_idx,folder in enumerate(folders):
