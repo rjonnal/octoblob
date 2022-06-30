@@ -11,6 +11,7 @@ from octoblob import bmp_tools
 from octoblob import registration_tools
 from octoblob import volume_tools
 from octoblob import plotting_functions as opf
+from octoblob import processors
 import glob
 import shutil
 
@@ -73,7 +74,10 @@ class OCTRawData:
                  bscan_x1=None,bscan_x2=None):
 
 
-        
+
+        if type(dtype)==str:
+            dtype = np.dtype(dtype)
+            
         self.dtype = dtype
         self.n_vol = n_vol
         self.n_slow = n_slow
