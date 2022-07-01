@@ -74,9 +74,14 @@ class OCTRawData:
                  bscan_x1=None,bscan_x2=None):
 
 
+        # some confusing code below--allows passing either dtype objects or chars into this function
+        # the reason for this is so that we can serialize parameters dictionaries more easily, into json
+        # files
 
         if type(dtype)==str:
-            dtype = np.dtype(dtype)
+            if dtype=='u2':
+                dtype = np.uint16
+
             
         self.dtype = dtype
         self.n_vol = n_vol
@@ -661,6 +666,14 @@ def spectra_to_bscan(spectra,oversampled_size=None,z1=None,z2=None,x1=None,x2=No
     # None as a slice index defaults to the original start/end indices
     #return np.fft.fft(spectra,axis=0,n=oversampled_size)[z1:z2]
     #if oversampled_size is not None:
+
+    # Let's also accept -1 as an oversampled_size input, and convert it to
+    # None, to facilitate the new json parameters file (which can't store
+    # python objects like None, but can store generic ints like -1)
+    # Edit 2022.06.30: never mind, json stores None as 'null', and it works.
+    if oversampled_size==-1:
+        oversampled_size = None
+    
     bscan = np.fft.fft(spectra,axis=0,n=oversampled_size)
     #else:
     #    bscan = np.fft.fft(spectra,axis=0)

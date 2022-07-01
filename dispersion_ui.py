@@ -4,17 +4,19 @@ import sys,os
 from . import bmp_tools
 import scipy.optimize as spo
 import logging
+
 try:
     from fig2gif import GIF
-    make_movie = True
+    can_make_movie = True
 except ImportError:
-    make_movie = False
+    can_make_movie = False
     
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
+    #format="%(asctime)s [%(levelname)s] %(message)s",
+    format="%(asctime)s [%(levelname)s] %(funcName)s: %(message)s",
     handlers=[
-        logging.FileHandler("debug.log"),
+        logging.FileHandler("octoblob.log"),
         logging.StreamHandler()
     ]
 )
@@ -223,7 +225,9 @@ def stats(im):
     c = 20*np.log10((x-n)/(x+n))
     return '%0.1f (mean); %0.1f (max); %0.1f (min); %0.1f (std); %0.3e (contrast dB)'%(m,x,n,s,c)
     
-def optimize_mapping_dispersion(raw_data,func,diagnostics=False,maximum_iterations=200,bounds=None,mode='gradient',show_figures=True):
+def optimize_mapping_dispersion(raw_data,func,diagnostics=False,maximum_iterations=200,bounds=None,mode='gradient',show_figures=True,make_movie=False):
+
+    make_movie = make_movie and can_make_movie
 
     base_image = np.abs(func(raw_data,0,0,0,0))
     

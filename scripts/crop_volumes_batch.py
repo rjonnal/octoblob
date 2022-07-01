@@ -35,8 +35,6 @@ logging.basicConfig(
     ]
 )
 
-
-
 args = sys.argv[1:]
 args = blob.expand_wildcard_arguments(args)
 
