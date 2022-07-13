@@ -232,7 +232,7 @@ class Boundaries:
         
 class Volume:
 
-    def __init__(self,bscan_folder,use_cache=True,diagnostics=False,hold_volume_in_ram=True,resampling=1):
+    def __init__(self,bscan_folder,use_cache=False,diagnostics=False,hold_volume_in_ram=True,resampling=1):
 
         t0 = tick()
         

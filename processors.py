@@ -359,7 +359,7 @@ def flatten_volume(folder):
     
     
             
-def crop_volumes(folder_list,write=False,threshold_dB=-20,inner_padding=-30,outer_padding=60,dispersion_artifact_size=50,inplace=False):
+def crop_volumes(folder_list,write=False,threshold_dB=-30,inner_padding=-30,outer_padding=60,dispersion_artifact_size=50,inplace=False):
     
     profs = []
     dB_profs = []
@@ -369,7 +369,7 @@ def crop_volumes(folder_list,write=False,threshold_dB=-20,inner_padding=-30,oute
     uncropped_bscan_fig = plt.figure()
     for idx,folder in enumerate(folder_list):
         logging.info('crop_volumes working on %s'%folder)
-        volume = Volume(folder)
+        volume = Volume(folder,use_cache=False)
 
         reference_index = volume.n_slow//2
         
@@ -419,13 +419,16 @@ def crop_volumes(folder_list,write=False,threshold_dB=-20,inner_padding=-30,oute
         tar = tar[:minlen]
 
         # original, non-normalized
-        # nxc = np.real(np.fft.ifft(np.fft.fft(tar)*np.conj(np.fft.fft(ref))))
+        #nxc = np.real(np.fft.ifft(np.fft.fft(tar)*np.conj(np.fft.fft(ref))))
 
         # better, divide by amplitude:
         num = np.fft.fft(tar)*np.conj(np.fft.fft(ref))
         denom = np.abs(num)
         nxc = np.real(np.fft.ifft(num/denom))
-        
+
+        plt.figure()
+        plt.plot(nxc)
+        plt.title('nxc %d'%idx)
         
         shift = np.argmax(nxc)
         if shift>len(nxc)//2:
