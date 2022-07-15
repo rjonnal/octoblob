@@ -166,7 +166,7 @@ def setup_processing(filename):
     with open(outfile,'w') as fid:
         fid.write(outstring)
         
-def optimize_mapping_dispersion(filename,show_figures=False,mode='gradient'):
+def optimize_mapping_dispersion(filename,show_figures=False,mode='gradient',diagnostics=False):
     
     params_filename = get_param_filename(filename)
     params = load_dict(params_filename)
@@ -195,7 +195,11 @@ def optimize_mapping_dispersion(filename,show_figures=False,mode='gradient'):
               (params['c3min'],params['c3max']),
               (params['c2min'],params['c2max'])]
 
-    diagnostics_pair = (filename.replace('.unp','')+'_diagnostics',frame_index)
+    if diagnostics:
+        diagnostics_pair = (filename.replace('.unp','')+'_diagnostics',frame_index)
+    else:
+        diagnostics_pair = False
+        
     m3,m2,c3,c2 = dispersion_ui.optimize_mapping_dispersion(src.get_frame(frame_index),process_for_optimization,diagnostics=diagnostics_pair,bounds=None,maximum_iterations=200,mode=mode,show_figures=show_figures)
 
     params['m3'] = m3
@@ -242,9 +246,8 @@ def process_bscans(filename,diagnostics=False,show_processed_data=False,end_fram
         os.makedirs(output_directory_png,exist_ok=True)
 
     diagnostics_base = diagnostics
-    if diagnostics_base:
-        diagnostics_directory = filename.replace('.unp','')+'_diagnostics'
-        os.makedirs(diagnostics_directory,exist_ok=True)
+    diagnostics_directory = filename.replace('.unp','')+'_diagnostics'
+    os.makedirs(diagnostics_directory,exist_ok=True)
 
     src = blob.OCTRawData(filename,n_vol,n_slow,n_fast,n_depth,n_repeats,fbg_position=params['fbg_position'],fbg_region_height=params['fbg_region_height'],spectrum_start=params['spectrum_start'],spectrum_end=params['spectrum_end'],bit_shift_right=params['bit_shift_right'],n_skip=params['n_skip'],dtype=params['dtype'])
 
@@ -254,14 +257,18 @@ def process_bscans(filename,diagnostics=False,show_processed_data=False,end_fram
     for frame_index in range(n_slow):
         if frame_index==end_frame:
             break
-        if diagnostics_base:
+        if diagnostics_base or frame_index==0:
             diagnostics = (diagnostics_directory,frame_index)
+        else:
+            diagnostics = False
 
 
         logging.info('processing frame %d'%frame_index)
 
         mapping_coefficients = [params['m3'],params['m2'],0.0,0.0]
         dispersion_coefficients = [params['c3'],params['c2'],0.0,0.0]
+
+        
         
         frame = src.get_frame(frame_index,diagnostics=diagnostics)
         frame = blob.dc_subtract(frame,diagnostics=diagnostics)

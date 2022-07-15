@@ -26,19 +26,25 @@ Unfortunately there are two versions of Python currently in widespread use--2.7 
 
 Generally speaking, you should have one folder on your computer where you store Python modules--both those that you create and those that you download. As a convention, on the machines in our lab we always use ```C:\code```, but anywhere is fine. Look at the environmental variables on your machine, and see if ```PYTHONPATH``` is defined. If it is, and ```C:\code``` isn't part of it, add it to the path (using the correct delimiter, e.g. ';', for your system). If it's not defined, then create a new envornment variable ```PYTHONPATH``` and set it to ```C:\code```.
 
+* [Linux instructions](https://stackoverflow.com/questions/45502996/how-to-set-environment-variable-in-linux-permanently)
+
+* [Mac instructions](https://stackoverflow.com/questions/63622010/how-to-set-environment-variables-permanently-in-mac-os-10-15-6)
+
+* [Windows instructions](https://stackoverflow.com/questions/17312348/how-do-i-set-windows-environment-variables-permanently)
+
 ## Git and cloning
 
 There are ways to proceed without installing Git, but Git is the best. Install Git, making sure to install the command line tools if you're using Windows. Then, using your terminal, change into ```C:\code``` and issue:
 
 ```git clone https://github.com/rjonnal/octoblob```
 
-If your Python is installed and configured correctly, you can change directories into ```octoblob/tests```, type ```python test_create_angiograms.py```, and watch your computer make some angiograms. Try it, it's fun!
+If your Python is installed and configured correctly, you can change directories into ```octoblob/tests```, type ```python test_basic.py```, and watch your computer make some B-scans. Try it, it's fun!
 
 ## Getting started
 
 The first step in constructing a script is to import the tools you'll need. ```numpy``` and ```matplotlib``` are the standard numerical and plotting libraries in Python, and are always imported. The ```__future___``` and ```builtins``` imports implement some Python 3 functions, which will make porting this to Python 3 easier.
 
-```octoblob``` is the unfortunate name I've chosen for the OCT/OCTA processing libraries. It is a descendent of the now obsolete ```octopod``` and ```cuttlefish``` libraries we've used in the past. We could have imported all the classes and functions from octoblob with ```from octoblob import *```, but it's better practice to keep the module name around, so that when module functions are called (e.g. ```bscan = blob.make_bscan(data)```), it's clear that the function is coming from the octoblob package, and clear where one needs to go to find the definition of the function. 
+```octoblob``` is the unfortunate name I've chosen for the OCT/OCTA processing libraries. It is a descendent of the now obsolete ```octopod``` and ```cuttlefish``` libraries my lab has used in the past. We could have imported all the classes and functions from octoblob with ```from octoblob import *```, but it's better practice to keep the module name around, so that when module functions are called (e.g. ```bscan = blob.make_bscan(data)```), it's clear that the function is coming from the octoblob package, and clear where one needs to go to find the definition of the function.
 
 
 ```python
@@ -337,3 +343,68 @@ def dispersion_compensate(spectra,coefficients=pp.dispersion_coefficients):
     return (spectra.T*dechirping_phasor).T
 ```
 
+## The ```processors``` module and a complete example
+
+The ```examples/oct_processing``` folder contains a complete example. The point of htis example is to abstract away from the low-level detail and use high-level commands to process data. It contains the following:
+
+* Two ```.unp``` raw data files along with the XML files containing acquisition parameters
+
+* A Python script ```do_processing.py``` that illustrates the basic processing pipeline (see below)
+
+* A bash script ```cleanup.sh``` that will return the folder to its original, unprocessed state
+
+Here's the contents of ```do_processing.py```, along with explanatory comments:
+
+```python
+# import the relevant modules; by convention import octoblob as blob
+import octoblob as blob
+import multiprocessing as mp
+import glob,sys
+from matplotlib import pyplot as plt
+
+# use glob to get a list of the .unp files:
+files = glob.glob('./*.unp')
+
+# iterate through the files, running the processing steps:
+for fn in files:
+    # setup_processing reads data from the ```unp``` and ```xml``` files and
+    # generates previews of the spectra and B-scan, while allowing the user to
+    # use these previews in order to set processing parameters.
+    # The end result is a ```.json``` file containing all the necessary basic
+    # processing parameters. For advanced processing (such as OCTA, ORG, and
+    # volume averaging), additional parameters are required, and these should
+    # be stored in the same JSON file.
+    blob.processors.setup_processing(fn)
+    
+    # optimize_mapping_dispersion uses the processing parameters set above
+    # to run a numerical optimization of third and second order dispersion
+    # and mapping coefficients; these are then written to the JSON file as well
+    blob.processors.optimize_mapping_dispersion(fn,mode='brightness',diagnostics=True)
+    
+    # process_bscans generates B-scans from the raw spectra
+    # when diagnostics is set to False, the diagnostics are written
+    # only for the first B-scan processed, and the rest are processed
+    # quickly
+    blob.processors.process_bscans(fn,diagnostics=False)
+    plt.close('all')
+```
+
+The ```setup_processing``` function requires responses from the user. Below are the correct responses for the example datasets:
+
+```
+Please enter a value for eye (RE or LE) [RE]: 
+Please enter a value for ecc_horizontal (degrees, negative for nasal, positive for temporal) [0.0]: 2.0
+Please enter a value for ecc_vertical (degrees, negative for superior, positive for inferior) [0.0]: 0.0
+Please enter a value for fbg_position  [85]: 
+Please enter a value for fbg_region_height  [60]: 
+Please enter a value for spectrum_start  [159]: 
+Please enter a value for spectrum_end  [1459]: 
+Please enter a value for bscan_z1  [1000]: 
+Please enter a value for bscan_z2  [1300]: 
+Please enter a value for bscan_x1  [0]: 
+Please enter a value for bscan_x2  [250]: 
+Please enter a value for fft_oversampling_size  [-1]: 
+Please enter a value for notes  []: jonnal_0001, no retinal disease, ORG experiment, 66% bleaching
+```
+
+If multiple data sets were acquired with the same acquisition parameters, copies of the first JSON file can be made. For a UNP file called ```X.unp```, the corresponding JSON file should be called ```X_parameters.json```.

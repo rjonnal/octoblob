@@ -283,6 +283,7 @@ def optimize_mapping_dispersion(raw_data,func,diagnostics=False,maximum_iteratio
             image_quality = 1e-10
 
         if diagnostics:
+            plt.subplot(1,2,1)
             plt.cla()
             #plt.imshow(im,cmap='gray')
             plt.imshow(20*np.log10(im),cmap='gray',clim=(40,90))
@@ -291,6 +292,11 @@ def optimize_mapping_dispersion(raw_data,func,diagnostics=False,maximum_iteratio
                                                                   ,xc),ha='left',va='top',fontsize=9,color='g')
             plt.xticks([])
             plt.yticks([])
+
+            plt.subplot(1,2,2)
+            plt.cla()
+            plt.plot([o[0] for o in optimization_history])
+            
             if make_movie:
                 mov.add(plt.gcf())
                 
@@ -357,6 +363,8 @@ def optimize_mapping_dispersion(raw_data,func,diagnostics=False,maximum_iteratio
 
     if show_figures:
         plt.show()
+    else:
+        plt.close('all')
     print(res.x)
     print(stats(post_image))
     return res.x
