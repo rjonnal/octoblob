@@ -365,7 +365,7 @@ def flatten_volume(folder):
     
     
     
-            
+
 def crop_volumes(folder_list,write=False,threshold_dB=-30,inner_padding=-30,outer_padding=60,dispersion_artifact_size=50,inplace=False):
     
     profs = []
@@ -498,9 +498,29 @@ def crop_volumes(folder_list,write=False,threshold_dB=-30,inner_padding=-30,oute
         plt.show()
     
 
+def process_org_blocks(folder,block_size=5):
+    bscan_files = glob.glob(os.path.join(folder,'complex*.npy'))
+    bscan_files.sort()
 
-
+    bscans = []
+    for f in bscan_files:
+        bscans.append(np.load(f))
     
+    N = len(bscan_files)
+    
+    first_start = 0
+    last_start = N-block_size
 
+    for start_index in range(first_start,last_start+1):
+        block = bscans[start_index:start_index+block_size]
+        block = np.array(block)
+
+        # for each block, we need to record the following:
+        # 1. estimate(s) of cross-correlation of B-scans (single values)
+        # 2. temporal variance of pixels--all pixels and bright pixels (single values)
+        # 3. the mask used to separate "meaningful" pixels from noise (2D array)
+        # 4. the phase slope for all pixels (2D array)
+        # 5. residual fitting error for all pixels (2D array)
+        
 if __name__=='__main__':
     process_bscans('/home/rjonnal/Dropbox/Data/conventional_org/flash/test_set/16_53_25.unp')
