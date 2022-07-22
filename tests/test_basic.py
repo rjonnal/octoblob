@@ -122,15 +122,17 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
 def proc(fn):
     return process(fn,diagnostics=False,manual_dispersion=False,manual_mapping=False,n_skip=0)
 
-flist = sorted(glob.glob(file_search_string))
+if __name__=="__main__":
 
-if use_multiprocessing:
-    # parallelize the loop over files
-    with mp.Pool(max(len(flist),4)) as p:
-        p.map(proc,flist)
-else:
-    # serialize the loop over files
-    for unp_filename in flist:
-        # it seems that for the Axsun, n_skip is always 0; can omit this step:
-        #n_skip = identify_skip_frames(unp_filename,diagnostics=False)
-        process(unp_filename,diagnostics=False,manual_dispersion=False,n_skip=0)
+    flist = sorted(glob.glob(file_search_string))
+
+    if use_multiprocessing:
+        # parallelize the loop over files
+        with mp.Pool(max(len(flist),4)) as p:
+            p.map(proc,flist)
+    else:
+        # serialize the loop over files
+        for unp_filename in flist:
+            # it seems that for the Axsun, n_skip is always 0; can omit this step:
+            #n_skip = identify_skip_frames(unp_filename,diagnostics=False)
+            process(unp_filename,diagnostics=False,manual_dispersion=False,n_skip=0)

@@ -498,7 +498,7 @@ def crop_volumes(folder_list,write=False,threshold_dB=-30,inner_padding=-30,oute
         plt.show()
     
 
-def process_org_blocks(folder,block_size=5):
+def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.04,histogram_threshold_fraction=0.03,diagnostics=False):
     bscan_files = glob.glob(os.path.join(folder,'complex*.npy'))
     bscan_files.sort()
 
@@ -511,15 +511,101 @@ def process_org_blocks(folder,block_size=5):
     first_start = 0
     last_start = N-block_size
 
+    out_folder = os.path.join(folder,'org')
+    os.makedirs(out_folder,exist_ok=True)
+
+    diagnostics_folder = os.path.join(out_folder,'diagnostics')
+    
     for start_index in range(first_start,last_start+1):
         block = bscans[start_index:start_index+block_size]
         block = np.array(block)
 
-        # for each block, we need to record the following:
-        # 1. estimate(s) of cross-correlation of B-scans (single values)
+        # for each block:
+        # 0. an average amplitude bscan
+        bscan = np.nanmean(np.abs(block),axis=0)
+        outfn = os.path.join(out_folder,'block_%04d_amplitude.npy'%start_index)
+        np.save(outfn,bscan)
+        
+        # 1. create masks for signal statistics and bulk motion correction
+        histogram_mask = np.zeros(bscan.shape)
+        signal_mask = np.zeros(bscan.shape)
+
+        # there may be nans, so use nanmax
+        histogram_threshold = np.nanmax(bscan)*histogram_threshold_fraction
+        signal_threshold = np.nanmax(bscan)*signal_threshold_fraction
+
+        histogram_mask[bscan>histogram_threshold] = 1
+        signal_mask[bscan>signal_threshold] = 1
+        outfn = os.path.join(out_folder,'block_%04d_signal_mask.npy'%start_index)
+        np.save(outfn,signal_mask)
+        outfn = os.path.join(out_folder,'block_%04d_histogram_mask.npy'%start_index)
+        np.save(outfn,histogram_mask)
+
+
+        # 3. do bulk-motion correction on block:
+        block_phase = np.angle(block)
+
+        # transpose dimension b/c bulk m.c. requires the first two
+        # dims to be depth and x, and the third dimension to be
+        # repeats
+        transposed = np.transpose(block_phase,(1,2,0))
+
+        if diagnostics:
+            diagnostics_flag = (diagnostics_folder,start_index)
+        else:
+            diagnostics_flag = False
+
+        corrected_block_phase = blob.bulk_motion_correct(transposed,histogram_mask,diagnostics=diagnostics_flag)
+        if diagnostics:
+            plt.show()
+            plt.close('all')
+
+        corrected_block_phase = np.transpose(corrected_block_phase,(2,0,1))
+        corrected_block = np.abs(block)*np.exp(1j*corrected_block_phase)
+        
+        # 4. estimate(s) of correlation of B-scans (single values)
+        corrs = []
+        for im1,im2 in zip(block[:-1],block[1:]):
+            corrs.append(np.corrcoef(np.abs(im1).ravel(),np.abs(im2).ravel())[0,1])
+
+        outfn = os.path.join(out_folder,'block_%04d_correlations.npy'%start_index)
+        np.save(outfn,corrs)
+        ccorrs = []
+        for im1,im2 in zip(corrected_block[:-1],corrected_block[1:]):
+            ccorrs.append(np.corrcoef(np.abs(im1).ravel(),np.abs(im2).ravel())[0,1])
+
+        outfn = os.path.join(out_folder,'block_%04d_correlations_bmc.npy'%start_index)
+        np.save(outfn,ccorrs)
+        print(corrs)
+        print(ccorrs)
+        sys.exit()
+
         # 2. temporal variance of pixels--all pixels and bright pixels (single values)
+        varim = np.nanvar(np.abs(block),axis=0)
+        var = np.nanmean(varim)
+        var_masked = np.nanmean(varim[np.where(signal_mask)])
+        outfn = os.path.join(out_folder,'block_%04d_temporal_variance.npy'%start_index)
+        np.save(outfn,var)
+        outfn = os.path.join(out_folder,'block_%04d_masked_temporal_variance.npy'%start_index)
+        np.save(outfn,var_masked)
+
+        
+
+
+
+        
+
+        
+        mask = np.zeros(bscan.shape)
+        thresh = signal_threshold_fraction*np.nanmax(bscan)
+        mask[np.where(bscan>=thresh)] = 1.0
+        
+        
         # 3. the mask used to separate "meaningful" pixels from noise (2D array)
-        # 4. the phase slope for all pixels (2D array)
+        outfn = os.path.join(out_folder,'block_%04d_mask.npy'%start_index)
+        np.save(outfn,mask)
+
+        
         # 5. residual fitting error for all pixels (2D array)
         
 if __name__=='__main__':
