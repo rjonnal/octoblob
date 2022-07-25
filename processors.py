@@ -211,7 +211,7 @@ def optimize_mapping_dispersion(filename,show_figures=False,mode='gradient',diag
 
         
 # process: read a unp file and write complex bscans:
-def process_bscans(filename,diagnostics=False,show_processed_data=False,end_frame=np.inf):
+def process_bscans(filename,diagnostics=False,show_processed_data=False,start_frame=0,end_frame=np.inf):
     # setting diagnostics to True will plot/show a bunch of extra information to help
     # you understand why things don't look right, and then quit after the first loop
     # setting show_processed_data to True will spawn a window that shows you how the b-scans and angiograms look
@@ -254,7 +254,7 @@ def process_bscans(filename,diagnostics=False,show_processed_data=False,end_fram
     if show_processed_data:
         processing_fig = plt.figure(0)
 
-    for frame_index in range(n_slow):
+    for frame_index in range(start_frame,n_slow):
         if frame_index==end_frame:
             break
         if diagnostics_base or frame_index==0:
@@ -498,7 +498,7 @@ def crop_volumes(folder_list,write=False,threshold_dB=-30,inner_padding=-30,oute
         plt.show()
     
 
-def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.04,histogram_threshold_fraction=0.03,diagnostics=False):
+def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogram_threshold_fraction=0.1,diagnostics=False):
     bscan_files = glob.glob(os.path.join(folder,'complex*.npy'))
     bscan_files.sort()
 
@@ -517,6 +517,7 @@ def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.04,histog
     diagnostics_folder = os.path.join(out_folder,'diagnostics')
     
     for start_index in range(first_start,last_start+1):
+        logging.info('process_org_block start %d current %d end %d'%(first_start,start_index,last_start))
         block = bscans[start_index:start_index+block_size]
         block = np.array(block)
 
@@ -561,7 +562,7 @@ def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.04,histog
             plt.close('all')
 
         corrected_block_phase = np.transpose(corrected_block_phase,(2,0,1))
-        corrected_block = np.abs(block)*np.exp(1j*corrected_block_phase)
+        block = np.abs(block)*np.exp(1j*corrected_block_phase)
         
         # 4. estimate(s) of correlation of B-scans (single values)
         corrs = []
@@ -570,17 +571,8 @@ def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.04,histog
 
         outfn = os.path.join(out_folder,'block_%04d_correlations.npy'%start_index)
         np.save(outfn,corrs)
-        ccorrs = []
-        for im1,im2 in zip(corrected_block[:-1],corrected_block[1:]):
-            ccorrs.append(np.corrcoef(np.abs(im1).ravel(),np.abs(im2).ravel())[0,1])
-
-        outfn = os.path.join(out_folder,'block_%04d_correlations_bmc.npy'%start_index)
-        np.save(outfn,ccorrs)
-        print(corrs)
-        print(ccorrs)
-        sys.exit()
-
-        # 2. temporal variance of pixels--all pixels and bright pixels (single values)
+        
+        # 5. temporal variance of pixels--all pixels and bright pixels (single values)
         varim = np.nanvar(np.abs(block),axis=0)
         var = np.nanmean(varim)
         var_masked = np.nanmean(varim[np.where(signal_mask)])
@@ -591,22 +583,28 @@ def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.04,histog
 
         
 
+        # 6. phase slopes and residual fitting error for all pixels (2D array)
 
+        slopes = np.ones(bscan.shape)*np.nan
+        fitting_error = np.ones(bscan.shape)*np.nan
+        
+        st,sz,sx = corrected_block_phase.shape
+        t = np.arange(st)
 
-        
-
-        
-        mask = np.zeros(bscan.shape)
-        thresh = signal_threshold_fraction*np.nanmax(bscan)
-        mask[np.where(bscan>=thresh)] = 1.0
-        
-        
-        # 3. the mask used to separate "meaningful" pixels from noise (2D array)
-        outfn = os.path.join(out_folder,'block_%04d_mask.npy'%start_index)
-        np.save(outfn,mask)
-
-        
-        # 5. residual fitting error for all pixels (2D array)
+        for z in range(sz):
+            for x in range(sx):
+                if not signal_mask[z,x]:
+                    continue
+                phase = corrected_block_phase[:,z,x]
+                phase = phase%(2*np.pi)
+                phase = np.unwrap(phase)
+                poly = np.polyfit(t,phase,1)
+                slope = poly[1]
+                fit = np.polyval(poly,t)
+                err = np.sqrt(np.mean((fit-phase)**2))
+                slopes[z,x] = slope
+                fitting_error[z,x] = err
+                
         
 if __name__=='__main__':
     process_bscans('/home/rjonnal/Dropbox/Data/conventional_org/flash/test_set/16_53_25.unp')
