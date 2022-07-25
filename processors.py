@@ -6,6 +6,7 @@
 import os,sys,glob
 import logging
 from octoblob import config_reader,dispersion_ui
+from octoblob import segmentation as seg
 from octoblob.volume_tools import Volume, VolumeSeries, Boundaries, show3d
 import octoblob as blob
 from matplotlib import pyplot as plt
@@ -498,6 +499,37 @@ def crop_volumes(folder_list,write=False,threshold_dB=-30,inner_padding=-30,oute
         plt.show()
     
 
+def label_layers(filename_filter):
+    files = glob.glob(filename_filter)
+    files.sort()
+    bscan_peaks = []
+    bscan_profiles = []
+    
+    npeaks_poll = []
+    
+    for f in files:
+        bscan = np.abs(np.load(f))
+        peaks,profile = seg.get_peaks(bscan)
+        bscan_peaks.append(peaks)
+        bscan_profiles.append(profile)
+        npeaks_poll.append(len(peaks))
+        
+    npeaks = np.median(npeaks_poll)
+
+    # for profiles with 3 peaks, find the distances
+    dpeaks = []
+    for peaks,profile in zip(bscan_peaks,bscan_profiles):
+        if len(peaks)==npeaks:
+            dpeaks.append(np.diff(peaks))
+
+    dpeaks = np.round(np.mean(dpeaks,axis=0))
+    for peaks,profile in zip(bscan_peaks,bscan_profiles):
+        if len(peaks)==npeaks:
+            corrected_peaks.append(peaks)
+        elif len(peaks)<npeaks:
+            
+    
+        
 def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogram_threshold_fraction=0.1,diagnostics=False):
     bscan_files = glob.glob(os.path.join(folder,'complex*.npy'))
     bscan_files.sort()

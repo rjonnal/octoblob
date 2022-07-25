@@ -12,6 +12,7 @@ from octoblob import registration_tools
 from octoblob import volume_tools
 from octoblob import plotting_functions as opf
 from octoblob import processors
+from octoblob import segmentation
 import glob
 import shutil
 
