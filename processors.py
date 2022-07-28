@@ -502,32 +502,48 @@ def crop_volumes(folder_list,write=False,threshold_dB=-30,inner_padding=-30,oute
 def label_layers(filename_filter):
     files = glob.glob(filename_filter)
     files.sort()
+
+    bscans = []
     bscan_peaks = []
     bscan_profiles = []
-    
     npeaks_poll = []
     
     for f in files:
         bscan = np.abs(np.load(f))
+        bscans.append(bscan)
         peaks,profile = seg.get_peaks(bscan)
         bscan_peaks.append(peaks)
         bscan_profiles.append(profile)
         npeaks_poll.append(len(peaks))
         
-    npeaks = np.median(npeaks_poll)
+    npeaks = int(round(np.median(npeaks_poll)))
 
-    # for profiles with 3 peaks, find the distances
-    dpeaks = []
-    for peaks,profile in zip(bscan_peaks,bscan_profiles):
-        if len(peaks)==npeaks:
-            dpeaks.append(np.diff(peaks))
 
-    dpeaks = np.round(np.mean(dpeaks,axis=0))
-    for peaks,profile in zip(bscan_peaks,bscan_profiles):
+    # now, iterate through the bscans and peaks and identify any that don't match the
+    # peak count; for these, cross-correlate with a template and then use the template
+    # peak positions +/- the cc offset
+
+    # use the first bscan with npeaks peaks as a reference
+    correct_example_index = npeaks_poll.index(npeaks)
+    ref = bscans[correct_example_index]
+    refpeaks = bscan_peaks[correct_example_index]
+
+    corrected_peaks = []
+    for bscan,peaks in zip(bscans,bscan_peaks):
         if len(peaks)==npeaks:
             corrected_peaks.append(peaks)
-        elif len(peaks)<npeaks:
-            
+        else:
+            cross_spectrum = np.fft.fft2(bscan)*np.conj(np.fft.fft2(ref))
+            amp = np.abs(cross_spectrum)
+            xc = np.real(np.fft.ifft2(cross_spectrum/amp))
+            yshift = np.unravel_index(np.argmax(xc),xc.shape)[0]
+            peaks = [p+yshift for p in refpeaks]
+            corrected_peaks.append(peaks)
+
+    for bscan,cp in zip(bscans,corrected_peaks):
+        seg.find_path(bscan,cp[0],show='g')
+        seg.find_path(bscan,cp[1],show='r')
+        plt.pause(1)
     
         
 def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogram_threshold_fraction=0.1,diagnostics=False):
