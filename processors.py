@@ -55,6 +55,16 @@ DEFAULT_PARAMETER_DICTIONARY['ecc_vertical'] = 0.0
 DEFAULT_PARAMETER_DICTIONARY['notes'] = ''
 
 
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NpEncoder, self).default(obj)
+
 def add_parameter(d,parameter_name,default_value=None,info=''):
     if default_value is None:
         try:
@@ -86,7 +96,7 @@ def load_dict(filename):
     return dictionary
 
 def save_dict(filename,d):
-    dstr = json.dumps(d,indent=4, sort_keys=True)
+    dstr = json.dumps(d,indent=4, sort_keys=True, cls=NpEncoder)
     with open(filename,'w') as fid:
         fid.write(dstr)
 
@@ -499,7 +509,7 @@ def crop_volumes(folder_list,write=False,threshold_dB=-30,inner_padding=-30,oute
         plt.show()
     
 
-def label_layers(filename_filter):
+def label_layers(filename_filter,show=False,labels=None):
     files = glob.glob(filename_filter)
     files.sort()
 
@@ -517,6 +527,17 @@ def label_layers(filename_filter):
         npeaks_poll.append(len(peaks))
         
     npeaks = int(round(np.median(npeaks_poll)))
+
+    # check to see if caller has supplied labels; by convention these should be ordered by
+    # increasing retinal depth, i.e. inner layers to outer layers
+    if not labels is None:
+        if not len(labels)==npeaks:
+            sys.exit('label_layers: %d peaks found, but %d labels passed: %s'%(npeaks,len(labels),labels))
+    else:
+        alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        labels = [alphabet[k] for k in range(npeaks)]
+
+    
     # now, iterate through the bscans and peaks and identify any that don't match the
     # peak count; for these, cross-correlate with a template and then use the template
     # peak positions +/- the cc offset
@@ -525,23 +546,60 @@ def label_layers(filename_filter):
     correct_example_index = npeaks_poll.index(npeaks)
     ref = bscans[correct_example_index]
     refpeaks = bscan_peaks[correct_example_index]
-
+    
     corrected_peaks = []
     for bscan,peaks in zip(bscans,bscan_peaks):
         if len(peaks)==npeaks:
-            corrected_peaks.append(peaks)
+            corrected_peaks.append(np.array(peaks))
         else:
             cross_spectrum = np.fft.fft2(bscan)*np.conj(np.fft.fft2(ref))
             amp = np.abs(cross_spectrum)
             xc = np.real(np.fft.ifft2(cross_spectrum/amp))
             yshift = np.unravel_index(np.argmax(xc),xc.shape)[0]
             peaks = [p+yshift for p in refpeaks]
-            corrected_peaks.append(peaks)
+            corrected_peaks.append(np.array(peaks))
 
-    for bscan,cp in zip(bscans,corrected_peaks):
-        seg.find_path(bscan,cp[0],show='g')
-        seg.find_path(bscan,cp[2],show='r')
-        plt.pause(1)
+    paths = []
+    
+    for f,bscan,cp in zip(files,bscans,corrected_peaks):
+        temp = np.zeros(bscan.shape)
+        temp[:] = bscan[:]
+        temp = seg.smooth2(temp)
+        prof = np.mean(temp[:,:5],axis=1)
+        ph = np.array([prof[z] for z in cp])
+        ordered_indices = np.argsort(ph)[::-1]
+        cp = cp[ordered_indices]
+
+        ordered_indices = np.argsort(cp)
+        labels = [labels[oi] for oi in ordered_indices]
+
+        label_filename = os.path.splitext(f)[0]+'_labels.json'
+        
+        these_paths = []
+        label_dictionary = {}
+        these_keys = []
+        
+        for z,key in zip(cp,labels):
+            path = seg.find_path(temp,z,layer_half_width=1)
+            paths.append(path)
+            these_paths.append(path)
+            these_keys.append(key)
+            label_dictionary[key] = path
+            if show:
+                plt.cla()
+                plt.imshow(bscan,cmap='gray')
+                for p,k in zip(these_paths,these_keys):
+                    plt.plot(p['x'],p['z'],label=k)
+                    plt.pause(.1)
+                plt.legend()
+                plt.pause(1)
+
+        save_dict(label_filename,label_dictionary)
+        
+        if show:
+            plt.pause(1)
+    if show:
+        plt.show()
     
         
 def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogram_threshold_fraction=0.1,diagnostics=False):

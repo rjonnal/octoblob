@@ -74,17 +74,15 @@ def get_peaks(bscan,fractional_threshold=0.5,width=25,region=1):
     return peak_idx, prof
 
 
-def find_path(bscan,z_start,x_start=0,show=False,layer_half_width=0,diag_weight=0.1,vert_weight=-np.inf):
+def find_path(bscan,z_start,x_start=0,show=False,layer_half_width=0,diag_weight=0.75,vert_weight=-np.inf):
 
     if type(show)==str:
         col = show
     else:
         col = 'r'
     
-    temp = np.zeros(bscan.shape,dtype=bscan.dtype)
-    temp[:] = bscan[:]
     
-    sz,sx = temp.shape
+    sz,sx = bscan.shape
 
     # -np.inf for the pixels above and below
     # forces the search to go rightward one
@@ -105,16 +103,16 @@ def find_path(bscan,z_start,x_start=0,show=False,layer_half_width=0,diag_weight=
         path['z'].append(z)
         scores = []
         for s in search_matrix_r:
-            scores.append(temp[z+s[0],x+s[1]]*s[2])
+            scores.append(bscan[z+s[0],x+s[1]]*s[2])
 
         s = search_matrix_r[np.nanargmax(scores)]
 
-        temp[z-layer_half_width:z+layer_half_width+1,x] = np.nan
+        bscan[z-layer_half_width:z+layer_half_width+1,x] = np.nan
 
         z = z + s[0]
         x = x + s[1]
 
-        if show and x%10==0:
+        if show and (x%10==0 or (sx-x)<2):
             plt.cla()
             plt.imshow(bscan,cmap='gray')
             plt.plot(path['x'],path['z'],'%s-'%col,alpha=0.75,linewidth=2)
@@ -123,6 +121,8 @@ def find_path(bscan,z_start,x_start=0,show=False,layer_half_width=0,diag_weight=
         if x==sx-1:
             break
 
+    path['x'] = np.array(path['x']).astype(int)
+    path['z'] = np.array(path['z']).astype(int)
 
     return path
 
