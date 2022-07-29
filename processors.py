@@ -517,8 +517,6 @@ def label_layers(filename_filter):
         npeaks_poll.append(len(peaks))
         
     npeaks = int(round(np.median(npeaks_poll)))
-
-
     # now, iterate through the bscans and peaks and identify any that don't match the
     # peak count; for these, cross-correlate with a template and then use the template
     # peak positions +/- the cc offset
@@ -542,7 +540,7 @@ def label_layers(filename_filter):
 
     for bscan,cp in zip(bscans,corrected_peaks):
         seg.find_path(bscan,cp[0],show='g')
-        seg.find_path(bscan,cp[1],show='r')
+        seg.find_path(bscan,cp[2],show='r')
         plt.pause(1)
     
         

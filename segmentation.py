@@ -2,7 +2,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 import sys,os
 
-
 def smooth3(dat,rt=13,rx=13,rz=0):
     st,sz,sx = dat.shape
     tt,zz,xx = np.meshgrid(np.arange(st),np.arange(sz),np.arange(sx),indexing='ij')
@@ -47,7 +46,7 @@ def smooth2(dat,rx=5,rz=0):
 def dB(a):
     return 20*np.log10(np.abs(a))
 
-def get_peaks(bscan,fractional_threshold=0.5,width=5,region=1):
+def get_peaks(bscan,fractional_threshold=0.5,width=25,region=1):
     # identify tall peaks, above threshold and highest within +/- region
     prof = np.mean(bscan[:,:width],axis=1)
     left = prof[:-2]
@@ -75,7 +74,7 @@ def get_peaks(bscan,fractional_threshold=0.5,width=5,region=1):
     return peak_idx, prof
 
 
-def find_path(bscan,z_start,x_start=0,show=False,layer_half_width=0):
+def find_path(bscan,z_start,x_start=0,show=False,layer_half_width=0,diag_weight=0.1,vert_weight=-np.inf):
 
     if type(show)==str:
         col = show
@@ -90,8 +89,6 @@ def find_path(bscan,z_start,x_start=0,show=False,layer_half_width=0):
     # -np.inf for the pixels above and below
     # forces the search to go rightward one
     # pixel on every step
-    vert_weight = -np.inf
-    diag_weight = 0.5
     horiz_weight = 1.0
     search_matrix_r = [(-1,0,vert_weight),
                        (-1,1,diag_weight),
