@@ -525,7 +525,6 @@ def label_layers(filename_filter,show=False,labels=None):
         bscan_peaks.append(peaks)
         bscan_profiles.append(profile)
         npeaks_poll.append(len(peaks))
-        
     npeaks = int(round(np.median(npeaks_poll)))
 
     # check to see if caller has supplied labels; by convention these should be ordered by
