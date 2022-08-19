@@ -3,7 +3,7 @@
 ### while optionally producing diagnostic plots/logs; others read files from the disk and write parameters
 ### to json
 
-import os,sys,glob
+import os,sys,glob,shutil
 import logging
 from octoblob import config_reader,dispersion_ui
 from octoblob import segmentation as seg
@@ -100,7 +100,24 @@ def save_dict(filename,d):
     with open(filename,'w') as fid:
         fid.write(dstr)
 
-def setup_processing(filename):
+def setup_processing(filename,copy_existing=False):
+
+    # try to load the local JSON file to use it as default values
+    outfile = get_param_filename(filename)
+
+    # if copy_existing is True, look for a AA_BB_CC_parameters.json file in the current
+    # directory, and make a copy for this file
+    if copy_existing:
+        folder = os.path.split(filename)[0]
+        filt = os.path.join(folder,'*_parameters.json')
+        sources = glob.glob(filt)
+        if len(sources)>0:
+            src = sources[0]
+            dest = outfile
+            shutil.copy(src,dest)
+            print('Copied %s to %s.'%(src,dest))
+            return
+    
     # setting diagnostics to True will plot/show a bunch of extra information to help
     # you understand why things don't look right, and then quit after the first loop
     # setting show_processed_data to True will spawn a window that shows you how the b-scans and angiograms look
@@ -108,9 +125,6 @@ def setup_processing(filename):
     # PARAMETERS FOR RAW DATA SOURCE
     cfg = config_reader.get_configuration(filename.replace('.unp','.xml'))
 
-
-    # try to load the local JSON file to use it as default values
-    outfile = get_param_filename(filename)
 
     try:
         parameter_dictionary = load_dict(outfile)
@@ -143,7 +157,7 @@ def setup_processing(filename):
     add_parameter(parameter_dictionary,'eye',info='RE or LE')
     add_parameter(parameter_dictionary,'ecc_horizontal',info='degrees, negative for nasal, positive for temporal')
     add_parameter(parameter_dictionary,'ecc_vertical',info='degrees, negative for superior, positive for inferior')
-    add_parameter(parameter_dictionary,'fbg_position')
+    add_parameter(parameter_dictionary,'fbg_position (-1 for no FBG alignment)')
     add_parameter(parameter_dictionary,'fbg_region_height')
     add_parameter(parameter_dictionary,'spectrum_start')
     add_parameter(parameter_dictionary,'spectrum_end')
