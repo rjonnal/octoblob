@@ -8,6 +8,7 @@ import logging
 from octoblob import config_reader,dispersion_ui
 from octoblob import segmentation as seg
 from octoblob.volume_tools import Volume, VolumeSeries, Boundaries, show3d
+from octoblob.default_parameters import default_parameter_dictionary
 import octoblob as blob
 from matplotlib import pyplot as plt
 import numpy as np
@@ -28,33 +29,6 @@ logging.basicConfig(
 )
 
 
-DEFAULT_PARAMETER_DICTIONARY = {}
-DEFAULT_PARAMETER_DICTIONARY['bit_shift_right'] = 4
-DEFAULT_PARAMETER_DICTIONARY['dtype'] = 'u2'
-DEFAULT_PARAMETER_DICTIONARY['fbg_position'] = 85
-DEFAULT_PARAMETER_DICTIONARY['fbg_region_height'] = 60
-DEFAULT_PARAMETER_DICTIONARY['spectrum_start'] = 159
-DEFAULT_PARAMETER_DICTIONARY['spectrum_end'] = 1459
-DEFAULT_PARAMETER_DICTIONARY['bscan_z1'] = 1000
-DEFAULT_PARAMETER_DICTIONARY['bscan_z2'] = 1300
-DEFAULT_PARAMETER_DICTIONARY['bscan_x1'] = 0
-DEFAULT_PARAMETER_DICTIONARY['bscan_x2'] = 250
-DEFAULT_PARAMETER_DICTIONARY['n_skip'] = 0
-DEFAULT_PARAMETER_DICTIONARY['fft_oversampling_size'] = -1
-DEFAULT_PARAMETER_DICTIONARY['c3max'] = 1e-8
-DEFAULT_PARAMETER_DICTIONARY['c3min'] = -1e-8
-DEFAULT_PARAMETER_DICTIONARY['c2max'] = 1e-4
-DEFAULT_PARAMETER_DICTIONARY['c2min'] = -1e-4
-DEFAULT_PARAMETER_DICTIONARY['m3max'] = 1e-8
-DEFAULT_PARAMETER_DICTIONARY['m3min'] = -2e-7
-DEFAULT_PARAMETER_DICTIONARY['m2max'] = 1e-5
-DEFAULT_PARAMETER_DICTIONARY['m2min'] = -1e-5
-DEFAULT_PARAMETER_DICTIONARY['eye'] = 'RE'
-DEFAULT_PARAMETER_DICTIONARY['ecc_horizontal'] = 0.0
-DEFAULT_PARAMETER_DICTIONARY['ecc_vertical'] = 0.0
-DEFAULT_PARAMETER_DICTIONARY['notes'] = ''
-
-
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.integer):
@@ -70,7 +44,8 @@ def add_parameter(d,parameter_name,default_value=None,info=''):
         try:
             default_value = d[parameter_name]
         except:
-            sys.exit('add_parameter: if default_value is None, an initial value must be present in the dict')
+            print(d)
+            sys.exit('add_parameter: default value for {parameter_name} was {default_value}; if {default_value} is None, an initial value must be present in the dict'.format(parameter_name=parameter_name,default_value=default_value))
 
     if len(info)>0:
         info = '(%s)'%info
@@ -114,8 +89,11 @@ def setup_processing(filename,copy_existing=False):
         if len(sources)>0:
             src = sources[0]
             dest = outfile
-            shutil.copy(src,dest)
-            print('Copied %s to %s.'%(src,dest))
+            if os.path.exists(dest):
+                print('%s exists, exiting.'%dest)
+            else:
+                shutil.copy(src,dest)
+                print('Copied %s to %s.'%(src,dest))
             return
     
     # setting diagnostics to True will plot/show a bunch of extra information to help
@@ -128,12 +106,12 @@ def setup_processing(filename,copy_existing=False):
 
     try:
         parameter_dictionary = load_dict(outfile)
-        for k in DEFAULT_PARAMETER_DICTIONARY.keys():
+        for k in default_parameter_dictionary.keys():
             if not k in parameter_dictionary.keys():
-                parameter_dictionary[k] = DEFAULT_PARAMETER_DICTIONARY[k]
+                parameter_dictionary[k] = default_parameter_dictionary[k]
                 
     except Exception as e:
-        parameter_dictionary = DEFAULT_PARAMETER_DICTIONARY
+        parameter_dictionary = default_parameter_dictionary
 
     n_vol = cfg['n_vol']
     n_slow = cfg['n_slow']
@@ -157,8 +135,8 @@ def setup_processing(filename,copy_existing=False):
     add_parameter(parameter_dictionary,'eye',info='RE or LE')
     add_parameter(parameter_dictionary,'ecc_horizontal',info='degrees, negative for nasal, positive for temporal')
     add_parameter(parameter_dictionary,'ecc_vertical',info='degrees, negative for superior, positive for inferior')
-    add_parameter(parameter_dictionary,'fbg_position (-1 for no FBG alignment)')
-    add_parameter(parameter_dictionary,'fbg_region_height')
+    add_parameter(parameter_dictionary,'fbg_position',info='-1 for no FBG alignment')
+    add_parameter(parameter_dictionary,'fbg_region_height',info='ignored if fbg_position is -1')
     add_parameter(parameter_dictionary,'spectrum_start')
     add_parameter(parameter_dictionary,'spectrum_end')
     s1 = parameter_dictionary['spectrum_start']

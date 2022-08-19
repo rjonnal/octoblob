@@ -345,7 +345,7 @@ def dispersion_compensate(spectra,coefficients=pp.dispersion_coefficients):
 
 ## The ```processors``` module and a complete example
 
-The ```examples/oct_processing``` folder contains a complete example. The point of htis example is to abstract away from the low-level detail and use high-level commands to process data. It contains the following:
+An alternative to calling the core OCT library functions is to use the ```processors``` module. The ```examples/oct_processing``` folder contains a complete example. The point of this alternative example is to abstract away from the low-level detail and use high-level commands to process data. It contains the following:
 
 * Two ```.unp``` raw data files along with the XML files containing acquisition parameters
 
@@ -359,34 +359,58 @@ Here's the contents of ```do_processing.py```, along with explanatory comments:
 # import the relevant modules; by convention import octoblob as blob
 import octoblob as blob
 import multiprocessing as mp
-import glob,sys
+import glob,sys,os,shutil
 from matplotlib import pyplot as plt
 
 # use glob to get a list of the .unp files:
 files = glob.glob('./*.unp')
 
-# iterate through the files, running the processing steps:
-for fn in files:
-    # setup_processing reads data from the ```unp``` and ```xml``` files and
-    # generates previews of the spectra and B-scan, while allowing the user to
-    # use these previews in order to set processing parameters.
-    # The end result is a ```.json``` file containing all the necessary basic
-    # processing parameters. For advanced processing (such as OCTA, ORG, and
-    # volume averaging), additional parameters are required, and these should
-    # be stored in the same JSON file.
-    blob.processors.setup_processing(fn)
-    
-    # optimize_mapping_dispersion uses the processing parameters set above
-    # to run a numerical optimization of third and second order dispersion
-    # and mapping coefficients; these are then written to the JSON file as well
-    blob.processors.optimize_mapping_dispersion(fn,mode='brightness',diagnostics=True)
-    
-    # process_bscans generates B-scans from the raw spectra
-    # when diagnostics is set to False, the diagnostics are written
-    # only for the first B-scan processed, and the rest are processed
-    # quickly
-    blob.processors.process_bscans(fn,diagnostics=False)
-    plt.close('all')
+# construct the corresponding bscan folders, to check whether
+# data have been processed already in the for loop below
+bscan_folders = [fn.replace('.unp','_bscans') for fn in files]
+
+# loop through the data files and bscan folders:
+for fn,bscan_folder in zip(files,bscan_folders):
+    # only process if the bscans folder doesn't exist:
+    if not os.path.exists(bscan_folder):
+        # setup_processing reads data from the ```unp``` and ```xml``` files and
+        # generates previews of the spectra and B-scan, while allowing the user to
+        # use these previews in order to set processing parameters.
+        # The end result is a ```.json``` file containing all the necessary basic
+        # processing parameters. For advanced processing (such as OCTA, ORG, and
+        # volume averaging), additional parameters are required, and these should
+        # be stored in the same JSON file.
+        # copy_existing=True causes the setup script to run only if there's no other
+        # _parameters.json file in the folder. If there is, it will simply copy the
+        # existing one instead of running the setup script. Use copy_existing=True if
+        # all of the data in the folder were acquired with the same parameters--file sizes,
+        # scan angles, retinal eccentricity, FBG characteristics, etc.
+        blob.processors.setup_processing(fn,copy_existing=True)
+        
+        # if this data file's _parameters.json file contains dispersion and mapping
+        # coefficients (i.e., if the optimizer has already been run, or if a sister
+        # file's _parameters.json has been copied), then we skip the optimization step.
+        try:
+            # load the _parameters.json file
+            d = blob.processors.load_dict(param_fn)
+            # check that the keys 'c2', 'c3', 'm2', 'm3' are present in the resulting
+            # dictionary:
+            assert all([k in d.keys() for k in ['c2','c3','m2','m3']])
+        except AssertionError:
+            # if those keys were not all present, run the optimization:
+            # optimize_mapping_dispersion uses the processing parameters set above
+            # to run a numerical optimization of third and second order dispersion
+            # and mapping coefficients; these are then written to the JSON file as well
+            blob.processors.optimize_mapping_dispersion(fn,mode='brightness',diagnostics=True)
+
+        # finally, process the B-scans
+        # process_bscans generates B-scans from the raw spectra
+        # when diagnostics is set to False, the diagnostics are written
+        # only for the first B-scan processed, and the rest are processed
+        # quickly
+        blob.processors.process_bscans(fn,diagnostics=False,start_frame=20,end_frame=60)
+
+        plt.close('all')
 ```
 
 The ```setup_processing``` function requires responses from the user. Below are the correct responses for the example datasets:
@@ -395,8 +419,8 @@ The ```setup_processing``` function requires responses from the user. Below are 
 Please enter a value for eye (RE or LE) [RE]: 
 Please enter a value for ecc_horizontal (degrees, negative for nasal, positive for temporal) [0.0]: 2.0
 Please enter a value for ecc_vertical (degrees, negative for superior, positive for inferior) [0.0]: 0.0
-Please enter a value for fbg_position  [85]: 
-Please enter a value for fbg_region_height  [60]: 
+Please enter a value for fbg_position  (-1 for no FBG alignment) [85]: 
+Please enter a value for fbg_region_height  (ignored if fbg_position is -1) [60]: 
 Please enter a value for spectrum_start  [159]: 
 Please enter a value for spectrum_end  [1459]: 
 Please enter a value for bscan_z1  [1000]: 
@@ -407,4 +431,13 @@ Please enter a value for fft_oversampling_size  [-1]:
 Please enter a value for notes  []: jonnal_0001, no retinal disease, ORG experiment, 66% bleaching
 ```
 
-If multiple data sets were acquired with the same acquisition parameters, copies of the first JSON file can be made. For a UNP file called ```X.unp```, the corresponding JSON file should be called ```X_parameters.json```.
+If multiple data sets were acquired with the same acquisition parameters, copies of the first JSON file can be made. For a UNP file called ```X.unp```, the corresponding JSON file should be called ```X_parameters.json```. This is done automatically, if the argument ```copy_existing=True``` is passed to the ```setup_processing``` function, as shown above.
+
+## A few notes about data from the EyePod
+
+The OCT acquisition software on different systems behaves differently.  There is an XML file stored with each UNP data file, and the way in which acquisition parameters are written to this file, and the logic of the acquisiton parameters, differs among systems. The way in which octoblob digests the XML file and uses the resulting parameters is system-dependent. To try to address this inconsistency, I've added a file ```system_label.py``` that should contain one of the following assignments. Just comment out the one you don't want:
+
+```python
+system_label = 'clinical_org'
+# system_label = 'eyepod'
+```

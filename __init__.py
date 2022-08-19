@@ -104,7 +104,7 @@ class OCTRawData:
         self.bytes_per_pixel = self.dtype(1).itemsize
         self.n_bytes = self.n_vol*self.n_slow*self.n_fast*self.n_depth*self.bytes_per_pixel
         self.filename = filename
-        self.has_fbg = not (fbg_position is None or fbg==-1)
+        self.has_fbg = not (fbg_position is None or fbg_position==-1)
         self.fbg_position = fbg_position
         self.fbg_region_height = fbg_region_height
         self.bit_shift_right = bit_shift_right
@@ -324,7 +324,7 @@ class OCTRawData:
 
             # Use numpy fromfile to read raw data.
             frame = np.fromfile(fid,dtype=self.dtype,count=self.n_depth*self.n_fast)
-
+            
             if frame.max()>=self.saturation_value:
                 if diagnostics:
                     plt.figure(figsize=(opf.IPSP,opf.IPSP),dpi=opf.screen_dpi)
