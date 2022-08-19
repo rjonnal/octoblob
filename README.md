@@ -441,3 +441,41 @@ The OCT acquisition software on different systems behaves differently.  There is
 system_label = 'clinical_org'
 # system_label = 'eyepod'
 ```
+
+Also, for some reason in the XML files generated on the EyePod system, when the number of repeats is >1, the parameter ```Height``` is set to the B-scan width multiplied by ```Number_of_BM_scans```. For example, if individual B-scans are 360 pixels wide, and the number of BM/repeats is set to 3, ```Height``` will be 1080. Processing B-scans this way will give 3 B-scans in each saved file. Of course, they can be cropped later, but to avoid this issue from the start, change ```Number_of_BM_scans``` to 1 and divide ```Height``` by the original number of BM scans. See below:
+
+### Original XML
+
+```xml
+  <Volume_Size
+   Width="1280"
+   Height="360"
+   Number_of_Frames="1080"
+   Number_of_Volumes="1"
+   BscanWidth="608"
+   BscanOffset="32" />
+  <Scanning_Parameters
+   X_Scan_Range="1750"
+   X_Scan_Offset="0"
+   Y_Scan_Range="1750"
+   Y_Scan_Offset="0"
+   Number_of_BM_scans="3" />
+```
+
+### Corrected XML
+```xml
+  <Volume_Size
+   Width="1280"
+   Height="360"
+   Number_of_Frames="360"
+   Number_of_Volumes="1"
+   BscanWidth="608"
+   BscanOffset="32" />
+  <Scanning_Parameters
+   X_Scan_Range="1750"
+   X_Scan_Offset="0"
+   Y_Scan_Range="1750"
+   Y_Scan_Offset="0"
+   Number_of_BM_scans="1" />
+```
+
