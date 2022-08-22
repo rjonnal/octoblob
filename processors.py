@@ -369,7 +369,7 @@ def flatten_volume(folder):
     
     
 
-def crop_volumes(folder_list,write=False,threshold_dB=-30,inner_padding=-30,outer_padding=60,dispersion_artifact_size=50,inplace=False):
+def crop_volumes(folder_list,write=False,threshold_dB=-30,inner_padding=-30,outer_padding=60,dispersion_artifact_size=10,inplace=False):
     
     profs = []
     dB_profs = []
@@ -427,7 +427,9 @@ def crop_volumes(folder_list,write=False,threshold_dB=-30,inner_padding=-30,oute
         minlen = min(len(ref),len(tar))-dispersion_artifact_size
         ref = ref[:minlen]
         tar = tar[:minlen]
-
+        np.save('ref.npy',ref)
+        np.save('tar.npy',tar)
+        
         # original, non-normalized
         #nxc = np.real(np.fft.ifft(np.fft.fft(tar)*np.conj(np.fft.fft(ref))))
 
