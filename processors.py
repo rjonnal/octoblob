@@ -503,6 +503,30 @@ def crop_volumes(folder_list,write=False,threshold_dB=-30,inner_padding=-30,oute
         plt.show()
     
 
+def show_labeled_layers(folder,bscan_filter='*amplitude.npy',label_filter='*amplitude_labels.json'):
+    bscan_files = glob.glob(os.path.join(folder,bscan_filter))
+    bscan_files.sort()
+    label_files = glob.glob(os.path.join(folder,label_filter))
+    label_files.sort()
+    try:
+        assert len(bscan_files)==len(label_files)
+    except:
+        print(len(bscan_files))
+        print(len(label_files))
+        sys.exit()
+
+    for bf,lf in zip(bscan_files,label_files):
+        bscan = np.load(bf)
+        bscan = 20*np.log10(bscan)
+        plt.imshow(bscan,clim=(40,90),cmap='gray')
+        labeldict = load_dict(lf)
+        for k in labeldict.keys():
+            x = labeldict[k]['x']
+            z = labeldict[k]['z']
+            plt.plot(x,z,label=k)
+        plt.legend()
+        plt.show()
+        
 def label_layers(filename_filter,show=False,labels=None):
     files = glob.glob(filename_filter)
     files.sort()
