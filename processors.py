@@ -641,6 +641,12 @@ def calculate_band_velocity(folder,reference_layer='IS/OS',target_layer='COST',p
     phase_files.sort()
     label_files = glob.glob(os.path.join(folder,label_filter))
     label_files.sort()
+    tar_slope_arr = []
+    ref_slope_arr = []
+    slope1_arr = []
+    slope2_arr = []
+    idx_arr = []
+    
     for idx,(pf,lf) in enumerate(zip(phase_files,label_files)):
         phase = np.load(pf)
         labels = load_dict(lf)
@@ -652,11 +658,40 @@ def calculate_band_velocity(folder,reference_layer='IS/OS',target_layer='COST',p
 
         tar_slope = [phase[z,x] for (z,x) in zip(tar_z,tar_x)]
         ref_slope = [phase[z,x] for (z,x) in zip(ref_z,ref_x)]
-
         slope = [ts-rs for ts,rs in zip(tar_slope,ref_slope)]
-        plt.plot(idx,np.median(slope))
-        plt.pause(.1)
+
+        tar_slope = np.nanmedian(tar_slope)
+        ref_slope = np.nanmedian(ref_slope)
+        slope1 = np.nanmedian(slope)
+        slope2 = tar_slope-ref_slope
         
+        tar_slope_arr.append(tar_slope)
+        idx_arr.append(idx)
+        ref_slope_arr.append(ref_slope)
+        slope1_arr.append(slope1)
+        slope2_arr.append(slope2)
+
+    plt.figure()
+    plt.plot(idx_arr,tar_slope_arr,label='COST')
+    plt.plot(idx_arr,ref_slope_arr,label='IS/OS')
+    plt.plot(idx_arr,slope1_arr,label='OS1')
+    plt.plot(idx_arr,slope2_arr,label='OS2')
+    plt.legend()
+
+
+def show_series(folder,file_filter='*.npy',preproc_func=lambda x: x):
+    files = glob.glob(os.path.join(folder,file_filter))
+    files.sort()
+    plt.figure()
+    for f in files:
+        im = np.load(f)
+        im = preproc_func(im)
+        plt.cla()
+        plt.imshow(im)
+        plt.pause(.1)
+    plt.close()
+
+    
 def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogram_threshold_fraction=0.1,diagnostics=False):
     bscan_files = glob.glob(os.path.join(folder,'complex*.npy'))
     bscan_files.sort()
