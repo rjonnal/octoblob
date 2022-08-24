@@ -266,11 +266,11 @@ def optimize_mapping_dispersion(raw_data,func,diagnostics=False,maximum_iteratio
         brights = brights[-1:,:]
 
         if mode=='gradient':
-            image_quality = np.median(np.median(gradient,axis=0))
+            image_quality = np.nanmedian(np.nanmedian(gradient,axis=0))
         elif mode=='brightness':
-            image_quality = np.median(np.median(brights,axis=0))
+            image_quality = np.nanmedian(np.nanmedian(brights,axis=0))
         elif mode=='hybrid':
-            image_quality = np.median(np.median(gradient,axis=0))+np.median(np.median(brights,axis=0))
+            image_quality = np.nanmedian(np.nanmedian(gradient,axis=0))+np.nanmedian(np.nanmedian(brights,axis=0))
             
         
         lateral_mean_variance = np.var(np.mean(im,axis=0))
@@ -302,7 +302,7 @@ def optimize_mapping_dispersion(raw_data,func,diagnostics=False,maximum_iteratio
                 
             plt.pause(.001)
 
-        if image_quality>1:
+        if image_quality>1 or True:
             optimization_history.append((image_quality,coefs))
         else:
             optimization_history.append((np.nan,coefs))

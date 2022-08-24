@@ -15,6 +15,7 @@ import numpy as np
 import json
 import octoblob.plotting_functions as opf
 import scipy.signal as sps
+from pathlib import Path
 
 opf.setup_plots(mode='paper',style='seaborn-deep')
 color_cycle = opf.get_color_cycle()
@@ -477,6 +478,8 @@ def crop_volumes(folder_list,write=False,threshold_dB=-30,inner_padding=-30,oute
                 #plt.imshow(20*np.log10(np.abs(bscan)),cmap='gray')
                 #plt.pause(0.001)
                 logging.info('crop_volumes cropping %s -> %s.'%(f,out_f))
+            Path(os.path.join(out_folder,'cropped')).touch()
+            
 
         else:
             plt.figure(uncropped_bscan_fig.number)
@@ -511,13 +514,15 @@ def show_labeled_layers(folder,bscan_filter='*amplitude.npy',label_filter='*ampl
     try:
         assert len(bscan_files)==len(label_files)
     except:
-        print(len(bscan_files))
-        print(len(label_files))
+        print('%d Bscan files'%len(bscan_files))
+        print('%d label files'%len(label_files))
         sys.exit()
 
+    plt.figure()
     for bf,lf in zip(bscan_files,label_files):
         bscan = np.load(bf)
         bscan = 20*np.log10(bscan)
+        plt.clf()
         plt.imshow(bscan,clim=(40,90),cmap='gray')
         labeldict = load_dict(lf)
         for k in labeldict.keys():
@@ -525,7 +530,8 @@ def show_labeled_layers(folder,bscan_filter='*amplitude.npy',label_filter='*ampl
             z = labeldict[k]['z']
             plt.plot(x,z,label=k)
         plt.legend()
-        plt.show()
+        plt.pause(.1)
+    plt.close()
         
 def label_layers(filename_filter,show=False,labels=None):
     files = glob.glob(filename_filter)
@@ -539,8 +545,16 @@ def label_layers(filename_filter,show=False,labels=None):
     for f in files:
         bscan = np.abs(np.load(f))
         bscans.append(bscan)
-        peaks,profile = seg.get_peaks(bscan)
+        peaks,profile = seg.get_peaks(bscan,region=2,width=50)
+        if f==files[0] and False:
+            plt.figure()
+            plt.plot(profile)
+            plt.plot(peaks,[profile[p] for p in peaks],'rs')
+            plt.savefig(f.replace('.npy','')+'_profile.png')
+            plt.show()
         bscan_peaks.append(peaks)
+        if np.min(np.diff(peaks))<0:
+            sys.exit('processors.label_layers: peaks out of order')
         bscan_profiles.append(profile)
         npeaks_poll.append(len(peaks))
     npeaks = int(round(np.median(npeaks_poll)))
@@ -549,7 +563,9 @@ def label_layers(filename_filter,show=False,labels=None):
     # increasing retinal depth, i.e. inner layers to outer layers
     if not labels is None:
         if not len(labels)==npeaks:
-            sys.exit('label_layers: %d peaks found, but %d labels passed: %s'%(npeaks,len(labels),labels))
+            logging.warning('WARNING. label_layers: %d peaks found, but %d labels passed: %s'%(npeaks,len(labels),labels))
+            logging.warning('WARNING. Using only %d peaks and the labels %s.'%(len(labels),labels))
+            npeaks = len(labels)
     else:
         alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         labels = [alphabet[k] for k in range(npeaks)]
@@ -575,6 +591,7 @@ def label_layers(filename_filter,show=False,labels=None):
             yshift = np.unravel_index(np.argmax(xc),xc.shape)[0]
             peaks = [p+yshift for p in refpeaks]
             corrected_peaks.append(np.array(peaks))
+            
 
     paths = []
     
@@ -585,7 +602,7 @@ def label_layers(filename_filter,show=False,labels=None):
         prof = np.mean(temp[:,:5],axis=1)
         ph = np.array([prof[z] for z in cp])
         ordered_indices = np.argsort(ph)[::-1]
-        cp = cp[ordered_indices]
+        #cp = cp[ordered_indices]
 
         ordered_indices = np.argsort(cp)
         labels = [labels[oi] for oi in ordered_indices]
@@ -618,6 +635,27 @@ def label_layers(filename_filter,show=False,labels=None):
     if show:
         plt.show()
     
+
+def calculate_band_velocity(folder,reference_layer='IS/OS',target_layer='COST',phase_filter='*phase_slope.npy',label_filter='*amplitude_labels.json'):
+    phase_files = glob.glob(os.path.join(folder,phase_filter))
+    phase_files.sort()
+    label_files = glob.glob(os.path.join(folder,label_filter))
+    label_files.sort()
+    for idx,(pf,lf) in enumerate(zip(phase_files,label_files)):
+        phase = np.load(pf)
+        labels = load_dict(lf)
+        assert all([k in labels.keys() for k in [reference_layer,target_layer]])
+        tar_x = labels[target_layer]['x']
+        tar_z = labels[target_layer]['z']
+        ref_x = labels[reference_layer]['x']
+        ref_z = labels[reference_layer]['z']
+
+        tar_slope = [phase[z,x] for (z,x) in zip(tar_z,tar_x)]
+        ref_slope = [phase[z,x] for (z,x) in zip(ref_z,ref_x)]
+
+        slope = [ts-rs for ts,rs in zip(tar_slope,ref_slope)]
+        plt.plot(idx,np.median(slope))
+        plt.pause(.1)
         
 def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogram_threshold_fraction=0.1,diagnostics=False):
     bscan_files = glob.glob(os.path.join(folder,'complex*.npy'))
@@ -703,7 +741,6 @@ def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogr
         np.save(outfn,var_masked)
 
         
-
         # 6. phase slopes and residual fitting error for all pixels (2D array)
 
         slopes = np.ones(bscan.shape)*np.nan
@@ -725,6 +762,10 @@ def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogr
                 err = np.sqrt(np.mean((fit-phase)**2))
                 slopes[z,x] = slope
                 fitting_error[z,x] = err
+        outfn = os.path.join(out_folder,'block_%04d_phase_slope.npy'%start_index)
+        np.save(outfn,slopes)
+        outfn = os.path.join(out_folder,'block_%04d_phase_slope_fitting_error.npy'%start_index)
+        np.save(outfn,fitting_error)
                 
         
 if __name__=='__main__':

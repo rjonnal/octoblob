@@ -46,14 +46,15 @@ def smooth2(dat,rx=5,rz=0):
 def dB(a):
     return 20*np.log10(np.abs(a))
 
-def get_peaks(bscan,fractional_threshold=0.5,width=25,region=1):
+def get_peaks(bscan,fractional_threshold=0.5,width=25,region=1,gradient_fractional_threshold=0.0):
     # identify tall peaks, above threshold and highest within +/- region
     prof = np.mean(bscan[:,:width],axis=1)
     left = prof[:-2]
     center = prof[1:-1]
     right = prof[2:]
     thresh = np.max(prof)*fractional_threshold
-    peak_idx_all = np.where((center>thresh) * (center>left) * (center>right))[0]+1
+    grad_thresh = np.max(prof)*gradient_fractional_threshold
+    peak_idx_all = np.where((center>thresh) * (center>left+grad_thresh) * (center>right+grad_thresh))[0]+1
     peak_idx = []
     for p in peak_idx_all:
         temp = np.zeros(prof.shape)
