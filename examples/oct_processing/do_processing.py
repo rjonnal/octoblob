@@ -7,8 +7,11 @@ files = glob.glob('./*.unp')
 bscan_folders = [fn.replace('.unp','_bscans') for fn in files]
 
 
+# for ORG processing we just use t = [-50,50] ms--that's 40 scans, from 20 to 60
+
 for fn,bscan_folder in zip(files,bscan_folders):
     if not os.path.exists(bscan_folder):
+        param_fn = blob.processors.get_param_filename(fn)
         blob.processors.setup_processing(fn,copy_existing=True)
         try:
             d = blob.processors.load_dict(param_fn)
