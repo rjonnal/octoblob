@@ -170,7 +170,7 @@ def setup_processing(filename,copy_existing=False):
     with open(outfile,'w') as fid:
         fid.write(outstring)
         
-def optimize_mapping_dispersion(filename,show_figures=False,mode='gradient',diagnostics=False):
+def optimize_mapping_dispersion(filename,show_figures=False,mode='gradient',diagnostics=False,frame_index=0):
     
     params_filename = get_param_filename(filename)
     params = load_dict(params_filename)
@@ -187,8 +187,6 @@ def optimize_mapping_dispersion(filename,show_figures=False,mode='gradient',diag
     n_slow = n_slow//n_repeats
     n_fast = n_fast*n_repeats
 
-    frame_index = n_slow//2 # choose something from the middle of the first volume
-    
     src = blob.OCTRawData(filename,n_vol,n_slow,n_fast,n_depth,n_repeats,fbg_position=params['fbg_position'],fbg_region_height=params['fbg_region_height'],spectrum_start=params['spectrum_start'],spectrum_end=params['spectrum_end'],bit_shift_right=params['bit_shift_right'],n_skip=params['n_skip'],dtype=params['dtype'])
     
     def process_for_optimization(frame,m3,m2,c3,c2):

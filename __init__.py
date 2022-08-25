@@ -317,7 +317,6 @@ class OCTRawData:
             # desired frame; maintain volume_index for compatibility with functional
             # OCT experiments, which have multiple volumes.
             position = volume_index * self.n_depth * self.n_fast * self.n_slow * self.bytes_per_pixel + frame_index * self.n_depth * self.n_fast * self.bytes_per_pixel + self.n_skip * self.n_depth * self.bytes_per_pixel
-
             
             # Skip to the desired position for reading.
             fid.seek(position,0)
