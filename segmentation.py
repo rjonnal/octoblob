@@ -23,19 +23,21 @@ def smooth3(dat,rt=13,rx=13,rz=0):
 
     return out
 
-def smooth2(dat,rx=5,rz=0):
+def smooth2(dat,rx=10,rz=1):
     sz,sx = dat.shape
     zz,xx = np.meshgrid(np.arange(sz),np.arange(sx),indexing='ij')
     zz = zz - sz/2.0
     xx = xx - sx/2.0
-
     k = np.zeros(dat.shape)
-    valid = (np.abs(zz)<=rz) * (np.abs(xx)<=rx)
-    k[valid] = 1.0
+    #valid = (np.abs(zz)<rz) * (np.abs(xx)<rx)
+    #valid = (zz>-rz)*(zz<=rz)*(xx>-rx)*(xx<=rx)
+    #k[valid] = 1.0
 
+    k[:rz,:rx] = 1.0
+    k = np.fft.fftshift(k)
+    
     out = np.fft.ifft2(np.fft.fft2(dat)*np.fft.fft2(k))
     out = np.fft.fftshift(out)
-    
     out = out/np.sum(k)
     
     if all(np.isreal(dat.ravel())):

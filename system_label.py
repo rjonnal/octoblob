@@ -7,5 +7,5 @@
 # Valid choices here are 'clinical_org' and 'eyepod'. Just comment out the
 # one you don't want.
 
-# system_label = 'clinical_org'
-system_label = 'eyepod'
+system_label = 'clinical_org'
+# system_label = 'eyepod'

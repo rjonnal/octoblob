@@ -147,7 +147,7 @@ class OCTRawData:
             temp = temp.replace('\t',' ')
         return temp
     
-    def align_to_fbg(self,frame,smoothing_size=5,sign=1,use_cross_correlation=False,diagnostics=False):
+    def align_to_fbg(self,frame,smoothing_size=5,sign=1,use_cross_correlation=False,diagnostics=False,debug=False):
         # The algorithm here is copied from Justin Migacz's MATLAB prototype; one
         # key difference is that Justin cats 5 sets of spectra together, such that
         # they share the same k-axis; this step is performed on a "compound" frame,
@@ -185,7 +185,13 @@ class OCTRawData:
             # ideally, get rid of the +1 here and add back the zero-centering below
 
             position = np.argsort(fbg_region_derivative,axis=0)[-1,:].astype(np.int)+1
-
+            if debug:
+                plt.figure()
+                plt.imshow(fbg_region,cmap='gray',aspect='auto',clim=(np.min(fbg_region),np.max(fbg_region)))
+                plt.xlim((0,250))
+                plt.plot(np.arange(250),position,'y+')
+                plt.xlim((0,250))
+                plt.title('pre-alignment')
             # zero-center the position to avoid rolling more than we need to;
             # this departs a bit from Justin's approach, but not consequentially
             # consider adding this back in after the code has been thoroughly checked
@@ -202,7 +208,10 @@ class OCTRawData:
             position = position - int(np.round(np.mean(position)))
 
 
+        position = position - np.min(position)
+        
         posrms = position.std()
+        posmean = int(round(np.mean(position)))
         # roll the columns to align
         # Notes:
         # 1. After testing, replace this with an in-place operation,
@@ -214,20 +223,29 @@ class OCTRawData:
         out = np.zeros(frame.shape)
         for x in range(frame.shape[1]):
             out[:,x] = np.roll(frame[:,x],-position[x])
+
+        if debug:
+            plt.figure()
+            plt.imshow(out,cmap='gray',aspect='auto',clim=(np.min(fbg_region),np.max(fbg_region)))
+            plt.xlim((0,250))
+            plt.ylim((z2-posmean,z1-posmean))
+            plt.title('post-alignment')
+            plt.show()
             
         if diagnostics:
-            n_samples = 10
+            clim=(np.min(fbg_region),np.max(fbg_region))
+            n_samples = 50
             sample_interval = int(float(out.shape[1])/float(n_samples))
             plt.figure(figsize=(4*opf.IPSP,2*opf.IPSP),dpi=opf.screen_dpi)
             plt.subplot(2,5,1)
-            plt.imshow(frame,cmap='gray',aspect='auto',interpolation='none')
+            plt.imshow(frame,cmap='gray',aspect='auto',interpolation='none',clim=clim)
             plt.axhline(z1,alpha=0.5)
             plt.axhline(z2,alpha=0.5)
             plt.title('uncorrected and search region')
 
 
             plt.subplot(2,5,2)
-            plt.imshow(frame,cmap='gray',aspect='auto',interpolation='none')
+            plt.imshow(frame,cmap='gray',aspect='auto',interpolation='none',clim=clim)
             plt.axhline(z1,alpha=0.75,linewidth=2)
             plt.axhline(z2,alpha=0.75,linewidth=2)
             plt.ylim((z2+20,z1-20))
@@ -264,11 +282,11 @@ class OCTRawData:
             spec_ax = plt.gca()
             
             plt.subplot(2,5,6)
-            plt.imshow(out,cmap='gray',aspect='auto',interpolation='none')
+            plt.imshow(out,cmap='gray',aspect='auto',interpolation='none',clim=clim)
             plt.title('corrected ($\sigma_z=%0.1fpx$)'%posrms)
 
             plt.subplot(2,5,7)
-            plt.imshow(out,cmap='gray',aspect='auto',interpolation='none')
+            plt.imshow(out,cmap='gray',aspect='auto',interpolation='none',clim=clim)
             plt.ylim((z2+20,z1-20))
             plt.title('(zoomed)')
 
@@ -276,12 +294,12 @@ class OCTRawData:
             for f in range(0,out.shape[1],sample_interval):
                 plt.plot(out[:,f],label='%d'%f)
             plt.legend(fontsize=6)
-            plt.xlim((z1-10,z2+10))
+            plt.xlim((z1-10-posmean,z2+10-posmean))
             plt.title('sample corrected spectra')
 
             plt.subplot(2,5,9)
             plt.plot(out.mean(1))
-            plt.xlim((z1-10,z2+10))
+            plt.xlim((z1-10-posmean,z2+10-posmean))
             plt.title('corrected average')
 
             outspec = np.mean(np.abs(np.fft.fft(out,axis=1)),axis=0)[5:mid]

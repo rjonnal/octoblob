@@ -4,8 +4,8 @@ if system_label=='clinical_org':
     default_parameter_dictionary = {}
     default_parameter_dictionary['bit_shift_right'] = 4
     default_parameter_dictionary['dtype'] = 'u2'
-    default_parameter_dictionary['fbg_position'] = 85
-    default_parameter_dictionary['fbg_region_height'] = 60
+    default_parameter_dictionary['fbg_position'] = 100
+    default_parameter_dictionary['fbg_region_height'] = 30
     default_parameter_dictionary['spectrum_start'] = 159
     default_parameter_dictionary['spectrum_end'] = 1459
     default_parameter_dictionary['bscan_z1'] = 1000

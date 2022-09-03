@@ -530,7 +530,134 @@ def show_labeled_layers(folder,bscan_filter='*amplitude.npy',label_filter='*ampl
         plt.legend()
         plt.pause(.1)
     plt.close()
+
+
+def get_tilt(b,maxtilt=20,tilt_step=0.1):
+    tmaxes = np.arange(-maxtilt,maxtilt+1,tilt_step)
+    contrasts = np.ones(tmaxes.shape)*np.nan
+    amaxes = np.ones(tmaxes.shape)*np.nan
+
+    for idx,tmax in enumerate(tmaxes):
+        tilt = np.round(np.linspace(0,tmax,b_filtered.shape[1])).astype(int)
+
+    
+def label_layers_flat(filename_filter,show=True,labels=None,debug=False):
+    files = glob.glob(filename_filter)
+    files.sort()
+
+
+    # 1. get profiles from all the B-scans, align them, and average them
+    bscan_profiles = []
+    bscans = []
+    rbscans = []
+    for f in files:
+        bscan = np.abs(np.load(f))
+        bscans.append(bscan)
+        p = np.mean(bscan,axis=1)
+        bscan_profiles.append(p)
+
+    ref = bscan_profiles[0]
+
+    if debug:
+        for bscan in bscans:
+            plt.cla()
+            plt.imshow(np.abs(bscan))
+            plt.pause(.1)
         
+    for tar,bscan in zip(bscan_profiles,bscans):
+        # induce some shift, for testing only:
+        # tar = np.roll(tar,int(round(np.random.randn()*4)))
+        num = np.fft.fft(tar)*np.conj(np.fft.fft(ref))
+        denom = np.abs(num)
+        nxc = np.real(np.fft.ifft(num/denom))
+        shift = np.argmax(nxc)
+        if shift>len(nxc)//2:
+            shift = shift-len(nxc)
+        if debug:
+            plt.plot(ref,label='ref')
+            plt.plot(tar,label='tar')
+            plt.plot(np.roll(tar,-shift)-1000,label='fixed')
+            plt.legend()
+            plt.show()
+
+        rbscans.append(np.roll(bscan,-shift,axis=0))
+
+    if debug:
+        for bscan in rbscans:
+            plt.cla()
+            plt.imshow(np.abs(bscan))
+            plt.pause(.1)
+
+            
+    bscans = rbscans
+    vol = np.array(bscans)
+    prof = np.mean(np.mean(vol,axis=2),axis=0)
+
+    left = prof[:-2]
+    center = prof[1:-1]
+    right = prof[2:]
+    peaks = np.where((center>left)*(center>right))[0]+1
+    vals = [prof[p] for p in peaks]
+    order = np.argsort(vals)[::-1]
+    peaks = peaks[order][:len(labels)]
+
+    band_half_width = 1
+    ref = np.zeros(bscans[0].shape)
+    for p in peaks:
+        ref[p-band_half_width:p+band_half_width+1,:] = 1
+    
+
+    for b in bscans:
+        tilt = get_tilt(bscan)
+        
+    peaks.sort()
+    print(peaks)
+    
+    plt.imshow(ref)
+    plt.show()
+    sys.exit()
+        
+
+    bscans = []
+    bscan_peaks = []
+    bscan_profiles = []
+    npeaks_poll = []
+    diffs = []
+    
+    for f in files:
+        bscan = np.abs(np.load(f))
+        bscans.append(bscan)
+        peaks,profile = seg.get_peaks(bscan,region=2)
+        if f==files[0] or True:
+            plt.figure()
+            plt.plot(profile)
+            plt.plot(peaks,[profile[p] for p in peaks],'rs')
+            plt.savefig(f.replace('.npy','')+'_profile.png')
+            plt.show()
+        bscan_peaks.append(peaks)
+        diffs.append(np.diff(peaks))
+        
+        if np.min(np.diff(peaks))<0:
+            sys.exit('processors.label_layers: peaks out of order')
+        bscan_profiles.append(profile)
+        npeaks_poll.append(len(peaks))
+    npeaks = int(round(np.median(npeaks_poll)))
+    print(npeaks_poll)
+    print(diffs)
+
+    diffs_poll = [[]]*(npeaks-1)
+    print(diffs_poll)
+    for npk,d in zip(npeaks_poll,diffs):
+        if npk==npeaks:
+            assert(len(d)==npeaks-1)
+            for nd in range(len(d)):
+                diffs_poll[nd].append(d[nd])
+
+    diffs = [np.nanmedian(L) for L in diffs_poll]
+    print(diffs)
+            
+    #sys.exit()
+    
 def label_layers(filename_filter,show=False,labels=None):
     files = glob.glob(filename_filter)
     files.sort()
@@ -612,7 +739,7 @@ def label_layers(filename_filter,show=False,labels=None):
         these_keys = []
         
         for z,key in zip(cp,labels):
-            path = seg.find_path(temp,z,layer_half_width=1)
+            path = seg.find_path(temp,z,layer_half_width=1,diag_weight=-np.inf)
             paths.append(path)
             these_paths.append(path)
             these_keys.append(key)
@@ -641,54 +768,101 @@ def calculate_band_velocity(folder,reference_layer='IS/OS',target_layer='COST',p
     label_files.sort()
     tar_slope_arr = []
     ref_slope_arr = []
-    slope1_arr = []
-    slope2_arr = []
+    slope_arr = []
     idx_arr = []
     
     for idx,(pf,lf) in enumerate(zip(phase_files,label_files)):
         phase = np.load(pf)
         labels = load_dict(lf)
         assert all([k in labels.keys() for k in [reference_layer,target_layer]])
-        tar_x = labels[target_layer]['x']
-        tar_z = labels[target_layer]['z']
-        ref_x = labels[reference_layer]['x']
-        ref_z = labels[reference_layer]['z']
+        x1 = 0
+        x2 = len(labels[target_layer]['x'])
+        
+        tar_x = labels[target_layer]['x'][x1:x2]
+        tar_z = labels[target_layer]['z'][x1:x2]
+        ref_x = labels[reference_layer]['x'][x1:x2]
+        ref_z = labels[reference_layer]['z'][x1:x2]
 
         tar_slope = [phase[z,x] for (z,x) in zip(tar_z,tar_x)]
         ref_slope = [phase[z,x] for (z,x) in zip(ref_z,ref_x)]
-        slope = [ts-rs for ts,rs in zip(tar_slope,ref_slope)]
 
         tar_slope = np.nanmedian(tar_slope)
         ref_slope = np.nanmedian(ref_slope)
-        slope1 = np.nanmedian(slope)
-        slope2 = tar_slope-ref_slope
+        slope = tar_slope-ref_slope
         
         tar_slope_arr.append(tar_slope)
         idx_arr.append(idx)
         ref_slope_arr.append(ref_slope)
-        slope1_arr.append(slope1)
-        slope2_arr.append(slope2)
+        slope_arr.append(slope)
 
     plt.figure()
     plt.plot(idx_arr,tar_slope_arr,label='COST')
     plt.plot(idx_arr,ref_slope_arr,label='IS/OS')
-    plt.plot(idx_arr,slope1_arr,label='OS1')
-    plt.plot(idx_arr,slope2_arr,label='OS2')
+    plt.plot(idx_arr,slope_arr,label='OS')
     plt.legend()
 
 
-def show_series(folder,file_filter='*.npy',preproc_func=lambda x: x):
+def show_series(folder,file_filter='*.npy',preproc_func=lambda x: x,overlay_folder=None,overlay_file_filter=None,cmap='gray',ocmap='jet',xlim=None,ylim=None,clim=None,oclim=None,opreproc_func=lambda x: x,interpolation='none',figsize=(3,3),movie_filename=None,fps=30):
+    
     files = glob.glob(os.path.join(folder,file_filter))
     files.sort()
-    plt.figure()
-    for f in files:
+
+    if overlay_folder is None:
+        overlay_folder = folder
+        
+    if overlay_file_filter is not None:
+        ofiles = glob.glob(os.path.join(overlay_folder,overlay_file_filter))
+        ofiles.sort()
+        do_overlay = True
+        if oclim is None:
+            temp = opreproc_func(np.load(ofiles[0]))
+            oclim = (np.nanmin(temp),np.nanmax(temp))
+    else:
+        do_overlay = False
+
+    if clim is None:
+        temp = preproc_func(np.load(files[0]))
+        clim = (np.nanmin(temp),np.nanmax(temp))
+
+
+    if movie_filename is None:
+        do_movie = False
+    else:
+        do_movie = True
+
+    if do_movie:
+        try:
+            from fig2gif import GIF
+        except:
+            do_movie = False
+
+    if do_movie:
+        mov = GIF(movie_filename,fps=fps)
+        
+        
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_axes([0,0,1,1])
+    for idx,f in enumerate(files):
         im = np.load(f)
         im = preproc_func(im)
-        plt.cla()
-        plt.imshow(im)
+        ax.clear()
+        ax.imshow(im,cmap=cmap,clim=clim,aspect='auto',interpolation=interpolation)
+        if do_overlay:
+            oim = np.load(ofiles[idx])
+            ax.imshow(oim,cmap=ocmap,clim=oclim,aspect='auto',interpolation=interpolation,alpha=0.5)
+        if xlim is not None:
+            ax.set_xlim(xlim)
+        if ylim is not None:
+            ax.set_ylim(ylim)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        if do_movie:
+            mov.add(fig)
         plt.pause(.1)
     plt.close()
 
+    if do_movie:
+        mov.make()
     
 def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogram_threshold_fraction=0.1,diagnostics=False):
     bscan_files = glob.glob(os.path.join(folder,'complex*.npy'))
