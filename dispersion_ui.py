@@ -23,26 +23,36 @@ logging.basicConfig(
 
 dispersion_3_max = 1.0
 dispersion_2_max = 5.0
-
 dispersion_3_min = -dispersion_3_max
-
-#dispersion_3_multiplier = 1e-16
-#dispersion_3_multiplier = 1e-8
-dispersion_3_multiplier = 1e-8
-
 dispersion_2_min = -dispersion_2_max
+dispersion_3_multiplier = 1e-7
+dispersion_2_multiplier = 1e-3
 
-#dispersion_2_multiplier = 1e-10
-#dispersion_2_multiplier = 1e-4
-dispersion_2_multiplier = 1e-4
+mapping_3_max = 1.0
+mapping_2_max = 5.0
+mapping_3_min = -mapping_3_max
+mapping_2_min = -mapping_2_max
+mapping_3_multiplier = 1e-7
+mapping_2_multiplier = 1e-3
+
+
 
 c3min_default = dispersion_3_min*dispersion_3_multiplier
 c3max_default = dispersion_3_max*dispersion_3_multiplier
 c2min_default = dispersion_2_min*dispersion_2_multiplier
 c2max_default = dispersion_2_max*dispersion_2_multiplier
 
+m3min_default = mapping_3_min*mapping_3_multiplier
+m3max_default = mapping_3_max*mapping_3_multiplier
+m2min_default = mapping_2_min*mapping_2_multiplier
+m2max_default = mapping_2_max*mapping_2_multiplier
+
+
 c3range = c3max_default-c3min_default
 c2range = c2max_default-c2min_default
+
+m3range = m3max_default-m3min_default
+m2range = m2max_default-m2min_default
 
 auto_n_points = 6
 
@@ -152,7 +162,7 @@ def dispersion_ui(raw_data,func,c3min=c3min_default,c3max=c3max_default,c2min=c2
     plt.show()
     return points,imaxes
 
-def mapping_dispersion_ui(raw_data,func,m3min,m3max,m2min,m2max,c3min,c3max,c2min,c2max,title=''):
+def mapping_dispersion_ui(raw_data,func,m3min=m3min_default,m3max=m3max_default,m2min=m2min_default,m2max=m2max_default,c3min=c3min_default,c3max=c3max_default,c2min=c2min_default,c2max=c2max_default,title=''):
 
     markersize = 8.0
     
@@ -314,6 +324,151 @@ def optimize_mapping_dispersion(raw_data,func,diagnostics=False,maximum_iteratio
         return 1.0/image_quality
     
     x0 = [0.0,0.0,0.0,0.0]
+
+    res = spo.minimize(f,x0,method='nelder-mead',bounds=bounds,
+                       options={'xatol':1e-11,'disp':True,'maxiter':maximum_iterations})
+
+    if make_movie:
+        mov.make()
+    pre_image = np.abs(func(raw_data,*x0))
+    post_image = np.abs(func(raw_data,*res.x))
+
+    #np.save('optimization_pre.npy',pre_image)
+    #np.save('optimization_post.npy',post_image)
+    
+    pre_dB = 20*np.log10(pre_image)
+    post_dB = 20*np.log10(post_image)
+    
+    lin_clim = np.percentile(post_image,(1,99.99))
+    dB_clim = (40,90)
+
+
+    gradient_history = [t[0] for t in optimization_history]
+
+    
+    
+    plt.figure()
+    plt.subplot(1,2,1)
+    plt.imshow(pre_image,cmap='gray',interpolation='none',aspect='auto',clim=lin_clim)
+    plt.title('pre optimization, linear')
+    plt.subplot(1,2,2)
+    plt.imshow(post_image,cmap='gray',interpolation='none',aspect='auto',clim=lin_clim)
+    plt.title('post optimization, linear')
+    plt.savefig(os.path.join(output_directory,'bscans_linear_%s.png'%mode),dpi=300)
+    
+    plt.figure()
+    plt.subplot(1,2,1)
+    plt.imshow(pre_dB,cmap='gray',interpolation='none',aspect='auto',clim=dB_clim)
+    plt.title('pre optimization, dB')
+    plt.subplot(1,2,2)
+    plt.imshow(post_dB,cmap='gray',interpolation='none',aspect='auto',clim=dB_clim)
+    plt.title('post optimization, dB')
+    plt.savefig(os.path.join(output_directory,'bscans_dB_%s.png'%mode),dpi=300)
+
+    plt.figure()
+    plt.plot(gradient_history)
+    plt.xlabel('iterations')
+    plt.ylabel('bscan max gradient')
+    plt.savefig(os.path.join(output_directory,'gradient_history_%s.png'%mode),dpi=100)
+
+    if show_figures:
+        plt.show()
+    else:
+        plt.close('all')
+    print(res.x)
+    print(stats(post_image))
+    return res.x
+
+
+def optimize_dispersion(raw_data,func,diagnostics=False,maximum_iterations=200,bounds=None,mode='gradient',show_figures=True,make_movie=False):
+
+    make_movie = make_movie and can_make_movie
+
+    base_image = np.abs(func(raw_data,0,0))
+    
+    def norm(im):
+        return (im-im.mean())/(im.std())
+    def xcorr(im1,im2):
+        return np.max(np.real(np.fft.ifft2(np.fft.fft2(norm(im1))*np.conj(np.fft.fft2(norm(im2))))))
+    ac = xcorr(base_image,base_image)
+
+    base_lateral_mean_variance = np.var(np.mean(base_image,axis=0))
+    base_image_quality = np.mean(np.max(np.diff(base_image,axis=0)))
+
+    try:
+        output_directory = os.path.join(diagnostics[0],'dispersion_compensation/optimization')
+        os.makedirs(output_directory,exist_ok=True)
+    except:
+        output_directory = 'optimize_mapping_dispersion_diagnostics'
+        os.makedirs(output_directory,exist_ok=True)
+
+    optimization_history = []
+
+
+    if make_movie:
+        mov = GIF(os.path.join(output_directory,'optimization.gif'),fps=30,dpi=50)
+    
+    def f(coefs):
+        c3,c2 = coefs
+        im = np.abs(func(raw_data,c3,c2))
+        xc = xcorr(im,base_image)/ac
+
+        gradient = np.diff(im,axis=0)
+        gradient = np.sort(gradient,axis=0)
+        gradient = gradient[-1:,:]
+
+        brights = np.sort(im,axis=0)
+        brights = brights[-1:,:]
+
+        if mode=='gradient':
+            image_quality = np.nanmedian(np.nanmedian(gradient,axis=0))
+        elif mode=='brightness':
+            image_quality = np.nanmedian(np.nanmedian(brights,axis=0))
+        elif mode=='hybrid':
+            image_quality = np.nanmedian(np.nanmedian(gradient,axis=0))+np.nanmedian(np.nanmedian(brights,axis=0))
+            
+        
+        lateral_mean_variance = np.var(np.mean(im,axis=0))
+
+        if xc<0.8:
+            image_quality = 1e-10
+        if lateral_mean_variance>base_lateral_mean_variance*10.0:
+            image_quality = 1e-10
+        if image_quality>base_image_quality*10.0:
+            image_quality = 1e-10
+
+        if diagnostics:
+            plt.subplot(1,2,1)
+            plt.cla()
+            #plt.imshow(im,cmap='gray')
+            plt.imshow(20*np.log10(im),cmap='gray',clim=(40,90))
+            plt.text(0,0,'%0.1f (%0.1f)\n%0.1f (%0.1f)\n%0.2f'%(image_quality,base_image_quality,
+                                                                  lateral_mean_variance,base_lateral_mean_variance
+                                                                  ,xc),ha='left',va='top',fontsize=9,color='g')
+            plt.xticks([])
+            plt.yticks([])
+
+            plt.subplot(1,2,2)
+            plt.cla()
+            plt.plot([o[0] for o in optimization_history])
+            
+            if make_movie:
+                mov.add(plt.gcf())
+                
+            plt.pause(.001)
+
+        if image_quality>1 or True:
+            optimization_history.append((image_quality,coefs))
+        else:
+            optimization_history.append((np.nan,coefs))
+
+        logging.info('Optimizer: coefs: %s'%coefs)
+        logging.info('Optimizer: B-scan quality: %0.3f'%image_quality)
+        logging.info('Optimizer: B-scan stats: %s'%stats(im))
+
+        return 1.0/image_quality
+    
+    x0 = [0.0,0.0]
 
     res = spo.minimize(f,x0,method='nelder-mead',bounds=bounds,
                        options={'xatol':1e-11,'disp':True,'maxiter':maximum_iterations})

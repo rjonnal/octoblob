@@ -211,9 +211,82 @@ def optimize_mapping_dispersion(filename,show_figures=False,mode='gradient',diag
 
     save_dict(params_filename,params)
 
+
+def optimize_dispersion(filename,show_figures=False,mode='gradient',diagnostics=False,frame_index=0):
+    
+    params_filename = get_param_filename(filename)
+    params = load_dict(params_filename)
+    # PARAMETERS FOR RAW DATA SOURCE
+    cfg = config_reader.get_configuration(filename.replace('.unp','.xml'))
+
+    n_vol = cfg['n_vol']
+    n_slow = cfg['n_slow']
+    n_repeats = cfg['n_bm_scans']
+    n_fast = cfg['n_fast']
+    n_depth = cfg['n_depth']
+
+    # some conversions to comply with old conventions:
+    n_slow = n_slow//n_repeats
+    n_fast = n_fast*n_repeats
+
+    src = blob.OCTRawData(filename,n_vol,n_slow,n_fast,n_depth,n_repeats,fbg_position=params['fbg_position'],fbg_region_height=params['fbg_region_height'],spectrum_start=params['spectrum_start'],spectrum_end=params['spectrum_end'],bit_shift_right=params['bit_shift_right'],n_skip=params['n_skip'],dtype=params['dtype'])
+    
+    def process_for_optimization(frame,c3,c2):
+        return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.dc_subtract(frame),[c3,c2,0.0,0.0]),0.9),oversampled_size=params['fft_oversampling_size'],z1=params['bscan_z1'],z2=params['bscan_z2'])
+    
+    bounds = [(params['c3min'],params['c3max']),
+              (params['c2min'],params['c2max'])]
+
+    if diagnostics:
+        diagnostics_pair = (filename.replace('.unp','')+'_diagnostics',frame_index)
+    else:
+        diagnostics_pair = False
+        
+    c3,c2 = dispersion_ui.optimize_dispersion(src.get_frame(frame_index),process_for_optimization,diagnostics=diagnostics_pair,bounds=None,maximum_iterations=200,mode=mode,show_figures=show_figures)
+
+    params['m3'] = 0.0
+    params['m2'] = 0.0
+    params['c3'] = c3
+    params['c2'] = c2
+
+    save_dict(params_filename,params)
+
+
+def manual_mapping_dispersion(filename,frame_index=0):
+    
+    params_filename = get_param_filename(filename)
+    params = load_dict(params_filename)
+    # PARAMETERS FOR RAW DATA SOURCE
+    cfg = config_reader.get_configuration(filename.replace('.unp','.xml'))
+
+    n_vol = cfg['n_vol']
+    n_slow = cfg['n_slow']
+    n_repeats = cfg['n_bm_scans']
+    n_fast = cfg['n_fast']
+    n_depth = cfg['n_depth']
+
+    # some conversions to comply with old conventions:
+    n_slow = n_slow//n_repeats
+    n_fast = n_fast*n_repeats
+
+    src = blob.OCTRawData(filename,n_vol,n_slow,n_fast,n_depth,n_repeats,fbg_position=params['fbg_position'],fbg_region_height=params['fbg_region_height'],spectrum_start=params['spectrum_start'],spectrum_end=params['spectrum_end'],bit_shift_right=params['bit_shift_right'],n_skip=params['n_skip'],dtype=params['dtype'])
+    
+    def process_for_optimization(frame,m3,m2,c3,c2):
+        return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.k_resample(blob.dc_subtract(frame),[m3,m2,0.0,0.0]),[c3,c2,0.0,0.0]),0.9),oversampled_size=params['fft_oversampling_size'],z1=params['bscan_z1'],z2=params['bscan_z2'])
+    
+    m3,m2,c3,c2 = dispersion_ui.mapping_dispersion_ui(src.get_frame(frame_index),process_for_optimization)
+
+    params['m3'] = m3
+    params['m2'] = m2
+    params['c3'] = c3
+    params['c2'] = c2
+
+    save_dict(params_filename,params)
+
+    
         
 # process: read a unp file and write complex bscans:
-def process_bscans(filename,diagnostics=False,show_processed_data=False,start_frame=0,end_frame=np.inf):
+def process_bscans(filename,diagnostics=False,show_processed_data=False,start_frame=0,end_frame=np.inf,save_spectra=False):
     # setting diagnostics to True will plot/show a bunch of extra information to help
     # you understand why things don't look right, and then quit after the first loop
     # setting show_processed_data to True will spawn a window that shows you how the b-scans and angiograms look
@@ -247,6 +320,10 @@ def process_bscans(filename,diagnostics=False,show_processed_data=False,start_fr
         output_directory_png = filename.replace('.unp','')+'_png'
         os.makedirs(output_directory_png,exist_ok=True)
 
+    if save_spectra:
+        output_directory_spectra = filename.replace('.unp','')+'_spectra'
+        os.makedirs(output_directory_spectra,exist_ok=True)
+        
     diagnostics_base = diagnostics
     diagnostics_directory = filename.replace('.unp','')+'_diagnostics'
     os.makedirs(diagnostics_directory,exist_ok=True)
@@ -264,15 +341,17 @@ def process_bscans(filename,diagnostics=False,show_processed_data=False,start_fr
         else:
             diagnostics = False
 
-
         logging.info('processing frame %d'%frame_index)
 
         mapping_coefficients = [params['m3'],params['m2'],0.0,0.0]
         dispersion_coefficients = [params['c3'],params['c2'],0.0,0.0]
 
-        
-        
         frame = src.get_frame(frame_index,diagnostics=diagnostics)
+        
+        if save_spectra:
+            spectra_fn = os.path.join(output_directory_spectra,'spectra_%05d.npy'%frame_index)
+            np.save(spectra_fn,frame)
+            
         frame = blob.dc_subtract(frame,diagnostics=diagnostics)
         frame = blob.k_resample(frame,mapping_coefficients,diagnostics=diagnostics)
         frame = blob.dispersion_compensate(frame,dispersion_coefficients,diagnostics=diagnostics)
@@ -802,7 +881,7 @@ def calculate_band_velocity(folder,reference_layer='IS/OS',target_layer='COST',p
     plt.legend()
 
 
-def show_series(folder,file_filter='*.npy',preproc_func=lambda x: x,overlay_folder=None,overlay_file_filter=None,cmap='gray',ocmap='jet',xlim=None,ylim=None,clim=None,oclim=None,opreproc_func=lambda x: x,interpolation='none',figsize=(3,3),movie_filename=None,fps=30):
+def show_series(folder,file_filter='*.npy',preproc_func=lambda x: x,overlay_folder=None,overlay_file_filter=None,cmap='gray',ocmap='jet',xlim=None,ylim=None,clim=None,oclim=None,opreproc_func=lambda x: x,interpolation='none',figsize=(3,3),movie_filename=None,fps=30,overlay_ylim=None):
     
     files = glob.glob(os.path.join(folder,file_filter))
     files.sort()
@@ -824,6 +903,9 @@ def show_series(folder,file_filter='*.npy',preproc_func=lambda x: x,overlay_fold
         temp = preproc_func(np.load(files[0]))
         clim = (np.nanmin(temp),np.nanmax(temp))
 
+    if overlay_ylim is None:
+        temp = preproc_func(np.load(files[0]))
+        overlay_ylim = (0,temp.shape[0])
 
     if movie_filename is None:
         do_movie = False
@@ -849,6 +931,8 @@ def show_series(folder,file_filter='*.npy',preproc_func=lambda x: x,overlay_fold
         ax.imshow(im,cmap=cmap,clim=clim,aspect='auto',interpolation=interpolation)
         if do_overlay:
             oim = np.load(ofiles[idx])
+            oim[:overlay_ylim[0],:] = np.nan
+            oim[overlay_ylim[1]:,:] = np.nan
             ax.imshow(oim,cmap=ocmap,clim=oclim,aspect='auto',interpolation=interpolation,alpha=0.5)
         if xlim is not None:
             ax.set_xlim(xlim)
