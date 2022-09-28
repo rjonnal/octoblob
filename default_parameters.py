@@ -14,18 +14,37 @@ if system_label=='clinical_org':
     default_parameter_dictionary['bscan_x2'] = 250
     default_parameter_dictionary['n_skip'] = 0
     default_parameter_dictionary['fft_oversampling_size'] = -1
-    default_parameter_dictionary['c3max'] = 1e-8
-    default_parameter_dictionary['c3min'] = -1e-8
-    default_parameter_dictionary['c2max'] = 1e-4
-    default_parameter_dictionary['c2min'] = -1e-4
-    default_parameter_dictionary['m3max'] = 1e-8
-    default_parameter_dictionary['m3min'] = -2e-7
-    default_parameter_dictionary['m2max'] = 1e-5
-    default_parameter_dictionary['m2min'] = -1e-5
     default_parameter_dictionary['eye'] = 'RE'
     default_parameter_dictionary['ecc_horizontal'] = 0.0
     default_parameter_dictionary['ecc_vertical'] = 0.0
     default_parameter_dictionary['notes'] = ''
+
+    # RSJ, 29 Sep 2022
+    # changing dispersion compensation expression approach
+    # from listing parameters 'c3','c2', etc. and explicit
+    # 3rd order, to implicit order depending on number of coefficients.
+    # Thus, each of the following lists must have the same numbers of items.
+    # If they have 2 items, that implies 3rd order, since the 1st and 0th
+    # terms are not used.
+    # More explicitly, if values [c3,c2] are entered here, the optimization
+    # will work on the polynomial specified by [c3,c2,0.0,0.0], since
+    # neither the linear nor the constant terms have any affect on image
+    # quality, either in mapping or dispersion compensation.
+    # The order of the dispersion and mapping steps need not be the same.
+    # For instance, dispersion could operate in 3rd order [c3,c2,0.0,0.0]
+    # and mapping in second order [m2,0.0,0.0].
+    # default_parameter_dictionary['dispersion_initial'] = [0.0,0.0]
+    # default_parameter_dictionary['cmax'] = [1e-8,1e-4]
+    # default_parameter_dictionary['cmin'] = [-1e-8,-1e-4]
+
+    default_parameter_dictionary['dispersion_initial'] = [0.0]
+    default_parameter_dictionary['cmax'] = [1e-4]
+    default_parameter_dictionary['cmin'] = [-1e-4]
+
+    default_parameter_dictionary['mapping_initial'] = [0.0,0.0]
+    default_parameter_dictionary['mmax'] = [1e-8,1e-5]
+    default_parameter_dictionary['mmin'] = [-2e-7,-1e-5]
+    
 
 elif system_label=='eyepod':
     default_parameter_dictionary = {}
@@ -50,17 +69,32 @@ elif system_label=='eyepod':
     default_parameter_dictionary['bscan_x2'] = 1080
     default_parameter_dictionary['n_skip'] = 0
     default_parameter_dictionary['fft_oversampling_size'] = -1
-    default_parameter_dictionary['c3max'] = 1e-5
-    default_parameter_dictionary['c3min'] = -1e-5
-    default_parameter_dictionary['c2max'] = 1e-2
-    default_parameter_dictionary['c2min'] = -1e-2
-    default_parameter_dictionary['m3max'] = 1e-5
-    default_parameter_dictionary['m3min'] = -1e-5
-    default_parameter_dictionary['m2max'] = 1e-2
-    default_parameter_dictionary['m2min'] = -1e-2
     default_parameter_dictionary['eye'] = 'RE'
     default_parameter_dictionary['ecc_horizontal'] = 0.0
     default_parameter_dictionary['ecc_vertical'] = 0.0
     default_parameter_dictionary['notes'] = ''
 
+
+    # RSJ, 29 Sep 2022
+    # changing dispersion compensation expression approach
+    # from listing parameters 'c3','c2', etc. and explicit
+    # 3rd order, to implicit order depending on number of coefficients.
+    # Thus, each of the following lists must have the same numbers of items.
+    # If they have 2 items, that implies 3rd order, since the 1st and 0th
+    # terms are not used.
+    # More explicitly, if values [c3,c2] are entered here, the optimization
+    # will work on the polynomial specified by [c3,c2,0.0,0.0], since
+    # neither the linear nor the constant terms have any affect on image
+    # quality, either in mapping or dispersion compensation.
+    # The order of the dispersion and mapping steps need not be the same.
+    # For instance, dispersion could operate in 3rd order [c3,c2,0.0,0.0]
+    # and mapping in second order [m2,0.0,0.0].
+    default_parameter_dictionary['dispersion_initial'] = [0.0,0.0]
+    default_parameter_dictionary['cmax'] = [1e-8,1e-4]
+    default_parameter_dictionary['cmin'] = [-1e-8,-1e-4]
+
+    default_parameter_dictionary['mapping_initial'] = [0.0,0.0]
+    default_parameter_dictionary['mmax'] = [1e-8,1e-5]
+    default_parameter_dictionary['mmin'] = [-2e-7,-1e-5]
+    
 

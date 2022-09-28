@@ -380,11 +380,14 @@ def optimize_mapping_dispersion(raw_data,func,diagnostics=False,maximum_iteratio
     return res.x
 
 
-def optimize_dispersion(raw_data,func,diagnostics=False,maximum_iterations=200,bounds=None,mode='gradient',show_figures=True,make_movie=False):
+def optimize_dispersion(raw_data,func,initial_guess,diagnostics=False,maximum_iterations=200,bounds=None,mode='gradient',show_figures=True,make_movie=False):
 
+    # initial_guess doesn't have linear/constant coefs:
+    order = len(initial_guess)+1
+    
     make_movie = make_movie and can_make_movie
 
-    base_image = np.abs(func(raw_data,0,0))
+    base_image = np.abs(func(raw_data,initial_guess))
     
     def norm(im):
         return (im-im.mean())/(im.std())
@@ -404,13 +407,11 @@ def optimize_dispersion(raw_data,func,diagnostics=False,maximum_iterations=200,b
 
     optimization_history = []
 
-
     if make_movie:
         mov = GIF(os.path.join(output_directory,'optimization.gif'),fps=30,dpi=50)
     
     def f(coefs):
-        c3,c2 = coefs
-        im = np.abs(func(raw_data,c3,c2))
+        im = np.abs(func(raw_data,coefs))
         xc = xcorr(im,base_image)/ac
 
         gradient = np.diff(im,axis=0)
@@ -468,15 +469,15 @@ def optimize_dispersion(raw_data,func,diagnostics=False,maximum_iterations=200,b
 
         return 1.0/image_quality
     
-    x0 = [0.0,0.0]
+    x0 = initial_guess
 
     res = spo.minimize(f,x0,method='nelder-mead',bounds=bounds,
                        options={'xatol':1e-11,'disp':True,'maxiter':maximum_iterations})
 
     if make_movie:
         mov.make()
-    pre_image = np.abs(func(raw_data,*x0))
-    post_image = np.abs(func(raw_data,*res.x))
+    pre_image = np.abs(func(raw_data,x0))
+    post_image = np.abs(func(raw_data,res.x))
 
     #np.save('optimization_pre.npy',pre_image)
     #np.save('optimization_post.npy',post_image)
