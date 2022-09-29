@@ -6,7 +6,7 @@ import sys,os,time
 import numpy as np
 from matplotlib import pyplot as plt
 import octoblob as blob
-from octoblob import config_reader,dispersion_ui
+from octoblob import config_reader,dispersion_tools
 from octoblob.bmp_tools import savebmp
 import glob
 import multiprocessing as mp
@@ -101,7 +101,7 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
         def process_for_ui(frame,c3,c2):
             return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.k_resample(blob.dc_subtract(frame),mapping_coefficients),[c3,c2,0.0,0.0]),0.9),oversampled_size=fft_oversampling_size,z1=bscan_z1,z2=bscan_z2,diagnostics=diagnostics)
         #[800:1200,:]
-        points,maxes = dispersion_ui.dispersion_ui(src.get_frame(0),process_for_ui)
+        points,maxes = dispersion_tools.dispersion_tools(src.get_frame(0),process_for_ui)
 
         # c2,c3 = points[np.argmax(maxes)]
         c2,c3 = points[-1]
@@ -118,7 +118,7 @@ def process(filename,diagnostics=False,show_processed_data=True,manual_dispersio
         def process_for_ui(frame,m3,m2):
             return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.k_resample(blob.dc_subtract(frame),[m3,m2,0.0,0.0]),dispersion_coefficients),0.9),oversampled_size=fft_oversampling_size,z1=bscan_z1,z2=bscan_z2,diagnostics=diagnostics)
         
-        points,maxes = dispersion_ui.dispersion_ui(src.get_frame(0),process_for_ui,c3min=-1e-9,c3max=1e-9,c2min=-1e-5,c2max=1e-5)
+        points,maxes = dispersion_tools.dispersion_tools(src.get_frame(0),process_for_ui,c3min=-1e-9,c3max=1e-9,c2min=-1e-5,c2max=1e-5)
 
         # m2,m3 = points[np.argmax(maxes)]
         m2,m3 = points[-1]

@@ -62,7 +62,7 @@ def max(im):
     return np.max(np.max(im,axis=0))
     #return np.max(im)
 
-def dispersion_ui(raw_data,func,c3min=c3min_default,c3max=c3max_default,c2min=c2min_default,c2max=c2max_default,title=''):
+def dispersion_tools(raw_data,func,c3min=c3min_default,c3max=c3max_default,c2min=c2min_default,c2max=c2max_default,title=''):
 
     markersize = 8.0
     
@@ -162,7 +162,7 @@ def dispersion_ui(raw_data,func,c3min=c3min_default,c3max=c3max_default,c2min=c2
     plt.show()
     return points,imaxes
 
-def mapping_dispersion_ui(raw_data,func,m3min=m3min_default,m3max=m3max_default,m2min=m2min_default,m2max=m2max_default,c3min=c3min_default,c3max=c3max_default,c2min=c2min_default,c2max=c2max_default,title=''):
+def mapping_dispersion_tools(raw_data,func,m3min=m3min_default,m3max=m3max_default,m2min=m2min_default,m2max=m2max_default,c3min=c3min_default,c3max=c3max_default,c2min=c2min_default,c2max=c2max_default,title=''):
 
     markersize = 8.0
     

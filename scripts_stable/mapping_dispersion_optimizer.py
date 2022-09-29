@@ -6,7 +6,7 @@ import sys,os,time
 import numpy as np
 from matplotlib import pyplot as plt
 import octoblob as blob
-from octoblob import config_reader,dispersion_ui
+from octoblob import config_reader,dispersion_tools
 from octoblob.bmp_tools import savebmp
 import glob
 import multiprocessing as mp
@@ -49,7 +49,7 @@ def process(filename):
     def process_for_optimization(frame,m3,m2,c3,c2):
         return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.k_resample(blob.dc_subtract(frame),[m3,m2,0.0,0.0]),[c3,c2,0.0,0.0]),0.9),oversampled_size=params.fft_oversampling_size,z1=params.bscan_z1,z2=params.bscan_z2)
     
-    # m3,m2,c3,c2 = dispersion_ui.mapping_dispersion_ui(src.get_frame(0),process_for_mapping_dispersion_ui,
+    # m3,m2,c3,c2 = dispersion_tools.mapping_dispersion_tools(src.get_frame(0),process_for_mapping_dispersion_tools,
     #                                                   params.m3min,params.m3max,params.m2min,params.m2max,
     #                                                   params.c3min,params.c3max,params.c2min,params.c2max,
     #                                                   'Select mapping and dispersion coefficients; results of final clicks will be printed.')
@@ -60,7 +60,7 @@ def process(filename):
               (params.c3min,params.c3max),
               (params.c2min,params.c2max)]
     
-    m3,m2,c3,c2 = dispersion_ui.optimize_mapping_dispersion(src.get_frame(0),process_for_optimization,diagnostics=False,bounds=None,maximum_iterations=200)
+    m3,m2,c3,c2 = dispersion_tools.optimize_mapping_dispersion(src.get_frame(0),process_for_optimization,diagnostics=False,bounds=None,maximum_iterations=200)
 
     print('mapping_coefficients = [%0.1e, %0.1e, 0.0, 0.0]'%(m3,m2))
     print('dispersion_coefficients = [%0.1e, %0.1e, 0.0, 0.0]'%(c3,c2))

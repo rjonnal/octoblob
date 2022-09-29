@@ -6,7 +6,7 @@ import sys,os,time
 import numpy as np
 from matplotlib import pyplot as plt
 import octoblob as blob
-from octoblob import config_reader,dispersion_ui
+from octoblob import config_reader,dispersion_tools
 from octoblob.bmp_tools import savebmp
 import scipy.optimize as spo
 

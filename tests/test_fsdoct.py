@@ -6,7 +6,7 @@ import sys,os,time
 import numpy as np
 from matplotlib import pyplot as plt
 import octoblob as blob
-from octoblob import config_reader,dispersion_ui
+from octoblob import config_reader,dispersion_tools
 from octoblob.bmp_tools import savebmp
 from octoblob import registration_tools as rt
 
@@ -68,7 +68,7 @@ if False:
     def process(frame,c3,c2):
         #return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.k_resample(blob.dc_subtract(frame),mapping_coefficients),[c3,c2,0.0,0.0]),0.9))
         return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(resampler.map(blob.dc_subtract(frame)),[c3,c2,0.0,0.0]),0.9))[1750:2000,:]
-    points,maxes = dispersion_ui.dispersion_ui(src.get_frame(frame_index,diagnostics=True),process)
+    points,maxes = dispersion_tools.dispersion_tools(src.get_frame(frame_index,diagnostics=True),process)
 
     c2,c3 = points[np.argmax(maxes)]
     print('Optimized coefficients:')

@@ -5,7 +5,7 @@
 
 import os,sys,glob,shutil
 import logging
-from octoblob import config_reader,dispersion_ui
+from octoblob import config_reader,dispersion_tools
 from octoblob import segmentation as seg
 from octoblob.volume_tools import Volume, VolumeSeries, Boundaries, show3d
 from octoblob.default_parameters import default_parameter_dictionary
@@ -202,7 +202,7 @@ def optimize_mapping_dispersion(filename,show_figures=False,mode='gradient',diag
     else:
         diagnostics_pair = False
         
-    m3,m2,c3,c2 = dispersion_ui.optimize_mapping_dispersion(src.get_frame(frame_index),process_for_optimization,diagnostics=diagnostics_pair,bounds=None,maximum_iterations=200,mode=mode,show_figures=show_figures)
+    m3,m2,c3,c2 = dispersion_tools.optimize_mapping_dispersion(src.get_frame(frame_index),process_for_optimization,diagnostics=diagnostics_pair,bounds=None,maximum_iterations=200,mode=mode,show_figures=show_figures)
 
     params['m3'] = m3
     params['m2'] = m2
@@ -244,7 +244,7 @@ def optimize_dispersion(filename,show_figures=False,mode='gradient',diagnostics=
     else:
         diagnostics_pair = False
         
-    coefs = dispersion_ui.optimize_dispersion(src.get_frame(frame_index),process_for_optimization,dispersion_initial,diagnostics=diagnostics_pair,bounds=None,maximum_iterations=200,mode=mode,show_figures=show_figures)
+    coefs = dispersion_tools.optimize_dispersion(src.get_frame(frame_index),process_for_optimization,dispersion_initial,diagnostics=diagnostics_pair,bounds=None,maximum_iterations=200,mode=mode,show_figures=show_figures)
 
     params['dispersion_optimized'] = coefs
     save_dict(params_filename,params)
@@ -272,7 +272,7 @@ def manual_mapping_dispersion(filename,frame_index=0):
     def process_for_optimization(frame,m3,m2,c3,c2):
         return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.k_resample(blob.dc_subtract(frame),[m3,m2,0.0,0.0]),[c3,c2,0.0,0.0]),0.9),oversampled_size=params['fft_oversampling_size'],z1=params['bscan_z1'],z2=params['bscan_z2'])
     
-    m3,m2,c3,c2 = dispersion_ui.mapping_dispersion_ui(src.get_frame(frame_index),process_for_optimization)
+    m3,m2,c3,c2 = dispersion_tools.mapping_dispersion_tools(src.get_frame(frame_index),process_for_optimization)
 
     params['m3'] = m3
     params['m2'] = m2
