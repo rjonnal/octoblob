@@ -61,6 +61,7 @@ def k_resample(spectra,coefficients):
     # define an error polynomial, using the passed coefficients, and then
     # use this polynomial to define the error at each index 1..N+1
     error = np.polyval(coefficients,x_in)
+    print(error)
     x_out = x_in + error
 
     # using the spectra measured at indices x_in, interpolate the spectra at indices x_out
@@ -106,28 +107,6 @@ def process_bscan(spectra,mapping_coefficients=[0.0],dispersion_coefficients=[0.
     bscan = np.fft.fft(spectra,axis=0)
     return bscan
 
-
-def get_bscan_qimage(filename,mapping_coefficients=[0.0],dispersion_coefficients=[0.0],window_sigma=0.9):
-    spectra = np.load(filename)
-    bscan = process_bscan(spectra,mapping_coefficients,dispersion_coefficients,window_sigma)
-    bscan = 20*np.log10(np.abs(bscan))
-
-    bscan = np.clip(bscan,*dB_lims)
-    bscan = bscan/np.max(bscan)
-    bscan = bscan*255
-    img = np.round(bscan).astype(np.uint8)
-    
-    #qimage = QImage(bscan.data, w, h, 3 * w, QImage.Format_RGB888)
-
-
-    img = np.zeros((bscan.shape[0], bscan.shape[1]), dtype=np.uint8)
-    img[:] = bscan[:]
-    # Turn up red channel to full scale
-    #img[...,0] = 255
-    qimage = QImage(img.data, img.shape[1], img.shape[0], QImage.Format_Grayscale8)
-    
-    #qimage = QImage(bscan,bscan.shape[1],bscan.shape[0],QImage.Format_RGB888)
-    return qimage
 
 if False:
     # Define dispersion coefficients; these were taken from a recent run of the optimizer:
@@ -217,7 +196,15 @@ class QImageViewer(QMainWindow):
 
         self.printer = QPrinter()
         self.scaleFactor = 0.0
+        self.mapping_coefficients = [0.0,0.0]
+        self.dispersion_coefficients = [0.0,0.0]
+        
+        self.mapping_steps = [1e-3,1e-1]
+        self.dispersion_steps = [1e-9,1e-5]
 
+        self.cropz1 = None
+        self.cropz2 = None
+        
         self.imageLabel = QLabel()
         self.imageLabel.setBackgroundRole(QPalette.Base)
         self.imageLabel.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
@@ -236,34 +223,44 @@ class QImageViewer(QMainWindow):
         self.setWindowTitle("Image Viewer")
         self.resize(800, 600)
 
+        self.spectra = None
+        
+        if len(sys.argv)>=2:
+            print(sys.argv)
+            fn = sys.argv[1]
+            self.spectra = np.load(fn)
+
+            self.update_image()
+            self.filename = fn
+
+        
+
+    def update_image(self):
+        image = self.get_bscan_qimage(self.spectra,mapping_coefficients=self.mapping_coefficients,dispersion_coefficients=self.dispersion_coefficients)
+        self.imageLabel.setPixmap(QPixmap.fromImage(image))
+        self.scaleFactor = 1.0
+        
+        self.scrollArea.setVisible(True)
+        self.printAct.setEnabled(True)
+        self.fitToWindowAct.setEnabled(True)
+        self.updateActions()
+
+        if not self.fitToWindowAct.isChecked():
+            self.imageLabel.adjustSize()
+
+        print('mapping_coefficients: %s'%self.mapping_coefficients)
+        print('dispersion_coefficients: %s'%self.dispersion_coefficients)
+                
     def open(self):
         options = QFileDialog.Options()
         # fileName = QFileDialog.getOpenFileName(self, "Open File", QDir.currentPath())
         fileName, _ = QFileDialog.getOpenFileName(self, 'QFileDialog.getOpenFileName()', '',
                                                   'Images (*.npy)', options=options)
         if fileName:
-
-            image = get_bscan_qimage(fileName)
+            self.spectra = np.load(fileName)
+            self.update_image()
             
-            #image = QImage(fileName)
-
-
             
-            if image.isNull():
-                QMessageBox.information(self, "Image Viewer", "Cannot load %s." % fileName)
-                return
-
-            self.imageLabel.setPixmap(QPixmap.fromImage(image))
-            self.scaleFactor = 1.0
-
-            self.scrollArea.setVisible(True)
-            self.printAct.setEnabled(True)
-            self.fitToWindowAct.setEnabled(True)
-            self.updateActions()
-
-            if not self.fitToWindowAct.isChecked():
-                self.imageLabel.adjustSize()
-
     def print_(self):
         dialog = QPrintDialog(self.printer, self)
         if dialog.exec_():
@@ -313,13 +310,65 @@ class QImageViewer(QMainWindow):
         self.openAct = QAction("&Open...", self, shortcut="Ctrl+O", triggered=self.open)
         self.printAct = QAction("&Print...", self, shortcut="Ctrl+P", enabled=False, triggered=self.print_)
         self.exitAct = QAction("E&xit", self, shortcut="Ctrl+Q", triggered=self.close)
-        self.zoomInAct = QAction("Zoom &In (25%)", self, shortcut="Ctrl++", enabled=False, triggered=self.zoomIn)
+        self.zoomInAct = QAction("Zoom &In (25%)", self, shortcut="Ctrl+=", enabled=False, triggered=self.zoomIn)
         self.zoomOutAct = QAction("Zoom &Out (25%)", self, shortcut="Ctrl+-", enabled=False, triggered=self.zoomOut)
         self.normalSizeAct = QAction("&Normal Size", self, shortcut="Ctrl+S", enabled=False, triggered=self.normalSize)
         self.fitToWindowAct = QAction("&Fit to Window", self, enabled=False, checkable=True, shortcut="Ctrl+F",
                                       triggered=self.fitToWindow)
         self.aboutAct = QAction("&About", self, triggered=self.about)
         self.aboutQtAct = QAction("About &Qt", self, triggered=qApp.aboutQt)
+        
+
+    def c3up(self):
+        self.dispersion_coefficients[0]+=self.dispersion_steps[0]
+        self.update_image()
+    def c3down(self):
+        self.dispersion_coefficients[0]-=self.dispersion_steps[0]
+        self.update_image()
+    def c2up(self):
+        self.dispersion_coefficients[1]+=self.dispersion_steps[1]
+        self.update_image()
+    def c2down(self):
+        self.dispersion_coefficients[1]-=self.dispersion_steps[1]
+        self.update_image()
+
+
+    def m3up(self):
+        self.mapping_coefficients[0]+=self.mapping_steps[0]
+        self.update_image()
+    def m3down(self):
+        self.mapping_coefficients[0]-=self.mapping_steps[0]
+        self.update_image()
+    def m2up(self):
+        self.mapping_coefficients[1]+=self.mapping_steps[1]
+        self.update_image()
+    def m2down(self):
+        self.mapping_coefficients[1]-=self.mapping_steps[1]
+        self.update_image()
+
+        
+
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key_A:
+            self.m3up()
+        if e.key() == Qt.Key_Z:
+            self.m3down()
+            
+        if e.key() == Qt.Key_S:
+            self.m2up()
+        if e.key() == Qt.Key_X:
+            self.m2down()
+
+        if e.key() == Qt.Key_D:
+            self.c3up()
+        if e.key() == Qt.Key_C:
+            self.c3down()
+            
+        if e.key() == Qt.Key_F:
+            self.c2up()
+        if e.key() == Qt.Key_V:
+            self.c2down()
+            
 
     def createMenus(self):
         self.fileMenu = QMenu("&File", self)
@@ -361,6 +410,39 @@ class QImageViewer(QMainWindow):
     def adjustScrollBar(self, scrollBar, factor):
         scrollBar.setValue(int(factor * scrollBar.value()
                                + ((factor - 1) * scrollBar.pageStep() / 2)))
+
+    def get_bscan_qimage(self,spectra,mapping_coefficients=[0.0],dispersion_coefficients=[0.0],window_sigma=0.9):
+        bscan = process_bscan(spectra,mapping_coefficients,dispersion_coefficients,window_sigma)
+        bscan = bscan[bscan.shape[0]//2:,:]
+        bscan = 20*np.log10(np.abs(bscan))
+        #bscan = bscan.T
+
+
+        if self.cropz1 is None:
+            bprof = np.mean(bscan,axis=1)
+            bprof = bprof - np.min(bprof)
+            z = np.arange(len(bprof))
+            com = int(round(np.sum(bprof*z)/np.sum(bprof)))
+            bscan = bscan[com-150:com+150,:]
+            self.cropz1 = com-150
+            self.cropz2 = com+150
+        else:
+            bscan = bscan[self.cropz1:self.cropz2]
+
+        bscan = np.clip(bscan,*dB_lims)
+
+        bscan = (bscan-np.min(bscan))/(np.max(bscan)-np.min(bscan))
+        bscan = bscan*255
+        img = np.round(bscan).astype(np.uint8)
+
+        img = np.zeros((bscan.shape[0], bscan.shape[1]), dtype=np.uint8)
+        img[:] = bscan[:]
+        # Turn up red channel to full scale
+        #img[...,0] = 255
+        qimage = QImage(img.data, img.shape[1], img.shape[0], img.shape[1], QImage.Format_Grayscale8)
+
+        #qimage = QImage(bscan,bscan.shape[1],bscan.shape[0],QImage.Format_RGB888)
+        return qimage
 
 
 if __name__ == '__main__':
