@@ -84,11 +84,17 @@ def run(obj_f,bscan_f,spectra,bounds):
         init = [0.0,0.0]
     plt.subplot(1,2,1)
     plt.title('%s (pre)'%obj_f.__doc__)
-    plt.imshow(bscan_f(spectra,init),cmap='gray',aspect='auto')
+    plt.imshow(bscan_f(init,spectra),cmap='gray',aspect='auto')
     plt.colorbar()
-    res = spo.minimize(obj_f,init,args=(spectra,True,blobf.iq_maxes),bounds=bounds,method=method,options=optimization_options)
+    res = spo.minimize(obj_f,init,args=(spectra,False,blobf.sharpness),bounds=bounds,method=method,options=optimization_options)
+    plt.subplot(1,2,2)
+    plt.title('%s (post)'%obj_f.__doc__)
+    plt.imshow(bscan_f(res.x,spectra),cmap='gray',aspect='auto')
+    plt.colorbar()
+    plt.show()
 
-run(obj_d,bscan_d,spectra,dispersion_bounds)
+    
+run(obj_md,bscan_md,spectra,dispersion_bounds)
 
 #res = spo.minimize(obj_d,[0.0,0.0],args=(spectra,True,blobf.iq_max),method=method,options=optimization_options)
 #res = spo.minimize(obj_d,[0.0,0.0],args=(spectra,True,blobf.iq_max),method=method,options=optimization_options)
