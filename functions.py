@@ -99,6 +99,8 @@ def k_resample(spectra,coefficients):
 # is defined on index x rather than k, but for physically meaningful numbers we should
 # use k instead
 def dispersion_compensate(spectra,coefficients):
+    if not any(coefficients):
+        return spectra
     coefs = list(coefficients) + [0.0,0.0]
     # define index x:
     x = np.arange(1,spectra.shape[0]+1)
@@ -135,68 +137,34 @@ def process_bscan(spectra,mapping_coefficients=[0.0],dispersion_coefficients=[0.
     return bscan
 
 
+# Image quality metrics
+def iq_max(im):
+    """Image max"""
+    return np.max(im)
 
-# An example of optimizing dispersion:
+def iq_maxes(im):
+    """Mean of brightest\n1 pct of pixels"""
+    temp = im.ravel()
+    N = round(len(temp)*0.01)
+    temp = np.partition(-temp, N)
+    result = -temp[:N]
+    return np.mean(result)
 
-# First, we need an objective function that takes the two dispersion coefficients and outputs
-# a single value to be minimized; for simplicity, we'll use the reciprocal of the brightest
-# pixel in the image. An oddity here is that the function can see outside its scope and thus
-# has access to the variable 'spectra', defined at the top by loading from the NPY file. We
-# then call our process_bscans function, using the coefficients passed into this objective
-# function. From the resulting B-scan, we calculate our value to be minimized:
-def obj_func(coefs,save=False):
-    bscan = process_bscan(spectra,coefs)
-    # we don't need the complex conjugate, so let's determine the size of the B-scan and crop
-    # the bottom half (sz//2:) for use. (// means integer division--we can't index with floats;
-    # also, the sz//2: is implied indexing to the bottom of the B-scan:
-    sz,sx = bscan.shape
-    bscan = bscan[sz//2:,:]
-    # we also want to avoid DC artifacts from dominating the image brightness or gradients,
-    # so let's remove the bottom, using negative indexing.
-    # See: https://numpy.org/devdocs/user/basics.indexing.html
-    bscan = bscan[:-50,:]
-    # Finally let's compute the amplitude (modulus) max and return its reciprocal:
-    bscan = np.abs(bscan)
-    bscan = bscan[-300:] # IMPORTANT--THIS WON'T WORK IN GENERAL, ONLY ON THIS DATA SET 16_53_25
-    out = 1.0/np.max(bscan)
-    
-    # Maybe we want to visualize it; change to False to speed things up
-    if True:
-        # clear the current axis
-        plt.cla()
-        # show the image:
-        plt.imshow(20*np.log10(bscan),cmap='gray',clim=dB_lims)
-        # pause:
-        plt.pause(0.001)
+def gradient_mean(im):
+    """Mean of absolute\nz-derivative"""
+    return np.mean(np.abs(np.diff(im,axis=0)))
 
-    if save:
-        order = len(coefs)+1
-        os.makedirs('dispersion_compensation_results',exist_ok=True)
-        plt.cla()
-        plt.imshow(20*np.log10(bscan),cmap='gray',clim=dB_lims)
-        plt.title('order %d\n %s'%(order,list(coefs)+[0.0,0.0]),fontsize=10)
-        plt.colorbar()
-        plt.savefig('dispersion_compensation_results/order_%d.png'%order,dpi=150)
-    return out
+def gradient_median(im):
+    """Median of absolute\nz-derivative"""
+    return np.mean(np.abs(np.diff(im,axis=0)))
 
+def average_aline_contrast(im):
+    """Mean of A-scan\nMichelson contrast""" 
+    x = np.max(im,axis=0)
+    n = np.min(im,axis=0)
+    return np.mean((x-n)/(x+n))
 
-# Now we can define some settings for the optimization:
+def sharpness(im):
+    """Image sharpness"""
+    return np.sum(im**2)/(np.sum(im)**2)
 
-def optimize_dispersion(spectra,obj_func,initial_guess):
-
-    # spo.minimize accepts an additional argument, a dictionary containing further
-    # options; we want can specify an error tolerance, say about 1% of the bounds.
-    # we can also specify maximum iterations:
-    optimization_options = {'xatol':1e-10,'maxiter':10000}
-
-    # optimization algorithm:
-    # See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
-    method = 'nelder-mead'
-
-
-    # Now we run it; Nelder-Mead cannot use bounds, so we pass None
-    res = spo.minimize(obj_func,initial_guess,method='nelder-mead',bounds=None,options=optimization_options)
-
-    print('Optimization result (order: %d):'%order)
-    print(res.x)
-    print(obj_func(res.x,save=True))

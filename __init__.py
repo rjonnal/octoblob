@@ -31,7 +31,7 @@ class ProcessingParameters:
         # p(x) is a the sampling error in x,
         # and the measured spectra are interpolated from
         # x -> x+p(x)
-        self.k_resampling_coefficients = [12.5e-10,-12.5e-7,0,0]
+        self.k_resampling_coefficients = [12.5e-10,-12.5e-7]
 
         # these are the coefficients for the unit-amplitude
         # phasor used for removing dispersion chirp; if the
@@ -41,7 +41,7 @@ class ProcessingParameters:
         # D = e^[-i*p(x)]
         # the spectra are dechirped by:
         # dechirped_spectrum = spectra*D
-        self.dispersion_coefficients = [0.0,1.5e-6,0.0,0.0]
+        self.dispersion_coefficients = [0.0,1.5e-6]
 
         # the width of the window for gaussian windowing:
         self.gaussian_window_sigma = 0.9
@@ -526,6 +526,7 @@ def k_resample(spectra,coefficients=pp.k_resampling_coefficients,diagnostics=Fal
          different from linear, and may be slower. 'spline' in
          MATLAB means 'cubic spline'.
     """
+    coefficients = list(coefficients)+[0.0,0.0]
     # x_in specified on 1..N+1 to accord w/ Justin's code
     # fix this later, ideally as part of a greater effort
     # to define our meshes for mapping and dispersion compensation

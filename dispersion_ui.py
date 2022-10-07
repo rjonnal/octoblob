@@ -20,11 +20,14 @@ dB_lims = [45,85]
 crop_height = 300 # height of viewable B-scan, centered at image z centroid (center of mass)
 
 # step sizes for incrementing/decrementing coefficients:
-mapping_steps = [1e-4,1e-2]
-dispersion_steps = [1e-10,1e-8]
+mapping_steps = [1e-9,1e-6]
+dispersion_steps = [1e-9,1e-8]
 fbg_position = 90
 bit_shift_right = 4
 window_sigma = 0.9
+
+ui_width = 400
+ui_height = 600
 #######################################
 
 # Now we'll define some functions for the half-dozen or so processing
@@ -81,6 +84,7 @@ def k_resample(spectra,coefficients):
          of multiple light sources, for instance. Ditto for the
          dispersion compensation code.
     """
+    coefficients = coefficients + [0.0,0.0]
     # x_in specified on array index 1..N+1
     x_in = np.arange(1,spectra.shape[0]+1)
 
@@ -191,13 +195,9 @@ def optimize_dispersion(spectra,obj_func,initial_guess):
     # See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
     method = 'nelder-mead'
 
-
     # Now we run it; Nelder-Mead cannot use bounds, so we pass None
     res = spo.minimize(obj_func,initial_guess,method='nelder-mead',bounds=None,options=optimization_options)
-
-    print('Optimization result (order: %d):'%order)
-    print(res.x)
-    print(obj_func(res.x,save=True))
+    
 
 if len(sys.argv)>=2:
     if sys.argv[1]=='0':
@@ -239,7 +239,7 @@ class QImageViewer(QMainWindow):
         self.createMenus()
 
         self.setWindowTitle("Image Viewer")
-        self.resize(800, 600)
+        self.resize(ui_width, ui_height)
 
         self.spectra = None
         self.crop_half_height = crop_height//2
@@ -285,7 +285,7 @@ class QImageViewer(QMainWindow):
         print('bscan max amplitude: %0.1f'%self.bscan_max_amplitude)
         print('bscan max gradient: %0.1f'%self.bscan_max_gradient)
         print('bscan mean gradient: %0.1f'%self.bscan_mean_gradient)
-        n_hash = round(self.bscan_max_amplitude/self.bscan_max_amplitude_original*100.0)
+        n_hash = min(round(self.bscan_max_amplitude/self.bscan_max_amplitude_original*100.0),120)
         print('max: '+'#'*n_hash)
                 
     def open(self):
@@ -324,13 +324,15 @@ class QImageViewer(QMainWindow):
 
     def about(self):
         QMessageBox.about(self, "OCT Viewer",
-                          "<p>Y/H increase/decrease 3rd order mapping coefficient<\p>"
-                          "<p>U/J increase/decrease 2rd order mapping coefficient<\p>"
-                          "<p>I/K increase/decrease 3rd order dispersion coefficient<\p>"
-                          "<p>O/L increase/decrease 2rd order dispersion coefficient<\p>"
-                          "<p>R/F increase/decrease lower contrast limit (dB)<\p>"
-                          "<p>T/G increase/decrease upper contrast limit (dB)<\p>"
-                          "<p>E/D increase/decrease spectral Gaussian window sigma<\p>"
+                          "<p>For the following adjustments, use CTRL for 10x and SHIFT-CTRL for 100x:<br>"
+                          "Y/H keys increase/decrease 3rd order mapping coefficient<br>"
+                          "U/J keys increase/decrease 2rd order mapping coefficient<br>"
+                          "I/K keys increase/decrease 3rd order dispersion coefficient<br>"
+                          "O/L keys increase/decrease 2rd order dispersion coefficient<br></p>"
+                          "<p>R/F increase/decrease lower contrast limit (dB)</p>"
+                          "<p>T/G increase/decrease upper contrast limit (dB)</p>"
+                          "<p>E/D increase/decrease spectral Gaussian window sigma</p>"
+                          "<p>Z sets dispersion and mapping coefficients to all zeros</p>"
                           "<p>See menus for other options.</p>")
 
     def createActions(self):
@@ -341,8 +343,7 @@ class QImageViewer(QMainWindow):
         self.normalSizeAct = QAction("&Normal Size", self, shortcut="Ctrl+S", enabled=False, triggered=self.normalSize)
         self.fitToWindowAct = QAction("&Fit to Window", self, enabled=False, checkable=True, shortcut="Ctrl+F",
                                       triggered=self.fitToWindow)
-        self.aboutAct = QAction("&About", self, triggered=self.about)
-        self.aboutQtAct = QAction("About &Qt", self, triggered=qApp.aboutQt)
+        self.aboutAct = QAction("&About OCTView", self, triggered=self.about)
         
 
     def c3up(self,multiplier=1.0):
@@ -465,6 +466,11 @@ class QImageViewer(QMainWindow):
             self.spectra = load_spectra(self.filename,self.frame_index)
             self.update_image()
 
+        elif e.key() == Qt.Key_Z:
+            self.dispersion_coefficients = [0.0,0.0]
+            self.mapping_coefficients = [0.0,0.0]
+            self.update_image()
+            
         elif e.key() == Qt.Key_Escape:
             self.close()
             
@@ -484,7 +490,6 @@ class QImageViewer(QMainWindow):
 
         self.helpMenu = QMenu("&Help", self)
         self.helpMenu.addAction(self.aboutAct)
-        self.helpMenu.addAction(self.aboutQtAct)
 
         self.menuBar().addMenu(self.fileMenu)
         self.menuBar().addMenu(self.viewMenu)
@@ -517,11 +522,10 @@ class QImageViewer(QMainWindow):
         abs_grad = np.abs(np.diff(bscan,axis=0))
         self.bscan_max_gradient = np.max(abs_grad)
         self.bscan_mean_gradient = np.mean(abs_grad)
-        
+
         if self.bscan_max_amplitude_original is None:
             self.bscan_max_amplitude_original = self.bscan_max_amplitude
 
-            
         bscan = 20*np.log10(bscan)
         #bscan = bscan.T
 
