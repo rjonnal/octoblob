@@ -3,11 +3,34 @@ import numpy as np
 from matplotlib import pyplot as plt
 import time
 import scipy.optimize as spo
-import sys
-import numba
+import sys,os
+import pathlib
 
 dB_lims = (45,80)
 fbg_search_distance = 11
+noise_samples = 80
+output_folder = 'crawler_output'
+
+unp_files = pathlib.Path('.').rglob('*.unp')
+
+os.makedirs(output_folder,exist_ok=True)
+for unp_file in unp_files:
+    print(unp_file)
+    path,fn = os.path.split(unp_file)
+    path = os.path.join(output_folder,path)
+    fn_root = fn.replace('.unp','')+'_diagnostics'
+    path = os.path.join(path,fn_root)
+    
+    os.makedirs(path,exist_ok=True)
+    print(unp_file)
+    spectra = blobf.load_spectra(unp_file,0)
+    spectra = blobf.fbg_align(spectra,fbg_search_distance,noise_samples=noise_samples,diagnostics_path=path)
+    
+    
+sys.exit()
+
+
+
 
 try:
     fn = sys.argv[1]

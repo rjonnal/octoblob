@@ -154,7 +154,7 @@ class OCTRawData:
         # with shape (n_k,n_fast*n_repeats)
         if not self.has_fbg:
             return frame
-        
+
         region_height = self.fbg_region_height
         
         z1 = self.fbg_position-region_height//2
@@ -185,6 +185,7 @@ class OCTRawData:
             # ideally, get rid of the +1 here and add back the zero-centering below
 
             position = np.argsort(fbg_region_derivative,axis=0)[-1,:].astype(np.int)+1
+            
             if debug:
                 plt.figure()
                 plt.imshow(fbg_region,cmap='gray',aspect='auto',clim=(np.min(fbg_region),np.max(fbg_region)))

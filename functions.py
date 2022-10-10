@@ -18,14 +18,15 @@ crop_height = 300 # height of viewable B-scan, centered at image z centroid (cen
 # step sizes for incrementing/decrementing coefficients:
 mapping_steps = [1e-4,1e-2]
 dispersion_steps = [1e-10,1e-8]
-fbg_position = 90
+# let's start doing this explicitly with a function in this module, instead of buried inside
+# the OCTRawData class; fbg_position used to be set to 90; now set it to None and handle it separately
+fbg_position = None
 bit_shift_right = 4
 window_sigma = 0.9
 #######################################
 
 # Now we'll define some functions for the half-dozen or so processing
 # steps:
-
 def load_spectra(fn,index=0):
     ext = os.path.splitext(fn)[1]
     if ext.lower()=='.unp':
@@ -52,6 +53,40 @@ def load_spectra(fn,index=0):
         spectra = np.load(fn)
     else:
         sys.exit('File %s is of unknown type.'%fn)
+    return spectra.astype(np.float)
+
+
+def fbg_align(spectra,fbg_search_distance,noise_samples=80,diagnostics_path=None):
+    spectra[:noise_samples,:] = spectra[noise_samples,:]
+    prof = np.nanmean(spectra,axis=1)
+    idx = np.argmax(np.diff(prof))
+
+    fbg_locations = np.zeros(spectra.shape[1],dtype=np.int)
+    temp = np.zeros(len(prof)-1)
+
+    if diagnostics_path is not None:
+        plt.figure()
+        plt.subplot(1,2,1)
+        plt.imshow(spectra,aspect='auto',cmap='gray')
+        plt.ylim((150,0))
+        
+    for k in range(spectra.shape[1]):
+        temp[:] = np.diff(spectra[:,k],axis=0)
+        temp[:idx-fbg_search_distance] = 0
+        temp[idx+fbg_search_distance:] = 0
+        fbg_locations[k] = np.argmax(temp)
+
+    fbg_locations = fbg_locations - int(np.median(fbg_locations))
+    for k in range(spectra.shape[1]):
+        spectra[:,k] = np.roll(spectra[:,k],-fbg_locations[k])
+
+    if diagnostics_path is not None:
+        plt.subplot(1,2,2)
+        plt.imshow(spectra,aspect='auto',cmap='gray')
+        plt.ylim((150,0))
+        plt.savefig(os.path.join(diagnostics_path,'fbg_align.png'))
+        plt.close()
+
     return spectra
 
 # We need a way to estimate and remove DC:
