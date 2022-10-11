@@ -27,26 +27,30 @@ window_sigma = 0.9
 
 # Now we'll define some functions for the half-dozen or so processing
 # steps:
+
+def get_source(fn):
+    from octoblob import config_reader
+    import octoblob as blob
+
+    cfg = config_reader.get_configuration(fn.replace('.unp','.xml'))
+    n_vol = cfg['n_vol']
+    n_slow = cfg['n_slow']
+    n_repeats = cfg['n_bm_scans']
+    n_fast = cfg['n_fast']
+    n_depth = cfg['n_depth']
+
+    # some conversions to comply with old conventions:
+    n_slow = n_slow//n_repeats
+    n_fast = n_fast*n_repeats
+    src = blob.OCTRawData(fn,n_vol,n_slow,n_fast,n_depth,n_repeats,fbg_position=fbg_position,bit_shift_right=bit_shift_right)
+    return src
+
+    
 def load_spectra(fn,index=0):
     ext = os.path.splitext(fn)[1]
     if ext.lower()=='.unp':
-        from octoblob import config_reader
-        import octoblob as blob
+        src = get_source(fn)
         
-        cfg = config_reader.get_configuration(fn.replace('.unp','.xml'))
-        n_vol = cfg['n_vol']
-        n_slow = cfg['n_slow']
-        n_repeats = cfg['n_bm_scans']
-        n_fast = cfg['n_fast']
-        n_depth = cfg['n_depth']
-
-        # some conversions to comply with old conventions:
-        n_slow = n_slow//n_repeats
-        n_fast = n_fast*n_repeats
-
-        
-        src = blob.OCTRawData(fn,n_vol,n_slow,n_fast,n_depth,n_repeats,fbg_position=fbg_position,bit_shift_right=bit_shift_right)
-
         index = index%(n_slow*n_vol)
         spectra = src.get_frame(index)
     elif ext.lower()=='.npy':

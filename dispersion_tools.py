@@ -234,8 +234,11 @@ def stats(im):
     s = im.std()
     c = 20*np.log10((x-n)/(x+n))
     return '%0.1f (mean); %0.1f (max); %0.1f (min); %0.1f (std); %0.3e (contrast dB)'%(m,x,n,s,c)
-    
-def optimize_mapping_dispersion(raw_data,func,diagnostics=False,maximum_iterations=200,bounds=None,mode='gradient',show_figures=True,make_movie=False):
+
+
+
+
+def optimize_mapping_dispersion0(raw_data,func,diagnostics=False,maximum_iterations=200,bounds=None,mode='gradient',show_figures=True,make_movie=False):
 
     make_movie = make_movie and can_make_movie
 

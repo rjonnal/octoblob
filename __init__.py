@@ -103,6 +103,8 @@ class OCTRawData:
         
         self.bytes_per_pixel = self.dtype(1).itemsize
         self.n_bytes = self.n_vol*self.n_slow*self.n_fast*self.n_depth*self.bytes_per_pixel
+        self.n_total_frames = self.n_vol*self.n_slow
+        self.current_frame_index = 0
         self.filename = filename
         self.has_fbg = not (fbg_position is None or fbg_position==-1)
         self.fbg_position = fbg_position
@@ -136,6 +138,14 @@ class OCTRawData:
             print('File size incorrect.\n%d\texpected\n%d\tactual'%(self.n_bytes,file_size))
             self.print_volume_info()
 
+    def has_more_frames(self):
+        return self.current_frame_index<self.n_total_frames
+
+    def next_frame(self):
+        frame = self.get_frame(self.current_frame_index)
+        self.current_frame_index+=1
+        return frame
+            
     def print_volume_info(self):
         #print('n_vol\t\t%d\nn_slow\t\t%d\nn_repeats\t%d\nn_fast\t\t%d\nn_depth\t\t%d\nbytes_per_pixel\t%d\ntotal_expected_size\t%d'%(self.n_vol,self.n_slow,self.n_repeats,self.n_fast,self.n_depth,self.bytes_per_pixel,self.n_bytes))
         print(self.get_info())
@@ -598,6 +608,40 @@ def dispersion_compensate(spectra,coefficients=pp.dispersion_coefficients,diagno
         save_diagnostics(diagnostics,'dispersion_compensation')
     return dechirped
     
+
+def fbg_align(spectra,fbg_search_distance=11,noise_samples=80,diagnostics=False):
+    spectra[:noise_samples,:] = spectra[noise_samples,:]
+    prof = np.nanmean(spectra,axis=1)
+    idx = np.argmax(np.diff(prof))
+
+    fbg_locations = np.zeros(spectra.shape[1],dtype=np.int)
+    temp = np.zeros(len(prof)-1)
+
+    if diagnostics:
+        plt.figure(figsize=(2*opf.IPSP,opf.IPSP),dpi=opf.screen_dpi)
+        plt.subplot(1,2,1)
+        plt.imshow(spectra,aspect='auto',cmap='gray')
+        plt.ylim((150,0))
+        
+    for k in range(spectra.shape[1]):
+        temp[:] = np.diff(spectra[:,k],axis=0)
+        temp[:idx-fbg_search_distance] = 0
+        temp[idx+fbg_search_distance:] = 0
+        fbg_locations[k] = np.argmax(temp)
+
+    fbg_locations = fbg_locations - int(np.median(fbg_locations))
+    for k in range(spectra.shape[1]):
+        spectra[:,k] = np.roll(spectra[:,k],-fbg_locations[k])
+
+    if diagnostics:
+        plt.subplot(1,2,2)
+        plt.imshow(spectra,aspect='auto',cmap='gray')
+        plt.ylim((150,0))
+        save_diagnostics(diagnostics,'fbg_align')
+    return spectra
+
+
+
 
 def gaussian_window(spectra,sigma=pp.gaussian_window_sigma,diagnostics=False):
     # WindowMat = repmat(exp(-((linspace(-1,1,size(Aspectra,1)))'.^2)/SIG),[1,C*D2]);

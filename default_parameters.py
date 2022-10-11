@@ -4,8 +4,13 @@ if system_label=='clinical_org':
     default_parameter_dictionary = {}
     default_parameter_dictionary['bit_shift_right'] = 4
     default_parameter_dictionary['dtype'] = 'u2'
-    default_parameter_dictionary['fbg_position'] = 100
-    default_parameter_dictionary['fbg_region_height'] = 30
+
+    # now obsolete:
+    #default_parameter_dictionary['fbg_position'] = 100
+    #default_parameter_dictionary['fbg_region_height'] = 30
+    default_parameter_dictionary['fbg_noise_pixels'] = 80
+    default_parameter_dictionary['fbg_search_distance'] = 11
+    
     default_parameter_dictionary['spectrum_start'] = 159
     default_parameter_dictionary['spectrum_end'] = 1459
     default_parameter_dictionary['bscan_z1'] = 1000
@@ -14,10 +19,12 @@ if system_label=='clinical_org':
     default_parameter_dictionary['bscan_x2'] = 250
     default_parameter_dictionary['n_skip'] = 0
     default_parameter_dictionary['fft_oversampling_size'] = -1
-    default_parameter_dictionary['eye'] = 'RE'
-    default_parameter_dictionary['ecc_horizontal'] = 0.0
-    default_parameter_dictionary['ecc_vertical'] = 0.0
-    default_parameter_dictionary['notes'] = ''
+
+    # now obsolete due to automation:
+    #default_parameter_dictionary['eye'] = 'RE'
+    #default_parameter_dictionary['ecc_horizontal'] = 0.0
+    #default_parameter_dictionary['ecc_vertical'] = 0.0
+    #default_parameter_dictionary['notes'] = ''
 
     # RSJ, 29 Sep 2022
     # changing dispersion compensation expression approach

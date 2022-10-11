@@ -169,13 +169,44 @@ def setup_processing(filename,copy_existing=False):
     outstring = json.dumps(parameter_dictionary,indent=4, sort_keys=True)
     with open(outfile,'w') as fid:
         fid.write(outstring)
-        
-def optimize_mapping_dispersion(filename,show_figures=False,mode='gradient',diagnostics=False,frame_index=0):
+
+
+def auto_setup_processing(filename,copy_existing=False):
+
+    # try to load the local JSON file to use it as default values
+    outfile = get_param_filename(filename)
+
+    # if copy_existing is True, look for a AA_BB_CC_parameters.json file in the current
+    # directory, and make a copy for this file
+    if copy_existing:
+        folder = os.path.split(filename)[0]
+        filt = os.path.join(folder,'*_parameters.json')
+        sources = glob.glob(filt)
+        if len(sources)>0:
+            src = sources[0]
+            dest = outfile
+            if os.path.exists(dest):
+                print('%s exists, exiting.'%dest)
+            else:
+                shutil.copy(src,dest)
+                print('Copied %s to %s.'%(src,dest))
+            return
     
-    params_filename = get_param_filename(filename)
-    params = load_dict(params_filename)
+    # setting diagnostics to True will plot/show a bunch of extra information to help
+    # you understand why things don't look right, and then quit after the first loop
+    # setting show_processed_data to True will spawn a window that shows you how the b-scans and angiograms look
+
     # PARAMETERS FOR RAW DATA SOURCE
     cfg = config_reader.get_configuration(filename.replace('.unp','.xml'))
+
+    try:
+        parameter_dictionary = load_dict(outfile)
+        for k in default_parameter_dictionary.keys():
+            if not k in parameter_dictionary.keys():
+                parameter_dictionary[k] = default_parameter_dictionary[k]
+                
+    except Exception as e:
+        parameter_dictionary = default_parameter_dictionary
 
     n_vol = cfg['n_vol']
     n_slow = cfg['n_slow']
@@ -187,101 +218,35 @@ def optimize_mapping_dispersion(filename,show_figures=False,mode='gradient',diag
     n_slow = n_slow//n_repeats
     n_fast = n_fast*n_repeats
 
-    src = blob.OCTRawData(filename,n_vol,n_slow,n_fast,n_depth,n_repeats,fbg_position=params['fbg_position'],fbg_region_height=params['fbg_region_height'],spectrum_start=params['spectrum_start'],spectrum_end=params['spectrum_end'],bit_shift_right=params['bit_shift_right'],n_skip=params['n_skip'],dtype=params['dtype'])
-    
-    def process_for_optimization(frame,m3,m2,c3,c2):
-        return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.k_resample(blob.dc_subtract(frame),[m3,m2,0.0,0.0]),[c3,c2,0.0,0.0]),0.9),oversampled_size=params['fft_oversampling_size'],z1=params['bscan_z1'],z2=params['bscan_z2'])
-    
-    bounds = [(params['m3min'],params['m3max']),
-              (params['m2min'],params['m2max']),
-              (params['c3min'],params['c3max']),
-              (params['c2min'],params['c2max'])]
+    for k in cfg.keys():
+        if not k in ['time_stamp']:
+            v = cfg[k]
+            parameter_dictionary[k] = v
 
-    if diagnostics:
-        diagnostics_pair = (filename.replace('.unp','')+'_diagnostics',frame_index)
-    else:
-        diagnostics_pair = False
-        
-    m3,m2,c3,c2 = dispersion_tools.optimize_mapping_dispersion(src.get_frame(frame_index),process_for_optimization,diagnostics=diagnostics_pair,bounds=None,maximum_iterations=200,mode=mode,show_figures=show_figures)
+    outstring = json.dumps(parameter_dictionary,indent=4, sort_keys=True)
+    with open(outfile,'w') as fid:
+        fid.write(outstring)
 
-    params['m3'] = m3
-    params['m2'] = m2
-    params['c3'] = c3
-    params['c2'] = c2
-
-    save_dict(params_filename,params)
-
-
-def optimize_dispersion(filename,show_figures=False,mode='gradient',diagnostics=False,frame_index=0):
-    
-    params_filename = get_param_filename(filename)
-    params = load_dict(params_filename)
-    # PARAMETERS FOR RAW DATA SOURCE
-    cfg = config_reader.get_configuration(filename.replace('.unp','.xml'))
-
-    n_vol = cfg['n_vol']
-    n_slow = cfg['n_slow']
-    n_repeats = cfg['n_bm_scans']
-    n_fast = cfg['n_fast']
-    n_depth = cfg['n_depth']
+def optimize_mapping_dispersion(filename,stride=50):
+    param_filename = get_param_filename(filename)
+    if not os.path.exists(param_filename):
+        sys.exit('Parameter file {param_filename} missing. Please run setup_processing(filename) or auto_setup_processing(filename) or copy a compatible parameters json file to {path}'.format(path=os.path.split(filename)[0],param_filename=param_filename))
+    params = load_dict(param_filename)
+    n_vol = params['n_vol']
+    n_slow = params['n_slow']
+    n_repeats = params['n_bm_scans']
+    n_fast = params['n_fast']
+    n_depth = params['n_depth']
 
     # some conversions to comply with old conventions:
     n_slow = n_slow//n_repeats
     n_fast = n_fast*n_repeats
 
-    dispersion_initial = params['dispersion_initial']
-    
-    src = blob.OCTRawData(filename,n_vol,n_slow,n_fast,n_depth,n_repeats,fbg_position=params['fbg_position'],fbg_region_height=params['fbg_region_height'],spectrum_start=params['spectrum_start'],spectrum_end=params['spectrum_end'],bit_shift_right=params['bit_shift_right'],n_skip=params['n_skip'],dtype=params['dtype'])
-    
-    def process_for_optimization(frame,coefs):
-        all_coefs = list(coefs)+[0.0,0.0]
-        return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.dc_subtract(frame),all_coefs),0.9),oversampled_size=params['fft_oversampling_size'],z1=params['bscan_z1'],z2=params['bscan_z2'])
-    
-    bounds = zip(params['cmin'],params['cmax'])
+    src = blob.OCTRawData(filename,n_vol,n_slow,n_fast,n_depth,n_repeats,spectrum_start=params['spectrum_start'],spectrum_end=params['spectrum_end'],bit_shift_right=params['bit_shift_right'],n_skip=params['n_skip'],dtype=params['dtype'])
 
-    if diagnostics:
-        diagnostics_pair = (filename.replace('.unp','')+'_diagnostics',frame_index)
-    else:
-        diagnostics_pair = False
-        
-    coefs = dispersion_tools.optimize_dispersion(src.get_frame(frame_index),process_for_optimization,dispersion_initial,diagnostics=diagnostics_pair,bounds=None,maximum_iterations=200,mode=mode,show_figures=show_figures)
-
-    params['dispersion_optimized'] = coefs
-    save_dict(params_filename,params)
-
-
-def manual_mapping_dispersion(filename,frame_index=0):
-    
-    params_filename = get_param_filename(filename)
-    params = load_dict(params_filename)
-    # PARAMETERS FOR RAW DATA SOURCE
-    cfg = config_reader.get_configuration(filename.replace('.unp','.xml'))
-
-    n_vol = cfg['n_vol']
-    n_slow = cfg['n_slow']
-    n_repeats = cfg['n_bm_scans']
-    n_fast = cfg['n_fast']
-    n_depth = cfg['n_depth']
-
-    # some conversions to comply with old conventions:
-    n_slow = n_slow//n_repeats
-    n_fast = n_fast*n_repeats
-
-    src = blob.OCTRawData(filename,n_vol,n_slow,n_fast,n_depth,n_repeats,fbg_position=params['fbg_position'],fbg_region_height=params['fbg_region_height'],spectrum_start=params['spectrum_start'],spectrum_end=params['spectrum_end'],bit_shift_right=params['bit_shift_right'],n_skip=params['n_skip'],dtype=params['dtype'])
-    
-    def process_for_optimization(frame,m3,m2,c3,c2):
-        return blob.spectra_to_bscan(blob.gaussian_window(blob.dispersion_compensate(blob.k_resample(blob.dc_subtract(frame),[m3,m2,0.0,0.0]),[c3,c2,0.0,0.0]),0.9),oversampled_size=params['fft_oversampling_size'],z1=params['bscan_z1'],z2=params['bscan_z2'])
-    
-    m3,m2,c3,c2 = dispersion_tools.mapping_dispersion_tools(src.get_frame(frame_index),process_for_optimization)
-
-    params['m3'] = m3
-    params['m2'] = m2
-    params['c3'] = c3
-    params['c2'] = c2
-
-    save_dict(params_filename,params)
-
-    
+    indices = range(0,src.n_total_frames,stride)
+    print(indices)
+    sys.exit()
         
 # process: read a unp file and write complex bscans:
 def process_bscans(filename,diagnostics=False,show_processed_data=False,start_frame=0,end_frame=np.inf,save_spectra=False):
@@ -309,12 +274,12 @@ def process_bscans(filename,diagnostics=False,show_processed_data=False,start_fr
     n_fast = n_fast*n_repeats
 
     try:
-        dispersion_coefficients = list(params['dispersion_optimized'])+[0.0,0.0]
+        dispersion_coefficients = list(params['dispersion_optimized'])
     except Exception as e:
         dispersion_coefficients = []
 
     try:
-        mapping_coefficients = list(params['mapping_optimized'])+[0.0,0.0]
+        mapping_coefficients = list(params['mapping_optimized'])
     except Exception as e:
         mapping_coefficients = []
         
