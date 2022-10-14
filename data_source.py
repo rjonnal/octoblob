@@ -8,10 +8,14 @@ import scipy.io as sio
 import glob
 import shutil
 import logging
-import config_reader
+from octoblob import logger
+from octoblob import config_reader
+from octoblob import diagnostics
+from octoblob import plotting_functions as opf
 
-class DataFile:
-
+class DataSource:
+    """An object that supplies raw OCT data from UNP files and also digests associated
+    XML files specifying acquisition parameters."""
     def __init__(self,filename,n_skip=0):
         
         cfg_filename = filename.replace('.unp','')+'.xml'
@@ -25,7 +29,6 @@ class DataFile:
         self.n_depth = cfg['n_depth']
         self.n_repeats = cfg['n_bm_scans']
 
-        print(dir(self.dtype(1)))
         self.bytes_per_pixel = self.dtype(1).itemsize
 
         self.n_bytes = self.n_vol*self.n_slow*self.n_fast*self.n_depth*self.bytes_per_pixel
@@ -40,31 +43,31 @@ class DataFile:
         file_size = os.stat(self.filename).st_size
         skip_bytes = self.n_skip*self.n_depth*self.bytes_per_pixel
         
+        self.diagnostics = diagnostics.Diagnostics(self.filename)
+        
         try:
             assert file_size==self.n_bytes
             print('Data source established:')
-            self.print_volume_info()
+            self.log_info()
             print()
             
         except AssertionError as ae:
             print('File size incorrect.\n%d\texpected\n%d\tactual'%(self.n_bytes,file_size))
-            self.print_volume_info()
+            self.log_info()
 
     def has_more_frames(self):
         return self.current_frame_index<self.n_total_frames
 
-    def next_frame(self):
-        frame = self.get_frame(self.current_frame_index)
+    def next_frame(self,diagnostics=False):
+        frame = self.get_frame(self.current_frame_index,diagnostics=diagnostics)
         self.current_frame_index+=1
         return frame
             
-    def print_volume_info(self):
-        #print('n_vol\t\t%d\nn_slow\t\t%d\nn_repeats\t%d\nn_fast\t\t%d\nn_depth\t\t%d\nbytes_per_pixel\t%d\ntotal_expected_size\t%d'%(self.n_vol,self.n_slow,self.n_repeats,self.n_fast,self.n_depth,self.bytes_per_pixel,self.n_bytes))
-        print(self.get_info())
+    def log_info(self):
+        logging.info(self.get_info())
 
-        
     def get_info(self,spaces=False):
-        temp = 'n_vol\t\t%d\nn_slow\t\t%d\nn_repeats\t%d\nn_fast\t\t%d\nn_depth\t\t%d\nbytes_per_pixel\t%d\ntotal_expected_size\t%d'%(self.n_vol,self.n_slow,self.n_repeats,self.n_fast,self.n_depth,self.bytes_per_pixel,self.n_bytes)
+        temp = '\nn_vol\t\t%d\nn_slow\t\t%d\nn_repeats\t%d\nn_fast\t\t%d\nn_depth\t\t%d\nbytes_per_pixel\t%d\ntotal_expected_size\t%d'%(self.n_vol,self.n_slow,self.n_repeats,self.n_fast,self.n_depth,self.bytes_per_pixel,self.n_bytes)
         if spaces:
             temp = temp.replace('\t',' ')
         return temp
@@ -96,44 +99,38 @@ class DataFile:
             
             if frame.max()>=self.saturation_value:
                 if diagnostics:
-                    plt.figure(figsize=(opf.IPSP,opf.IPSP),dpi=opf.screen_dpi)
+                    satfig = plt.figure(figsize=(opf.IPSP,opf.IPSP),dpi=opf.screen_dpi)
                     plt.hist(frame,bins=100)
                     plt.title('Frame saturated with pixels >= %d.'%self.saturation_value)
-                print('Frame saturated, with pixels >= %d.'%self.saturation_value)
+                    self.diagnostics.save(satfig,'saturated',frame_index)
+                    
+                logging.info('Frame saturated, with pixels >= %d.'%self.saturation_value)
             
             if diagnostics:
-                plt.figure(figsize=(opf.IPSP,2*opf.IPSP),dpi=opf.screen_dpi)
-                plt.subplot(2,1,1)
-                plt.hist(frame,bins=100)
-                plt.title('before %d bit shift'%self.bit_shift_right)
+                bitshiftfig = plt.figure(figsize=(opf.IPSP,2*opf.IPSP),dpi=opf.screen_dpi)
+                bitshiftax1,bitshiftax2 = bitshiftfig.subplots(2,1)
+                
+                bitshiftax1.hist(frame,bins=100)
+                bitshiftax1.set_title('before %d bit shift'%self.bit_shift_right)
                 
             # Bit-shift if necessary, e.g. for Axsun/Alazar data
             if self.bit_shift_right:
                 frame = np.right_shift(frame,self.bit_shift_right)
 
             if diagnostics:
-                plt.subplot(2,1,2)
-                plt.hist(frame,bins=100)
-                plt.title('after %d bit shift'%self.bit_shift_right)
-                
+                bitshiftax2.hist(frame,bins=100)
+                bitshiftax2.set_title('after %d bit shift'%self.bit_shift_right)
+                self.diagnostics.save(bitshiftfig,'bit_shift',frame_index)
                 
             # Reshape into the k*x 2D array
             frame = frame.reshape(self.n_fast,self.n_depth).T
-
-
-            if diagnostics:
-                plt.figure(figsize=(opf.IPSP,opf.IPSP),dpi=opf.screen_dpi)
-                plt.imshow(frame,aspect='auto',interpolation='none',cmap='gray')
-                plt.colorbar()
-                plt.title('raw data (bit shifted %d bits)'%self.bit_shift_right)
-                save_diagnostics(diagnostics,'raw_data')
-            
+            frame = frame.astype(np.float)
         return frame
 
 
 
 if __name__=='__main__':
 
-    df = DataFile('./data/test_1.unp')
-    plt.imshow(df.next_frame())
-    plt.show()
+    df = DataSource('./data/test_1.unp')
+    frame = df.next_frame(diagnostics=True)
+    
