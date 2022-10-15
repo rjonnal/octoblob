@@ -3,7 +3,6 @@ from matplotlib import pyplot as plt
 import scipy.optimize as spo
 import sys,os,glob
 import scipy.interpolate as spi
-from octoblob import diagnostics
 
 ###################################################
 # Simplified OCT functions for exporatory analysis,
@@ -71,7 +70,7 @@ def fbg_align(spectra,fbg_search_distance=15,noise_samples=80,diagnostics=None):
     return spectra
 
 # We need a way to estimate and remove DC:
-def dc_subtract(spectra):
+def dc_subtract(spectra,diagnostics=None):
     """Estimate DC by averaging spectra spatially (dimension 1),
     then subtract by broadcasting."""
     dc = spectra.mean(1)

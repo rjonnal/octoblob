@@ -10,8 +10,9 @@ import shutil
 import logging
 from octoblob import logger
 from octoblob import config_reader
-from octoblob import diagnostics
+from octoblob import diagnostics_tools
 from octoblob import plotting_functions as opf
+import json
 
 class DataSource:
     """An object that supplies raw OCT data from UNP files and also digests associated
@@ -43,7 +44,7 @@ class DataSource:
         file_size = os.stat(self.filename).st_size
         skip_bytes = self.n_skip*self.n_depth*self.bytes_per_pixel
         
-        self.diagnostics = diagnostics.Diagnostics(self.filename)
+        self.diagnostics = diagnostics_tools.Diagnostics(self.filename)
         
         try:
             assert file_size==self.n_bytes
