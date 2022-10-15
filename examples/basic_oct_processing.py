@@ -13,6 +13,9 @@ diagnostics = None
 
 params = parameters.Parameters(example_data_1_filename)
 
+k_crop_1 = 100
+k_crop_2 = 1490
+
 if __name__=='__main__':
     #src = DataSource(example_data_1_filename)
     src = blobf.get_source(example_data_1_filename)
@@ -21,7 +24,7 @@ if __name__=='__main__':
     spectra = blobf.fbg_align(spectra,diagnostics=diagnostics)
     spectra = blobf.dc_subtract(spectra,diagnostics=diagnostics)
     spectra = spectra[k_crop_1:k_crop_2]
-
+    
     
     
     print(spectra.shape)
