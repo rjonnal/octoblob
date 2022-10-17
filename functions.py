@@ -183,3 +183,9 @@ def sharpness(im):
     """Image sharpness"""
     return np.sum(im**2)/(np.sum(im)**2)
 
+def crop_bscan(bscan,top_crop=300,bottom_crop=50):
+    sz,sx = bscan.shape
+    bscan = bscan[sz//2:,:]
+    bscan = bscan[top_crop:-bottom_crop,:]
+    return bscan
+

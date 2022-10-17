@@ -13,8 +13,9 @@ class NpEncoder(json.JSONEncoder):
 class Parameters(dict):
     """Implement a python dictionary that has persistent json storage as a record
     of processing and data analysis."""
-    def __init__(self, src_filename, verbose=False):
-        self.filename = self.get_param_filename(src_filename)
+    def __init__(self, filename, verbose=False):
+        self.filename = filename
+        
         self.verbose = verbose
         try:
             temp = self.load()

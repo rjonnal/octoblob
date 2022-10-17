@@ -9,29 +9,10 @@ import numba
 dB_lims = (45,80)
 fbg_search_distance = 11
 
-try:
-    fn = sys.argv[1]
-    index = int(sys.argv[2])
-    spectra = blobf.load_spectra(fn,index)
-except IndexError:
-    #spectra = blobf.load_spectra('spectra_00100.npy')
-    #spectra = blobf.load_spectra('../examples/oct_processing/test_1.unp',20)
-    #spectra = blobf.load_spectra('/media/nas_data/conventional_org/flash/2022.08.24_jonnal_0013/2deg/11_33_26.unp',20)
-    spectra = blobf.load_spectra('/media/nas_data/conventional_org/flash/2022.09.23_jonnal_0014/2deg/15_19_21.unp',20)
-
-
-spectra = blobf.fbg_align(spectra,fbg_search_distance)
-spectra = blobf.dc_subtract(spectra)
-
-def crop_bscan(bscan,top_crop=300,bottom_crop=50):
-    sz,sx = bscan.shape
-    bscan = bscan[sz//2:,:]
-    # remove dc
-    bscan = bscan[top_crop:-bottom_crop,:]
-    return bscan
-
 def show_bscan(ax,bscan,iqf=blobf.sharpness):
-    ax.clear()
+    print(ax)
+    sys.exit()
+    #ax.clear()
     ax.imshow(20*np.log10(bscan),cmap='gray',clim=dB_lims)
     ax.set_title(iqf(bscan))
     plt.pause(0.000001)
@@ -39,20 +20,20 @@ def show_bscan(ax,bscan,iqf=blobf.sharpness):
 def bscan_m(mcoefs,spectra):
     spectra = blobf.k_resample(spectra,mcoefs)
     bscan = np.abs(np.fft.fft(spectra,axis=0))
-    bscan = crop_bscan(bscan)
+    bscan = blobf.crop_bscan(bscan)
     return bscan
 
 def bscan_d(dcoefs,spectra):
     spectra = blobf.dispersion_compensate(spectra,dcoefs)
     bscan = np.abs(np.fft.fft(spectra,axis=0))
-    bscan = crop_bscan(bscan)
+    bscan = blobf.crop_bscan(bscan)
     return bscan
 
 def bscan_md(mdcoefs,spectra):
     spectra = blobf.k_resample(spectra,mdcoefs[:2])
     spectra = blobf.dispersion_compensate(spectra,mdcoefs[2:])
     bscan = np.abs(np.fft.fft(spectra,axis=0))
-    bscan = crop_bscan(bscan)
+    bscan = blobf.crop_bscan(bscan)
     return bscan
 
 def obj_m(mcoefs,spectra,show,iqf):
@@ -71,6 +52,7 @@ def obj_d(dcoefs,spectra,show,iqf):
 
 def obj_md(mdcoefs,spectra,show,iqf):
     """Optimize mapping and dispersion"""
+    print(np.random.rand())
     bscan = bscan_md(mdcoefs,spectra)
     if show:
         show_bscan(bscan,iqf)
@@ -86,33 +68,34 @@ optimization_options = {'xatol':1e-10,'maxiter':1000}
 # See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
 method = 'nelder-mead'
 
-mapping_bounds = [(-2e-8,1e-9),(-6e-5,2e-6)]
-mapping_bounds = [(None,None),(None,None)]
-dispersion_bounds = [(-5e-8,5e-8),(-1e-4,1e-4)]
-dispersion_bounds = [(None,None),(None,None)]
-
-md_bounds = mapping_bounds+dispersion_bounds
 
 
-def run(obj_f,bscan_f,spectra,bounds):
-    if obj_f==obj_md:
-        init = [0.0,0.0,0.0,0.0]
-    else:
-        init = [0.0,0.0]
-    fig = plt.figure(figsize=(8,8))
-    ax1,ax2 = fig.subplots(1,2)
-    #ax1.set_title('%s (pre)'%obj_f.__doc__)
-    show_bscan(ax1,bscan_f(init,spectra))
-    plt.pause(0.0001)
-    res = spo.minimize(obj_f,init,args=(spectra,False,blobf.sharpness),bounds=bounds,method=method,options=optimization_options)
-    plt.subplot(1,2,2)
-    plt.title('%s (post)'%obj_f.__doc__)
-    show_bscan(ax2,bscan_f(res.x,spectra))
-    plt.show()
+def run(spectra,show=False):
+    #mapping_bounds = [(-2e-8,1e-9),(-6e-5,2e-6)]
+    mapping_bounds = [(None,None),(None,None)]
+    #dispersion_bounds = [(-5e-8,5e-8),(-1e-4,1e-4)]
+    dispersion_bounds = [(None,None),(None,None)]
 
+    bounds = mapping_bounds+dispersion_bounds
     
-run(obj_md,bscan_md,spectra,dispersion_bounds)
+    obj_f=obj_md
+    bscan_f=bscan_md
+    init = [0.0,0.0,0.0,0.0]
 
-#res = spo.minimize(obj_d,[0.0,0.0],args=(spectra,True,blobf.iq_max),method=method,options=optimization_options)
-#res = spo.minimize(obj_d,[0.0,0.0],args=(spectra,True,blobf.iq_max),method=method,options=optimization_options)
+    if show:
+        fig = plt.figure(figsize=(8,8))
+        ax1,ax2 = fig.subplots(1,2)
+        print(ax1,ax2)
+        sys.exit()
+        show_bscan(ax1,bscan_f(init,spectra))
+        plt.pause(0.0001)
+        
+    res = spo.minimize(obj_f,init,args=(spectra,False,blobf.sharpness),bounds=bounds,method=method,options=optimization_options)
 
+    if show:
+        plt.subplot(1,2,2)
+        plt.title('%s (post)'%obj_f.__doc__)
+        show_bscan(ax2,bscan_f(res.x,spectra))
+        plt.show()
+
+    return res.x
