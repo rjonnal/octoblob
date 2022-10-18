@@ -1,5 +1,5 @@
 from matplotlib import pyplot as plt
-import os,sys,glob
+import os,sys,glob,time
 import logging
 from octoblob import logger
 import pathlib
@@ -20,6 +20,18 @@ class Browser:
         files = list(files)
         files = sorted(files)
 
+        global npy_dB
+        global index,N
+        global projection_axis
+
+        projection_axis=0
+        
+        npy_dB = 1
+        
+        index = 0
+        N = len(files)
+
+        
         def tree(f):
             head = str(f)
             items = []
@@ -36,32 +48,53 @@ class Browser:
                 out = out + item_index*'  ' + item + '\n'
             return out
 
+        def last_modified(f):
+            epoch_time = os.path.getmtime(f)
+            return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(epoch_time))
+
         def temp_filename(f):
             return '_'.join(tree(f)).strip()
         
-        N = len(files)
-
-        global index
-        index = 0
-        
         def on_press(event):
-            global index
+            global index,npy_dB,projection_axis
             print('press', event.key)
             sys.stdout.flush()
             if event.key in ['pageup','up','left']:
-                index = (index+1)%N
+                index = (index-1)%N
                 draw()
             elif event.key in ['pagedown','down','right']:
-                index = (index-1)%N
+                index = (index+1)%N
+                draw()
+            if event.key in ['ctrl+pageup','ctrl+up','ctrl+left']:
+                index = (index-10)%N
+                draw()
+            elif event.key in ['ctrl+pagedown','ctrl+down','ctrl+right']:
+                index = (index+10)%N
+                draw()
+            if event.key in ['ctrl+shift+pageup','ctrl+shift+up','ctrl+shift+left']:
+                index = (index-100)%N
+                draw()
+            elif event.key in ['ctrl+shift+pagedown','ctrl+shift+down','ctrl+shift+right']:
+                index = (index+100)%N
                 draw()
             elif event.key == 'escape':
                 plt.close('all')
             elif event.key == 'z':
                 save()
-
+            elif event.key == 'd':
+                npy_dB = 1 - npy_dB
+                draw()
+            elif event.key == 'a':
+                projection_axis = (projection_axis+1)%3
+                draw()
+                
         def draw():
+            global index,N
             f = files[index]
-            fig.suptitle(title(f),fontsize=8,ha='left',x=0.0,y=1.0,va='top')
+            cstr = '(%d/%d):'%(index,N)
+            tstr = '(%s)'%last_modified(f)
+            
+            fig.suptitle(cstr+title(f)+tstr,fontsize=8,ha='left',x=0.0,y=1.0,va='top')
             ext = os.path.splitext(f)[1]
             if ext.lower()=='.npy':
                 print('npy')
@@ -78,10 +111,20 @@ class Browser:
             fig.canvas.draw()
 
         def npydraw(npyfile):
+            global npy_dB,projection_axis
             dat = np.load(npyfile)
             dat = np.abs(dat)
+            if len(dat.shape)==3:
+                dat = np.mean(dat,projection_axis)
+            
+            if npy_dB:
+                dat = 20*np.log10(dat)
+                clim = (40,90)
+            else:
+                clim = np.percentile(dat,(5,99.5))
+                
             ax.clear()
-            ax.imshow(dat,aspect='auto',cmap='gray')
+            ax.imshow(dat,aspect='auto',cmap='gray',clim=clim)
             fig.canvas.draw()
 
         def save():
