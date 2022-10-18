@@ -5,97 +5,117 @@ import time
 import scipy.optimize as spo
 import sys
 import numba
+import logging
+from time import sleep
 
-dB_lims = (45,80)
+dB_clim = (45,85)
 fbg_search_distance = 11
 
-def show_bscan(ax,bscan,iqf=blobf.sharpness):
-    print(ax)
-    sys.exit()
-    #ax.clear()
-    ax.imshow(20*np.log10(bscan),cmap='gray',clim=dB_lims)
-    ax.set_title(iqf(bscan))
-    plt.pause(0.000001)
+def dB(arr):
+    return 20*np.log10(np.abs(arr))
 
-def bscan_m(mcoefs,spectra):
-    spectra = blobf.k_resample(spectra,mcoefs)
-    bscan = np.abs(np.fft.fft(spectra,axis=0))
-    bscan = blobf.crop_bscan(bscan)
-    return bscan
-
-def bscan_d(dcoefs,spectra):
-    spectra = blobf.dispersion_compensate(spectra,dcoefs)
-    bscan = np.abs(np.fft.fft(spectra,axis=0))
-    bscan = blobf.crop_bscan(bscan)
-    return bscan
-
-def bscan_md(mdcoefs,spectra):
-    spectra = blobf.k_resample(spectra,mdcoefs[:2])
-    spectra = blobf.dispersion_compensate(spectra,mdcoefs[2:])
-    bscan = np.abs(np.fft.fft(spectra,axis=0))
-    bscan = blobf.crop_bscan(bscan)
-    return bscan
-
-def obj_m(mcoefs,spectra,show,iqf):
-    """Optimize mapping"""
-    bscan = bscan_m(mcoefs,spectra)
-    if show:
-        show_bscan(bscan,iqf)
-    return 1.0/iqf(bscan)
-
-def obj_d(dcoefs,spectra,show,iqf):
-    """Optimze dispersion"""
-    bscan = bscan_d(dcoefs,spectra)
-    if show:
-        show_bscan(bscan,iqf)
-    return 1.0/iqf(bscan)
-
-def obj_md(mdcoefs,spectra,show,iqf):
+def obj_md(mdcoefs,spectra,bscan_function,iqf,ax=None,verbose=False):
     """Optimize mapping and dispersion"""
-    print(np.random.rand())
-    bscan = bscan_md(mdcoefs,spectra)
-    if show:
-        show_bscan(bscan,iqf)
-    return 1.0/iqf(bscan)
+    bscan = bscan_function(mdcoefs,spectra)
+    bscan = np.abs(bscan)
+    iq = iqf(bscan)
+    if ax is not None:
+        ax.clear()
+        show_bscan(ax,bscan)
+        plt.pause(0.0000001)
+    if verbose:
+        logging.info('Coefs %s -> %s value of %0.1e.'%(mdcoefs,iqf.__doc__,iq))
+    else:
+        sys.stdout.write('.')
+        sys.stdout.flush()
+        sleep(0.0001)
+    return 1.0/iq
 
+def show_bscan(ax,bscan):
+    ax.imshow(dB(bscan),cmap='gray',clim=dB_clim)
 
-# spo.minimize accepts an additional argument, a dictionary containing further
-# options; we want can specify an error tolerance, say about 1% of the bounds.
-# we can also specify maximum iterations:
-optimization_options = {'xatol':1e-10,'maxiter':1000}
+def optimize(spectra,bscan_function,show=False,verbose=False,maxiters=200):
 
-# optimization algorithm:
-# See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
-method = 'nelder-mead'
-
-
-
-def run(spectra,show=False):
-    #mapping_bounds = [(-2e-8,1e-9),(-6e-5,2e-6)]
-    mapping_bounds = [(None,None),(None,None)]
-    #dispersion_bounds = [(-5e-8,5e-8),(-1e-4,1e-4)]
-    dispersion_bounds = [(None,None),(None,None)]
-
+    # confused about bounds--documentation says they can be used with Nelder-Mead, but warnings
+    # say that they can't
+    mapping_bounds = [(-2e-8,1e-9),(-6e-5,2e-6)]
+    dispersion_bounds = [(-5e-8,5e-8),(-1e-4,1e-4)]
     bounds = mapping_bounds+dispersion_bounds
+    #bounds = None
     
-    obj_f=obj_md
-    bscan_f=bscan_md
+    # spo.minimize accepts an additional argument, a dictionary containing further
+    # options; we want can specify an error tolerance, say about 1% of the bounds.
+    # we can also specify maximum iterations:
+    optimization_options = {'xatol':1e-6,'maxiter':200,'disp':False}
+
+    # optimization algorithm:
+    # See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+    method = 'nelder-mead'
+
     init = [0.0,0.0,0.0,0.0]
 
     if show:
-        fig = plt.figure(figsize=(8,8))
-        ax1,ax2 = fig.subplots(1,2)
-        print(ax1,ax2)
-        sys.exit()
-        show_bscan(ax1,bscan_f(init,spectra))
-        plt.pause(0.0001)
+        fig1 = plt.figure(figsize=(2,4),dpi=150)
+        ax1 = fig1.add_subplot(1,1,1)
+        fig2 = plt.figure(figsize=(2,4),dpi=150)
+        ax2 = fig2.add_subplot(1,1,1)
+        realtime_axis = ax2
+        show_bscan(ax1,bscan_function(init,spectra))
+        plt.pause(.1)
+    else:
+        realtime_axis = None
+        sys.stdout.write('Optimizing ')
         
-    res = spo.minimize(obj_f,init,args=(spectra,False,blobf.sharpness),bounds=bounds,method=method,options=optimization_options)
-
+    res = spo.minimize(obj_md,init,args=(spectra,bscan_function,blobf.sharpness,realtime_axis,verbose),bounds=bounds,method=method,options=optimization_options)
+    
     if show:
-        plt.subplot(1,2,2)
-        plt.title('%s (post)'%obj_f.__doc__)
-        show_bscan(ax2,bscan_f(res.x,spectra))
-        plt.show()
+        show_bscan(ax2,bscan_function(res.x,spectra))
+        print('done')
 
     return res.x
+
+
+def multi_optimize(spectra_list,bscan_function,show_all=False,show_final=False,verbose=False,maxiters=200):
+    results_coefficients = []
+    results_iq = []
+    for spectra in spectra_list:
+        coefs = optimize(spectra,bscan_function,show=show_all,verbose=verbose,maxiters=maxiters)
+        results_coefficients.append(coefs)
+        iq = obj_md(coefs,spectra,bscan_function,blobf.sharpness)
+        results_iq.append(iq)
+
+    winner = np.argmin(results_iq)
+    print(results_iq)
+    print('winner is index %d'%winner)
+    print()
+
+    
+    for rc,riq in zip(results_coefficients,results_iq):
+        print(rc,riq)
+
+    if show_final:
+        for idx,(spectra,coefs,iq) in enumerate(zip(spectra_list,results_coefficients,results_iq)):
+            print('iq from optimization: %0.3f'%iq)
+            print('iq from obj_md: %0.3f'%obj_md(coefs,spectra,bscan_function,blobf.sharpness))
+            sfig = plt.figure()
+            sax = sfig.add_subplot(1,1,1)
+            show_bscan(sax,bscan_function(coefs,spectra))
+            if idx==winner:
+                plt.title('winner %0.3f'%obj_md(coefs,spectra,bscan_function,blobf.sharpness))
+            else:
+                plt.title('loser %0.3f'%obj_md(coefs,spectra,bscan_function,blobf.sharpness))
+
+        plt.show()
+
+    return results_coefficients[winner]
+
+
+def progress(count, total, status=''):
+    bar_len = 60
+    filled_len = int(round(bar_len * count / float(total)))
+
+    percents = round(100.0 * count / float(total), 1)
+    bar = '=' * filled_len + '-' * (bar_len - filled_len)
+
+    sys.stdout.write('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
+    sys.stdout.flush()  # As suggested by Rom Ruben (see: http://stackoverflow.com/questions/3173320/text-progress-bar-in-the-console/27871113#comment50529068_27871113)

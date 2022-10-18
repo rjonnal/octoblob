@@ -63,6 +63,15 @@ class DataSource:
         frame = self.get_frame(self.current_frame_index,diagnostics=diagnostics)
         self.current_frame_index+=1
         return frame
+
+
+    def get_samples(self,n):
+        """Get n equally spaced samples from this data set."""
+        samples = []
+        stride = self.n_total_frames//n
+        for k in range(0,self.n_total_frames,stride):
+            samples.append(self.get_frame(k))
+        return samples
             
     def log_info(self):
         logging.info(self.get_info())

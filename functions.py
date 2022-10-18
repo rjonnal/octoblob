@@ -23,18 +23,38 @@ dispersion_steps = [1e-10,1e-8]
 fbg_position = None
 bit_shift_right = 4
 window_sigma = 0.9
+
+k_crop_1 = 100
+k_crop_2 = 1490
+
+
 #######################################
 
 # Now we'll define some functions for the half-dozen or so processing
 # steps:
 
-def get_source(fn):
+def get_source(fn,diagnostics=None):
     from octoblob.data_source import DataSource
     #import octoblob as blob
+    print(fn)
     src = DataSource(fn)
     return src
 
+def crop_spectra(spectra,diagnostics=None):
+    if not diagnostics is None:
+        fig = plt.figure()
+        plt.subplot(1,2,1)
+        plt.imshow(np.abs(spectra),aspect='auto')
+        
+    spectra = spectra[k_crop_1:k_crop_2,:]
     
+    if not diagnostics is None:
+        plt.subplot(1,2,2)
+        plt.imshow(np.abs(spectra),aspect='auto')
+        diagnostics.save(fig)
+        
+    return spectra
+
 def load_spectra(fn,index=0):
     ext = os.path.splitext(fn)[1]
     if ext.lower()=='.unp':
@@ -50,6 +70,11 @@ def load_spectra(fn,index=0):
 
 
 def fbg_align(spectra,fbg_search_distance=15,noise_samples=80,diagnostics=None):
+    if not diagnostics is None:
+        fig = plt.figure()
+        plt.subplot(1,2,1)
+        plt.imshow(np.abs(spectra),aspect='auto')
+        
     spectra[:noise_samples,:] = spectra[noise_samples,:]
     prof = np.nanmean(spectra,axis=1)
     idx = np.argmax(np.diff(prof))
@@ -67,22 +92,36 @@ def fbg_align(spectra,fbg_search_distance=15,noise_samples=80,diagnostics=None):
     for k in range(spectra.shape[1]):
         spectra[:,k] = np.roll(spectra[:,k],-fbg_locations[k])
 
+    if not diagnostics is None:
+        plt.subplot(1,2,2)
+        plt.imshow(np.abs(spectra),aspect='auto')
+        diagnostics.save(fig)
+        
     return spectra
 
 # We need a way to estimate and remove DC:
 def dc_subtract(spectra,diagnostics=None):
     """Estimate DC by averaging spectra spatially (dimension 1),
     then subtract by broadcasting."""
+    if not diagnostics is None:
+        fig = plt.figure()
+        plt.subplot(1,2,1)
+        plt.imshow(np.abs(spectra),aspect='auto')
+        
     dc = spectra.mean(1)
     # Do the subtraction by array broadcasting, for efficiency.
     # See: https://numpy.org/doc/stable/user/basics.broadcasting.html
     out = (spectra.T-dc).T
+    if not diagnostics is None:
+        plt.subplot(1,2,2)
+        plt.imshow(out,aspect='auto')
+        diagnostics.save(fig)
     return out
 
 
 # Next we need a way to adjust the values of k at each sample, and then
 # interpolate into uniformly sampled k:
-def k_resample(spectra,coefficients):
+def k_resample(spectra,coefficients,diagnostics=None):
     """Resample the spectrum such that it is uniform w/r/t k.
     Notes:
       1. The coefficients here are for a polynomial defined on
@@ -95,6 +134,11 @@ def k_resample(spectra,coefficients):
     if not any(coefficients):
         return spectra
 
+    if not diagnostics is None:
+        fig = plt.figure()
+        plt.subplot(1,2,1)
+        plt.imshow(np.abs(spectra),aspect='auto')
+        
     coefficients = coefficients + [0.0,0.0]
     # x_in specified on array index 1..N+1
     x_in = np.arange(1,spectra.shape[0]+1)
@@ -108,48 +152,76 @@ def k_resample(spectra,coefficients):
     # See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp1d.html
     interpolator = spi.interp1d(x_in,spectra,axis=0,kind='cubic',fill_value='extrapolate')
     interpolated = interpolator(x_out)
+    if not diagnostics is None:
+        plt.subplot(1,2,2)
+        plt.imshow(interpolated,aspect='auto')
+        diagnostics.save(fig)
+        
     return interpolated
 
 # Next we need to dispersion compensate; for historical reasons the correction polynomial
 # is defined on index x rather than k, but for physically meaningful numbers we should
 # use k instead
-def dispersion_compensate(spectra,coefficients):
+def dispersion_compensate(spectra,coefficients,diagnostics=None):
     if not any(coefficients):
         return spectra
+
+    if not diagnostics is None:
+        fig = plt.figure()
+        plt.subplot(1,2,1)
+        plt.imshow(np.abs(spectra),aspect='auto')
+
     coefs = list(coefficients) + [0.0,0.0]
     # define index x:
     x = np.arange(1,spectra.shape[0]+1)
     # define the phasor and multiply by spectra using broadcasting:
     dechirping_phasor = np.exp(-1j*np.polyval(coefs,x))
     dechirped = (spectra.T*dechirping_phasor).T
+    if not diagnostics is None:
+        plt.subplot(1,2,2)
+        plt.imshow(np.abs(spectra),aspect='auto')
+        diagnostics.save(fig)
+        
     return dechirped
 
 
 # Next we multiply the spectra by a Gaussian window, in order to reduce ringing
 # in the B-scan due to edges in the spectra:
-def gaussian_window(spectra,sigma):
+def gaussian_window(spectra,sigma,diagnostics=None):
     if sigma>1e5:
         return spectra
+    
+    if not diagnostics is None:
+        fig = plt.figure()
+        plt.subplot(1,2,1)
+        plt.imshow(np.abs(spectra),aspect='auto')
+        
     # Define a Gaussian window with passed sigma
     x = np.exp(-((np.linspace(-1.0,1.0,spectra.shape[0]))**2/sigma**2))
     # Multiply spectra by window using broadcasting:
     out = (spectra.T*x).T
+
+    if not diagnostics is None:
+        plt.subplot(1,2,2)
+        plt.imshow(np.abs(spectra),aspect='auto')
+        diagnostics.save(fig)
+        
     return out
 
 
-# Now let's define a processing function that takes the spectra and two dispersion coefficients
-# and produces a B-scan:
-def process_bscan(spectra,mapping_coefficients=[0.0],dispersion_coefficients=[0.0],window_sigma=0.9):
-    spectra = dc_subtract(spectra)
-    # When we call dispersion_compensate, we have to pass the c3 and c2 coefficients as well as
-    # two 0.0 values, to make clear that we want orders 3, 2, 1, 0. This enables us to use the
-    # polyval function of numpy instead of writing the polynomial ourselves, e.g. c3*x**3+c2*x**x**2,
-    # since the latter is more likely to cause bugs.
-    spectra = k_resample(spectra,mapping_coefficients)
-    spectra = dispersion_compensate(spectra,dispersion_coefficients)
-    spectra = gaussian_window(spectra,sigma=window_sigma)
-    bscan = np.fft.fft(spectra,axis=0)
-    return bscan
+# # Now let's define a processing function that takes the spectra and two dispersion coefficients
+# # and produces a B-scan:
+# def process_bscan(spectra,mapping_coefficients=[0.0],dispersion_coefficients=[0.0],window_sigma=0.9):
+#     spectra = dc_subtract(spectra)
+#     # When we call dispersion_compensate, we have to pass the c3 and c2 coefficients as well as
+#     # two 0.0 values, to make clear that we want orders 3, 2, 1, 0. This enables us to use the
+#     # polyval function of numpy instead of writing the polynomial ourselves, e.g. c3*x**3+c2*x**x**2,
+#     # since the latter is more likely to cause bugs.
+#     spectra = k_resample(spectra,mapping_coefficients)
+#     spectra = dispersion_compensate(spectra,dispersion_coefficients)
+#     spectra = gaussian_window(spectra,sigma=window_sigma)
+#     bscan = np.fft.fft(spectra,axis=0)
+#     return bscan
 
 
 # Image quality metrics
@@ -183,9 +255,57 @@ def sharpness(im):
     """Image sharpness"""
     return np.sum(im**2)/(np.sum(im)**2)
 
-def crop_bscan(bscan,top_crop=300,bottom_crop=50):
+def center_sharpness(im,fraction=0.5):
+    """Image sharpness"""
+    sy,sx = im.shape
+    mid = sy//2
+    x1 = mid-round(sx*0.5*fraction)
+    x2 = mid+round(sx*0.5*fraction)
+    return np.sum(im[:,x1:x2]**2)/(np.sum(im[:,x1:x2])**2)
+
+def crop_bscan(bscan,top_crop=350,bottom_crop=100,diagnostics=None):
     sz,sx = bscan.shape
     bscan = bscan[sz//2:,:]
     bscan = bscan[top_crop:-bottom_crop,:]
+    return bscan
+
+def dB(arr):
+    return 20*np.log10(np.abs(arr))
+
+def spectra_to_bscan(mdcoefs,spectra,diagnostics=None):
+    spectra = fbg_align(spectra,diagnostics=diagnostics)
+    spectra = dc_subtract(spectra,diagnostics=diagnostics)
+    spectra = crop_spectra(spectra,diagnostics=diagnostics)
+    
+    if diagnostics is not None:
+        fig = plt.figure(figsize=(6,4))
+        plt.subplot(2,2,1)
+        plt.imshow(dB(crop_bscan(np.fft.fft(spectra,axis=0))),aspect='auto',clim=(45,85),cmap='gray')
+        plt.title('raw B-scan')
+            
+    spectra = k_resample(spectra,mdcoefs[:2],diagnostics=None)
+
+    if diagnostics is not None:
+        plt.subplot(2,2,2)
+        plt.imshow(dB(crop_bscan(np.fft.fft(spectra,axis=0))),aspect='auto',clim=(45,85),cmap='gray')
+        plt.title('after k-resampling')
+
+    spectra = dispersion_compensate(spectra,mdcoefs[2:],diagnostics=None)
+
+    if diagnostics is not None:
+        plt.subplot(2,2,3)
+        plt.imshow(dB(crop_bscan(np.fft.fft(spectra,axis=0))),aspect='auto',clim=(45,85),cmap='gray')
+        plt.title('after dispersion_compensation')
+
+    spectra = gaussian_window(spectra,sigma=0.9,diagnostics=None)
+    
+    if diagnostics is not None:
+        plt.subplot(2,2,4)
+        plt.imshow(dB(crop_bscan(np.fft.fft(spectra,axis=0))),aspect='auto',clim=(45,85),cmap='gray')
+        plt.title('after windowing')
+        diagnostics.save(fig)
+        
+    bscan = np.fft.fft(spectra,axis=0)
+    bscan = crop_bscan(bscan)
     return bscan
 
