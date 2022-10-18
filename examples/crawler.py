@@ -4,7 +4,7 @@ import logging
 from matplotlib import pyplot as plt
 from octoblob import diagnostics_tools
 from octoblob import parameters
-import sys,os
+import sys,os,glob
 import numpy as np
 from octoblob import mapping_dispersion_optimizer as mdo
 from octoblob import file_manager
@@ -19,7 +19,7 @@ except:
 
 
 
-def process(data_filename):
+def process(data_filename,do_mp=False):
 
     data_filename = str(data_filename)
     diagnostics = diagnostics_tools.Diagnostics(data_filename)
@@ -34,39 +34,58 @@ def process(data_filename):
 
     src = blobf.get_source(data_filename)
 
+    # get the total number of frames:
+    n_total_frames = src.n_total_frames
+
     # try to read dispersion/mapping coefs from a local processing_parameters file, and run optimization otherwise
     try:
         coefs = np.array(params['mapping_dispersion_coefficients'],dtype=np.float)
+        logging.info('File %s mapping dispersion coefficients found in %s. Skipping optimization.'%(data_filename,params_filename))
     except KeyError:
+        logging.info('File %s mapping dispersion coefficients not found. Running optimization.'%(data_filename,params_filename))
         samples = src.get_samples(5)
         coefs = mdo.multi_optimize(samples,blobf.spectra_to_bscan,show_all=False,show_final=True,verbose=False,diagnostics=diagnostics)
         params['mapping_dispersion_coefficients'] = coefs
 
-    # process the bscans
+        
+
+    # get the folder name for storing bscans
     bscan_folder = file_manager.get_bscan_folder(data_filename)
-    if not do_mp:
+    # check to see how many bscans there are in it:
+    bscans = glob.glob(os.path.join(bscan_folder,'*.npy'))
+    # if any are missing, reprocess:
+    if len(bscans)<n_total_frames:
+        logging.info('File %s missing B-scans. Re-processing.'%data_filename)
         for k in range(src.n_total_frames):
             bscan = blobf.spectra_to_bscan(coefs,src.get_frame(k),diagnostics=diagnostics)
             outfn = os.path.join(bscan_folder,file_manager.bscan_template%k)
             np.save(outfn,bscan)
             logging.info('Saving bscan %s.'%outfn)
     else:
+        logging.info('File %s B-scans processed. Skipping.'%data_filename)
 
-        def mapping_function(k):
-            bscan = blobf.spectra_to_bscan(coefs,src.get_frame(k),diagnostics=diagnostics)
-            outfn = os.path.join(bscan_folder,file_manager.bscan_template%k)
-            np.save(outfn,bscan)
-            logging.info('Saving bscan %s.'%outfn)
-
-        p = mp.Pool(12)
-        p.map(mapping_function,list(range(src.n_total_frames)))
 
 
 if __name__=='__main__':
     unp_files = pathlib.Path('.').rglob('*.unp')
-    for unp_file in unp_files:
-        logging.info('Crawling %s.'%unp_file)
+
+    def multiprocessing_function(f):
+        logging.info('Crawling %s.'%f)
         try:
-            process(unp_file)
+            process(f)
         except Exception as e:
-            logging.info(e)
+            logging.info('Error: %s. Skipping %s.'%(e,f))
+            
+
+    if do_mp:
+        p = mp.Pool(12)
+        p.map(multiprocessing_function,unp_files)
+
+    else:
+    
+        for unp_file in unp_files:
+            logging.info('Crawling %s.'%unp_file)
+            try:
+                process(unp_file)
+            except Exception as e:
+                logging.info(e)
