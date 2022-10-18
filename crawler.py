@@ -65,5 +65,8 @@ def process(data_filename):
 if __name__=='__main__':
     unp_files = pathlib.Path('.').rglob('*.unp')
     for unp_file in unp_files:
-        print('Crawling %s.'%unp_file)
-        process(unp_file)
+        logging.info('Crawling %s.'%unp_file)
+        try:
+            process(unp_file)
+        except Exception as e:
+            logging.info(e)
