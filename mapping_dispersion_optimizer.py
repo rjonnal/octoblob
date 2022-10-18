@@ -34,7 +34,7 @@ def obj_md(mdcoefs,spectra,bscan_function,iqf,ax=None,verbose=False):
 def show_bscan(ax,bscan):
     ax.imshow(dB(bscan),cmap='gray',clim=dB_clim)
 
-def optimize(spectra,bscan_function,show=False,verbose=False,maxiters=200):
+def optimize(spectra,bscan_function,show=False,verbose=False,maxiters=200,diagnostics=None):
 
     # confused about bounds--documentation says they can be used with Nelder-Mead, but warnings
     # say that they can't
@@ -54,32 +54,30 @@ def optimize(spectra,bscan_function,show=False,verbose=False,maxiters=200):
 
     init = [0.0,0.0,0.0,0.0]
 
-    if show:
-        fig1 = plt.figure(figsize=(2,4),dpi=150)
-        ax1 = fig1.add_subplot(1,1,1)
-        fig2 = plt.figure(figsize=(2,4),dpi=150)
-        ax2 = fig2.add_subplot(1,1,1)
-        realtime_axis = ax2
-        show_bscan(ax1,bscan_function(init,spectra))
-        plt.pause(.1)
-    else:
-        realtime_axis = None
-        sys.stdout.write('Optimizing ')
+    if diagnostics is not None:
+        fig = plt.figure()
+        plt.subplot(1,2,1)
+        plt.imshow(blobf.dB(bscan_function(init,spectra)),aspect='auto',clim=(45,85),cmap='gray')
+        
+    realtime_axis = None
+    sys.stdout.write('Optimizing ')
         
     res = spo.minimize(obj_md,init,args=(spectra,bscan_function,blobf.sharpness,realtime_axis,verbose),bounds=bounds,method=method,options=optimization_options)
     
-    if show:
-        show_bscan(ax2,bscan_function(res.x,spectra))
-        print('done')
-
+    if diagnostics is not None:
+        plt.subplot(1,2,2)
+        plt.imshow(blobf.dB(bscan_function(res.x,spectra)),aspect='auto',clim=(45,85),cmap='gray')
+        diagnostics.save(fig)
+        
     return res.x
 
 
-def multi_optimize(spectra_list,bscan_function,show_all=False,show_final=False,verbose=False,maxiters=200):
+def multi_optimize(spectra_list,bscan_function,show_all=False,show_final=False,verbose=False,maxiters=200,diagnostics=None):
     results_coefficients = []
     results_iq = []
+    
     for spectra in spectra_list:
-        coefs = optimize(spectra,bscan_function,show=show_all,verbose=verbose,maxiters=maxiters)
+        coefs = optimize(spectra,bscan_function,show=show_all,verbose=verbose,maxiters=maxiters,diagnostics=diagnostics)
         results_coefficients.append(coefs)
         iq = obj_md(coefs,spectra,bscan_function,blobf.sharpness)
         results_iq.append(iq)
@@ -93,7 +91,7 @@ def multi_optimize(spectra_list,bscan_function,show_all=False,show_final=False,v
     for rc,riq in zip(results_coefficients,results_iq):
         print(rc,riq)
 
-    if show_final:
+    if diagnostics is not None:
         for idx,(spectra,coefs,iq) in enumerate(zip(spectra_list,results_coefficients,results_iq)):
             print('iq from optimization: %0.3f'%iq)
             print('iq from obj_md: %0.3f'%obj_md(coefs,spectra,bscan_function,blobf.sharpness))
@@ -104,8 +102,7 @@ def multi_optimize(spectra_list,bscan_function,show_all=False,show_final=False,v
                 plt.title('winner %0.3f'%obj_md(coefs,spectra,bscan_function,blobf.sharpness))
             else:
                 plt.title('loser %0.3f'%obj_md(coefs,spectra,bscan_function,blobf.sharpness))
-
-        plt.show()
+            diagnostics.save(sfig)
 
     return results_coefficients[winner]
 
