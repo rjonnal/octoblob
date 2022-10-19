@@ -4,6 +4,7 @@ import logging
 from matplotlib import pyplot as plt
 from octoblob import diagnostics_tools
 from octoblob import parameters
+from octoblob import org_tools
 import sys,os,glob
 import numpy as np
 from octoblob import mapping_dispersion_optimizer as mdo
@@ -29,7 +30,7 @@ except FileNotFoundError as fnfe:
     logging.info('no crawler_blacklist found')
     
 org_frames_only = True
-org_frames = list(range(20,80))
+org_frames = list(range(org_tools.org_start_frame,org_tools.org_end_frame))
 do_all_frames_tag = 'fovea'
 
 start_clean = 'clean' in sys.argv[1:]

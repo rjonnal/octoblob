@@ -85,7 +85,6 @@ def multi_optimize(spectra_list,bscan_function,show_all=False,show_final=False,v
     winner = np.argmin(results_iq)
     logging.info(results_iq)
     logging.info('winner is index %d'%winner)
-    logging.info()
 
     
     for rc,riq in zip(results_coefficients,results_iq):
