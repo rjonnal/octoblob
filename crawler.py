@@ -16,8 +16,10 @@ try:
 except:
     do_mp = False
 
+org_frames_only = True
+org_frames = list(range(20,80))
 
-
+start_clean = 'clean' in sys.argv[1:]
 
 def process(data_filename,do_mp=False):
 
@@ -35,14 +37,17 @@ def process(data_filename,do_mp=False):
     src = blobf.get_source(data_filename)
 
     # get the total number of frames:
-    n_total_frames = src.n_total_frames
+    if org_frames_only:
+        n_total_frames = len(org_frames)
+    else:
+        n_total_frames = src.n_total_frames
 
     # try to read dispersion/mapping coefs from a local processing_parameters file, and run optimization otherwise
     try:
         coefs = np.array(params['mapping_dispersion_coefficients'],dtype=np.float)
         logging.info('File %s mapping dispersion coefficients found in %s. Skipping optimization.'%(data_filename,params_filename))
     except KeyError:
-        logging.info('File %s mapping dispersion coefficients not found. Running optimization.'%(data_filename,params_filename))
+        logging.info('File %s mapping dispersion coefficients not found in %s. Running optimization.'%(data_filename,params_filename))
         samples = src.get_samples(5)
         coefs = mdo.multi_optimize(samples,blobf.spectra_to_bscan,show_all=False,show_final=True,verbose=False,diagnostics=diagnostics)
         params['mapping_dispersion_coefficients'] = coefs
@@ -57,6 +62,8 @@ def process(data_filename,do_mp=False):
     if len(bscans)<n_total_frames:
         logging.info('File %s missing B-scans. Re-processing.'%data_filename)
         for k in range(src.n_total_frames):
+            if org_frames_only and not k in org_frames and f.lower().find('fovea')==-1:
+                continue
             bscan = blobf.spectra_to_bscan(coefs,src.get_frame(k),diagnostics=diagnostics)
             outfn = os.path.join(bscan_folder,file_manager.bscan_template%k)
             np.save(outfn,bscan)
@@ -67,6 +74,10 @@ def process(data_filename,do_mp=False):
 
 
 if __name__=='__main__':
+
+    if start_clean:
+        file_manager.clean(True)
+        
     unp_files = pathlib.Path('.').rglob('*.unp')
 
     def multiprocessing_function(f):
