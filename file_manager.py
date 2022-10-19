@@ -59,7 +59,9 @@ def cleanup_files(file_filters=[],delete=False):
             os.remove(f)
 
 def clean(delete=False):
-    cleanup_folders(['*_diagnostics','*_bscans','*_org'],delete=delete)
-    cleanup_files(['processing_parameters.json'],delete=delete)
-    cleanup_files(['octoblob.log'],delete=delete)
+    ans = input('Are you sure you want to delete all processing output and intermediates below this level? [Y/n] .')
+    if ans.lower()=='y':
+        cleanup_folders(['*_diagnostics','*_bscans','*_org'],delete=delete)
+        cleanup_files(['processing_parameters.json'],delete=delete)
+        cleanup_files(['octoblob.log'],delete=delete)
     
