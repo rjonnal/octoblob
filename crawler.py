@@ -74,7 +74,7 @@ def process(data_filename,do_mp=False):
     if len(bscans)<n_total_frames:
         logging.info('File %s missing B-scans. Re-processing.'%data_filename)
         for k in range(src.n_total_frames):
-            if org_frames_only and not k in org_frames: and data_filename.lower().find(do_all_frames_tag)==-1:
+            if org_frames_only and not k in org_frames and data_filename.lower().find(do_all_frames_tag)==-1:
                 continue
             bscan = blobf.spectra_to_bscan(coefs,src.get_frame(k),diagnostics=diagnostics)
             outfn = os.path.join(bscan_folder,file_manager.bscan_template%k)
