@@ -83,18 +83,18 @@ def multi_optimize(spectra_list,bscan_function,show_all=False,show_final=False,v
         results_iq.append(iq)
 
     winner = np.argmin(results_iq)
-    print(results_iq)
-    print('winner is index %d'%winner)
-    print()
+    logging.info(results_iq)
+    logging.info('winner is index %d'%winner)
+    logging.info()
 
     
     for rc,riq in zip(results_coefficients,results_iq):
-        print(rc,riq)
+        logging.info(rc,riq)
 
     if diagnostics is not None:
         for idx,(spectra,coefs,iq) in enumerate(zip(spectra_list,results_coefficients,results_iq)):
-            print('iq from optimization: %0.3f'%iq)
-            print('iq from obj_md: %0.3f'%obj_md(coefs,spectra,bscan_function,blobf.sharpness))
+            logging.info('iq from optimization: %0.3f'%iq)
+            logging.info('iq from obj_md: %0.3f'%obj_md(coefs,spectra,bscan_function,blobf.sharpness))
             sfig = plt.figure()
             sax = sfig.add_subplot(1,1,1)
             show_bscan(sax,bscan_function(coefs,spectra))
@@ -102,7 +102,7 @@ def multi_optimize(spectra_list,bscan_function,show_all=False,show_final=False,v
                 plt.title('winner %0.3f'%obj_md(coefs,spectra,bscan_function,blobf.sharpness))
             else:
                 plt.title('loser %0.3f'%obj_md(coefs,spectra,bscan_function,blobf.sharpness))
-            diagnostics.save(sfig)
+            diagnostics.save(sfig,ignore_limit=True)
 
     return results_coefficients[winner]
 

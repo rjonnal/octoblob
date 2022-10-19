@@ -16,7 +16,7 @@ class Diagnostics:
         self.dpi = 150
         self.figures = {}
         
-    def save(self,figure_handle,label=None):
+    def save(self,figure_handle,label=None,ignore_limit=False):
 
         if label is None:
             try:
@@ -36,7 +36,7 @@ class Diagnostics:
         plt.clf()
         index = self.counts[label]
         
-        if index<self.limit:
+        if index<self.limit or ignore_limit:
             outfn = os.path.join(subfolder,'%s_%05d.png'%(label,index))
             print(outfn)
             figure_handle.savefig(outfn,dpi=self.dpi)

@@ -1,6 +1,8 @@
 import os,sys
 import pathlib
 import shutil
+from octoblob import logger
+import logging
 
 def get_params_filename(data_filename):
     params_filename = os.path.join(os.path.split(data_filename)[0],'processing_parameters.json')
@@ -35,10 +37,10 @@ def cleanup_folders(folder_filters=[],delete=False):
 
     for f in folders:
         if not delete:
-            print('Would delete %s.'%f)
+            logging.info('Would delete %s.'%f)
         
         else:
-            print('Deleting %s.'%f)
+            logging.info('Deleting %s.'%f)
             shutil.rmtree(f)
 
 
@@ -52,10 +54,10 @@ def cleanup_files(file_filters=[],delete=False):
 
     for f in files:
         if not delete:
-            print('Would delete %s.'%f)
+            logging.info('Would delete %s.'%f)
         
         else:
-            print('Deleting %s.'%f)
+            logging.info('Deleting %s.'%f)
             os.remove(f)
 
 def clean(delete=False):
