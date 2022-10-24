@@ -272,6 +272,16 @@ def crop_bscan(bscan,top_crop=350,bottom_crop=30,diagnostics=None):
 def dB(arr):
     return 20*np.log10(np.abs(arr))
 
+
+def threshold_mask(arr,threshold):
+    out = np.zeros(arr.shape)
+    out[np.where(arr>threshold)] = 1.0
+    return out
+
+def percentile_mask(arr,percentile_threshold):
+    threshold = np.percentile(arr,percentile_threshold)
+    return threshold_mask(arr,threshold)
+
 def spectra_to_bscan(mdcoefs,spectra,diagnostics=None):
     spectra = fbg_align(spectra,diagnostics=diagnostics)
     spectra = dc_subtract(spectra,diagnostics=diagnostics)
