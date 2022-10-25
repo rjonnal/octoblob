@@ -19,7 +19,7 @@ def centers_to_edges(bin_centers):
     last_edge = bin_centers[-1]+half_width
     return np.linspace(first_edge,last_edge,len(bin_centers)+1)
 
-def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=True):
+def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=False):
     shifts = np.linspace(bin_centers[0]/float(len(bin_centers)),
                           bin_centers[-1]/float(len(bin_centers)),resample_factor)
 
@@ -79,15 +79,40 @@ def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=True):
 
     return all_counts.T.ravel(),all_centers.T.ravel()
 
-def test_bin_shift_histogram():
-    vals = np.random.randn(1000)+1.50
-    bin_edges = np.linspace(-4,4,9)
-    resample_factor = 10
-    counts,centers = bin_shift_histogram(vals,bin_edges,resample_factor)
+def test_bin_shift_histogram(N=1000,mu=2.5,sigma=30.0):
+
+    s1 = np.random.rand(N)*sigma
+    s2 = s1+mu
+    noise1 = np.random.randn(N)*2.0
+    noise2 = np.random.randn(N)*2.0
+    s1 = s1%(np.pi*2)
+    s2 = s2%(np.pi*2)
+
+    s1 = s1 + noise1
+    s2 = s2 + noise2
+
+    
+    vals = s2-s1
+    
+    resample_factor = 4
+    bin_edges_sparse = np.linspace(0,2*np.pi,16)
+    bin_edges_dense = np.linspace(0,2*np.pi,16*resample_factor)
+    #vals = (vals+np.pi)%(2*np.pi)-np.pi
+
+    counts,centers = bin_shift_histogram(vals,bin_edges_sparse,resample_factor)
     plt.figure()
-    plt.hist(vals,bin_edges)
-    plt.figure()
+    plt.subplot(1,3,1)
+    plt.hist(vals,bin_edges_sparse)
+    plt.title('sparse histogram')
+    plt.xlim((0,2*np.pi))
+    plt.subplot(1,3,2)
+    plt.hist(vals,bin_edges_dense)
+    plt.title('dense histogram')
+    plt.xlim((0,2*np.pi))
+    plt.subplot(1,3,3)
     plt.bar(centers,counts)
+    plt.title('resampled histogram')
+    plt.xlim((0,2*np.pi))
     plt.show()
     
 #test_bin_shift_histogram()
@@ -296,3 +321,5 @@ def get_phase_jumps(phase_stack,mask,
 
     return b_jumps
 
+if __name__=='__main__':
+    test_bin_shift_histogram()
