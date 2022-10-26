@@ -31,6 +31,10 @@ except FileNotFoundError as fnfe:
     
 org_frames_only = True
 org_frames = list(range(org_tools.org_start_frame,org_tools.org_end_frame))
+
+# just for the ./examples folder:
+# org_frames = list(range(40))
+
 do_all_frames_tag = 'fovea'
 
 start_clean = 'clean' in sys.argv[1:]
@@ -88,11 +92,16 @@ def process(data_filename,do_mp=False):
 
 if __name__=='__main__':
 
+    try:
+        root_folder = sys.argv[1]
+    except IndexError as ie:
+        sys.exit(ie)
+    
     if start_clean:
         file_manager.clean(False)
         file_manager.clean(True)
         
-    unp_files_temp = pathlib.Path('.').rglob('*.unp')
+    unp_files_temp = pathlib.Path(root_folder).rglob('*.unp')
     unp_files_temp = [str(f) for f in unp_files_temp]
     unp_files = []
     for unp_file in unp_files_temp:
@@ -107,7 +116,7 @@ if __name__=='__main__':
     logging.info('Processing these files:')
     for uf in unp_files:
         logging.info('\t %s'%uf)
-
+        
     def multiprocessing_function(f):
         logging.info('Crawling %s.'%f)
         try:
@@ -115,7 +124,6 @@ if __name__=='__main__':
         except Exception as e:
             logging.info('Error: %s. Skipping %s.'%(e,f))
             
-
     if do_mp:
         p = mp.Pool(n_cores)
         p.map(multiprocessing_function,unp_files)

@@ -15,6 +15,11 @@ class Diagnostics:
         self.limit = limit
         self.dpi = 150
         self.figures = {}
+
+    def log(title,header,data,fmt,clobber):
+        print(title)
+        print(header)
+        print(fmt%data)
         
     def save(self,figure_handle,label=None,ignore_limit=False):
 

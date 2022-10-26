@@ -19,7 +19,7 @@ def centers_to_edges(bin_centers):
     last_edge = bin_centers[-1]+half_width
     return np.linspace(first_edge,last_edge,len(bin_centers)+1)
 
-def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=False):
+def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=None):
     shifts = np.linspace(bin_centers[0]/float(len(bin_centers)),
                           bin_centers[-1]/float(len(bin_centers)),resample_factor)
 
@@ -43,12 +43,12 @@ def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=False):
     all_counts = all_counts/float(resample_factor)
     all_centers = all_centers
 
-    if diagnostics:
+    if diagnostics is not None:
         bin_edges = centers_to_edges(bin_centers)
         bin_width = np.mean(np.diff(bin_edges))
         shift_size = np.mean(np.diff(shifts))
         
-        plt.figure(figsize=(3*opf.IPSP,opf.IPSP),dpi=opf.screen_dpi)
+        fig = plt.figure(figsize=(3*1,1),dpi=100)
         plt.subplot(1,3,1)
         plt.imshow(all_counts)
         plt.title('counts')
@@ -72,10 +72,8 @@ def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=False):
         plt.bar(all_centers.ravel(),all_counts.ravel(),width=shift_size*0.8)
         plt.title('bin shifted histogram')
 
-        plt.show()
-
         
-        #save_diagnostics(diagnostics,'bin_shift_histogram')
+        #diagnostics.save(fig)
 
     return all_counts.T.ravel(),all_centers.T.ravel()
 
@@ -100,7 +98,7 @@ def test_bin_shift_histogram(N=1000,mu=2.5,sigma=30.0):
     #vals = (vals+np.pi)%(2*np.pi)-np.pi
 
     counts,centers = bin_shift_histogram(vals,bin_edges_sparse,resample_factor)
-    plt.figure()
+    fig = plt.figure()
     plt.subplot(1,3,1)
     plt.hist(vals,bin_edges_sparse)
     plt.title('sparse histogram')
@@ -113,7 +111,6 @@ def test_bin_shift_histogram(N=1000,mu=2.5,sigma=30.0):
     plt.bar(centers,counts)
     plt.title('resampled histogram')
     plt.xlim((0,2*np.pi))
-    plt.show()
     
 #test_bin_shift_histogram()
 
@@ -126,15 +123,23 @@ def wrap_into_range(arr,phase_limits=(-np.pi,np.pi)):
     return arr
 
 
+def make_mask(im,threshold=None):
+    if threshold is None:
+        threshold = np.percentile(im,90)
+        
+    mask = np.zeros(im.shape)
+    mask[np.where(im>threshold)] = 1
+    return mask
+
 def get_phase_jumps(phase_stack,mask,
                     n_bins=16,
                     resample_factor=24,
-                    n_smooth=5,polynomial_smoothing=True,diagnostics=False):
+                    n_smooth=5,polynomial_smoothing=True,diagnostics=None):
 
     # Take a stack of B-scan phase arrays, with dimensions
     # (z,x,repeats), and return a bulk-motion corrected
     # version
-
+    #phase_stack = np.transpose(phase_stack,(1,2,0))
     n_depth = phase_stack.shape[0]
     n_fast = phase_stack.shape[1]
     n_reps = phase_stack.shape[2]
@@ -146,8 +151,8 @@ def get_phase_jumps(phase_stack,mask,
     d_phase_d_t = wrap_into_range(d_phase_d_t)
 
 
-    if diagnostics:
-        plt.figure(figsize=((n_reps-1)*opf.IPSP,2*opf.IPSP),dpi=opf.screen_dpi)
+    if diagnostics is not None:
+        fig = plt.figure(figsize=((n_reps-1)*1,2*1),dpi=100)
         plt.suptitle('phase shifts between adjacent frames in cluster')
         for rep in range(1,n_reps):
             plt.subplot(2,n_reps-1,rep)
@@ -167,7 +172,7 @@ def get_phase_jumps(phase_stack,mask,
                 plt.colorbar()
             plt.xticks([])
             plt.yticks([])
-        save_diagnostics(diagnostics,'phase_shifts')
+        diagnostics.save(fig)
             
     d_phase_d_t = np.transpose(np.transpose(d_phase_d_t,(2,0,1))*mask,(1,2,0))
 
@@ -183,8 +188,8 @@ def get_phase_jumps(phase_stack,mask,
     b_jumps = np.zeros((d_phase_d_t.shape[1:]))
     bin_counts = np.zeros((d_phase_d_t.shape[1:]))
 
-    if diagnostics:
-        plt.figure(figsize=((n_reps-1)*opf.IPSP,1*opf.IPSP),dpi=opf.screen_dpi)
+    if diagnostics is not None:
+        fig = plt.figure(figsize=((n_reps-1)*1,1*1),dpi=100)
         total_bins = n_bins*resample_factor
         hist_sets = np.zeros((n_reps-1,n_fast,total_bins))
 
@@ -192,7 +197,7 @@ def get_phase_jumps(phase_stack,mask,
         valid_idx = np.where(mask[:,f])[0]
         for r in range(n_reps-1):
             vals = d_phase_d_t[valid_idx,f,r]
-            if diagnostics:
+            if diagnostics is not None:
                 # RSJ, 23 March 2020:
                 # We'll add a simple diagnostic here--a printout of the number of samples and the
                 # interquartile range. These can be used to determine the optimal bin width, following
@@ -204,10 +209,10 @@ def get_phase_jumps(phase_stack,mask,
                     h = 2*IQ*m**(-1/3)
                     n_bins = np.ceil(2*np.pi/h)
                     bscan_indices = '%01d-%01d'%(r,r+1)
-                    log_diagnostics(diagnostics,'histogram_optimal_bin_width',
-                                    header=['bscan indices','ascan index','IQ','m','h','n_bins'],
-                                    data=[bscan_indices,f,IQ,m,h,n_bins],
-                                    fmt=['%s','%d','%0.3f','%d','%0.3f','%d'],clobber=f==0)
+                    #diagnostics.log('histogram_optimal_bin_width',
+                    #                header=['bscan indices','ascan index','IQ','m','h','n_bins'],
+                    #                data=[bscan_indices,f,IQ,m,h,n_bins],
+                    #                fmt=['%s','%d','%0.3f','%d','%0.3f','%d'],clobber=f==0)
                 except IndexError:
                     pass
                 
@@ -215,9 +220,9 @@ def get_phase_jumps(phase_stack,mask,
             if f==0 and r==0:
                 [counts,bin_centers] = bin_shift_histogram(vals,bin_edges,resample_factor,diagnostics=diagnostics)
             else:
-                [counts,bin_centers] = bin_shift_histogram(vals,bin_edges,resample_factor,diagnostics=False)
+                [counts,bin_centers] = bin_shift_histogram(vals,bin_edges,resample_factor,diagnostics=None)
                 
-            if diagnostics:
+            if diagnostics is not None:
                 hist_sets[r,f,:] = counts
             bulk_shift = bin_centers[np.argmax(counts)]
             bin_count = np.max(counts)
@@ -227,7 +232,7 @@ def get_phase_jumps(phase_stack,mask,
     #if polynomial_smoothing:
     #    polynomial_smooth_phase(bin_counts,b_jumps)
             
-    if diagnostics:
+    if diagnostics is not None:
         for idx,hist_set in enumerate(hist_sets):
             plt.subplot(1,n_reps-1,idx+1)
             plt.imshow(hist_set,interpolation='none',aspect='auto',extent=(np.min(bin_centers),np.max(bin_centers),0,n_fast-1),cmap='gray')
@@ -239,7 +244,7 @@ def get_phase_jumps(phase_stack,mask,
             plt.autoscale(False)
             plt.plot(b_jumps[:,idx],range(n_fast)[::-1],'g.',alpha=0.2)
         plt.suptitle('shifted bulk motion histograms (count)')
-        save_diagnostics(diagnostics,'bulk_motion_histograms')
+        diagnostics.save(fig)
 
         # now let's show some examples of big differences between adjacent A-scans
         legendfontsize = 8
@@ -247,7 +252,7 @@ def get_phase_jumps(phase_stack,mask,
         pts_per_example = 10
         max_examples = 16
         dtheta_threshold = np.pi/2.0
-        fig = plt.figure(figsize=(opf.IPSP*4,opf.IPSP*4))
+        fig = plt.figure(figsize=(1*4,1*4))
         example_count = 0
         for rep_idx,hist_set in enumerate(hist_sets):
             temp = np.diff(b_jumps[:,rep_idx])
@@ -276,12 +281,12 @@ def get_phase_jumps(phase_stack,mask,
             if example_count>=max_examples:
                 break
         plt.suptitle('scans involved in each mode jump')
-        save_diagnostics(diagnostics,'histogram_mode_examples_bad')
+        diagnostics.save(fig)
 
 
         # now let's show some examples of small differences between adjacent A-scans
         dtheta_threshold = np.pi/20.0
-        fig = plt.figure(figsize=(opf.IPSP*4,opf.IPSP*4))
+        fig = plt.figure(figsize=(1*4,1*4))
         example_count = 0
         for rep_idx,hist_set in enumerate(hist_sets):
             temp = np.diff(b_jumps[:,rep_idx])
@@ -310,7 +315,7 @@ def get_phase_jumps(phase_stack,mask,
             if example_count>=max_examples:
                 break
         plt.suptitle('scans involved in each mode jump')
-        save_diagnostics(diagnostics,'histogram_mode_examples_good')
+        diagnostics.save(fig)
         
         
     # Now unwrap to prevent discontinuities (although this may not impact complex variance)
@@ -320,6 +325,87 @@ def get_phase_jumps(phase_stack,mask,
     # b_jumps = sps.convolve2d(b_jumps,np.ones((n_smooth,1)),mode='same')/float(n_smooth)
 
     return b_jumps
+
+def bulk_motion_correct(phase_stack,mask,
+                        n_bins=16,
+                        resample_factor=24,
+                        n_smooth=5,diagnostics=None):
+
+    # Take a stack of B-scan phase arrays, with dimensions
+    # (z,x,repeats), and return a bulk-motion corrected
+    # version
+
+    n_reps = phase_stack.shape[2]
+
+    b_jumps = get_phase_jumps(phase_stack,mask,
+                              n_bins=n_bins,
+                              resample_factor=resample_factor,
+                              n_smooth=n_smooth,
+                              diagnostics=diagnostics)
+
+    # Now, subtract b_jumps from phase_stack, not including the first repeat
+    # Important: this is happening by broadcasting--it requires that the
+    # last two dimensions of phase_stack[:,:,1:] be equal in size to the two
+    # dimensions of b_jumps
+    out = np.copy(phase_stack)
+
+    if diagnostics is not None:
+        #err_clim = (np.min(np.sum(b_jumps,axis=1)),np.max(np.sum(b_jumps,axis=1)))
+        phase_clim = (-np.pi,np.pi)
+        err_clim = [-np.pi-np.min(-np.sum(b_jumps,axis=1)),np.pi+np.max(-np.sum(b_jumps,axis=1))]
+        if err_clim[1]<err_clim[0]:
+            err_clim = [-ec for ec in err_clim]
+        fig = plt.figure(figsize=((n_reps-1)*1,2*1),dpi=100)
+        plt.subplot(2,n_reps+1,1)
+        plt.imshow(mask*phase_stack[:,:,0],clim=phase_clim,aspect='auto',interpolation='none')
+        plt.xticks([])
+        plt.yticks([])
+        plt.xlabel('frame 0')
+        plt.ylabel('before correction')
+        
+        plt.subplot(2,n_reps+1,n_reps+2)
+        plt.imshow(mask*out[:,:,0],clim=err_clim,aspect='auto',interpolation='none')
+        plt.xticks([])
+        plt.yticks([])
+        plt.xlabel('frame 0')
+        plt.ylabel('after correction')
+        
+    errs = []
+    for rep in range(1,n_reps):
+        # for each rep, the total error is the sum of
+        # all previous errors
+        err = np.sum(b_jumps[:,:rep],axis=1)
+        errs.append(err)
+        out[:,:,rep] = out[:,:,rep]-err
+        if diagnostics:
+            #fig = plt.figure()
+            plt.subplot(2,n_reps+1,rep+1)
+            plt.imshow(mask*phase_stack[:,:,rep],clim=phase_clim,aspect='auto',interpolation='none')
+            plt.xlabel('frame %d'%rep)
+            plt.xticks([])
+            plt.yticks([])
+            if rep==n_reps-1:
+                plt.colorbar()
+
+            plt.subplot(2,n_reps+1,n_reps+rep+2)
+            plt.imshow(mask*out[:,:,rep],clim=err_clim,aspect='auto',interpolation='none')
+            plt.xlabel('frame %d'%rep)
+            plt.xticks([])
+            plt.yticks([])
+            if rep==n_reps-1:
+                plt.colorbar()
+                
+
+    if diagnostics:
+        plt.subplot(2,n_reps+1,n_reps+1)
+        for idx,err in enumerate(errs):
+            plt.plot(err,label='f%d'%(idx+1))
+        plt.legend()
+        diagnostics.save(fig)
+        
+    out = wrap_into_range(out)
+
+    return out
 
 if __name__=='__main__':
     test_bin_shift_histogram()
