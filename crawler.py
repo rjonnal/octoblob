@@ -30,10 +30,11 @@ except FileNotFoundError as fnfe:
     logging.info('no crawler_blacklist found')
     
 org_frames_only = True
-org_frames = list(range(org_tools.org_start_frame,org_tools.org_end_frame))
+
+#org_frames = list(range(org_tools.org_start_frame,org_tools.org_end_frame))
 
 # just for the ./examples folder:
-# org_frames = list(range(40))
+org_frames = list(range(40))
 
 do_all_frames_tag = 'fovea'
 
@@ -44,11 +45,6 @@ def process(data_filename,do_mp=False):
 
     data_filename = str(data_filename)
     diagnostics = diagnostics_tools.Diagnostics(data_filename)
-
-    # diagnostics gets messed up by parallelism since multiple processes
-    # may be trying to write to the same file
-    if diagnostics is not None:
-        do_mp = False
 
     params_filename = file_manager.get_params_filename(data_filename)
     params = parameters.Parameters(params_filename,verbose=True)
@@ -89,6 +85,9 @@ def process(data_filename,do_mp=False):
         logging.info('File %s B-scans processed. Skipping.'%data_filename)
 
 
+    org_tools.process_org_blocks(bscan_folder)
+        
+
 
 if __name__=='__main__':
 
@@ -96,7 +95,7 @@ if __name__=='__main__':
         root_folder = sys.argv[1]
     except IndexError as ie:
         sys.exit(ie)
-    
+
     if start_clean:
         file_manager.clean(False)
         file_manager.clean(True)
@@ -127,9 +126,7 @@ if __name__=='__main__':
     if do_mp:
         p = mp.Pool(n_cores)
         p.map(multiprocessing_function,unp_files)
-
     else:
-    
         for unp_file in unp_files:
             logging.info('Crawling %s.'%unp_file)
             try:

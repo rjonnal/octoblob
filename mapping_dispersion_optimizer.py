@@ -55,7 +55,7 @@ def optimize(spectra,bscan_function,show=False,verbose=False,maxiters=200,diagno
     init = [0.0,0.0,0.0,0.0]
 
     if diagnostics is not None:
-        fig = plt.figure()
+        fig = diagnostics.figure()
         plt.subplot(1,2,1)
         plt.imshow(blobf.dB(bscan_function(init,spectra)),aspect='auto',clim=(45,85),cmap='gray')
         
@@ -94,7 +94,7 @@ def multi_optimize(spectra_list,bscan_function,show_all=False,show_final=False,v
         for idx,(spectra,coefs,iq) in enumerate(zip(spectra_list,results_coefficients,results_iq)):
             logging.info('iq from optimization: %0.3f'%iq)
             logging.info('iq from obj_md: %0.3f'%obj_md(coefs,spectra,bscan_function,blobf.sharpness))
-            sfig = plt.figure()
+            sfig = diagnostics.figure()
             sax = sfig.add_subplot(1,1,1)
             show_bscan(sax,bscan_function(coefs,spectra))
             if idx==winner:

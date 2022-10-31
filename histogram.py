@@ -48,7 +48,7 @@ def bin_shift_histogram(vals,bin_centers,resample_factor=1,diagnostics=None):
         bin_width = np.mean(np.diff(bin_edges))
         shift_size = np.mean(np.diff(shifts))
         
-        fig = plt.figure(figsize=(3*1,1),dpi=100)
+        fig = diagnostics.figure(figsize=(3*1,1),dpi=100)
         plt.subplot(1,3,1)
         plt.imshow(all_counts)
         plt.title('counts')
@@ -123,12 +123,19 @@ def wrap_into_range(arr,phase_limits=(-np.pi,np.pi)):
     return arr
 
 
-def make_mask(im,threshold=None):
+def make_mask(im,threshold=None,diagnostics=None):
     if threshold is None:
         threshold = np.percentile(im,90)
         
     mask = np.zeros(im.shape)
     mask[np.where(im>threshold)] = 1
+
+    if diagnostics is not None:
+        fig = diagnostics.figure()
+        ax = fig.subplots(1,1)
+        ax.imshow(mask)
+        diagnostics.save(fig)
+    
     return mask
 
 def get_phase_jumps(phase_stack,mask,
@@ -152,7 +159,7 @@ def get_phase_jumps(phase_stack,mask,
 
 
     if diagnostics is not None:
-        fig = plt.figure(figsize=((n_reps-1)*1,2*1),dpi=100)
+        fig = diagnostics.figure(figsize=((n_reps-1)*1,2*1),dpi=100)
         plt.suptitle('phase shifts between adjacent frames in cluster')
         for rep in range(1,n_reps):
             plt.subplot(2,n_reps-1,rep)
@@ -189,7 +196,7 @@ def get_phase_jumps(phase_stack,mask,
     bin_counts = np.zeros((d_phase_d_t.shape[1:]))
 
     if diagnostics is not None:
-        fig = plt.figure(figsize=((n_reps-1)*1,1*1),dpi=100)
+        fig = diagnostics.figure(figsize=((n_reps-1)*1,1*1),dpi=100)
         total_bins = n_bins*resample_factor
         hist_sets = np.zeros((n_reps-1,n_fast,total_bins))
 
@@ -252,7 +259,7 @@ def get_phase_jumps(phase_stack,mask,
         pts_per_example = 10
         max_examples = 16
         dtheta_threshold = np.pi/2.0
-        fig = plt.figure(figsize=(1*4,1*4))
+        fig = diagnostics.figure(figsize=(1*4,1*4))
         example_count = 0
         for rep_idx,hist_set in enumerate(hist_sets):
             temp = np.diff(b_jumps[:,rep_idx])
@@ -286,7 +293,7 @@ def get_phase_jumps(phase_stack,mask,
 
         # now let's show some examples of small differences between adjacent A-scans
         dtheta_threshold = np.pi/20.0
-        fig = plt.figure(figsize=(1*4,1*4))
+        fig = diagnostics.figure(figsize=(1*4,1*4))
         example_count = 0
         for rep_idx,hist_set in enumerate(hist_sets):
             temp = np.diff(b_jumps[:,rep_idx])
@@ -355,7 +362,7 @@ def bulk_motion_correct(phase_stack,mask,
         err_clim = [-np.pi-np.min(-np.sum(b_jumps,axis=1)),np.pi+np.max(-np.sum(b_jumps,axis=1))]
         if err_clim[1]<err_clim[0]:
             err_clim = [-ec for ec in err_clim]
-        fig = plt.figure(figsize=((n_reps-1)*1,2*1),dpi=100)
+        fig = diagnostics.figure(figsize=((n_reps-1)*1,2*1),dpi=100)
         plt.subplot(2,n_reps+1,1)
         plt.imshow(mask*phase_stack[:,:,0],clim=phase_clim,aspect='auto',interpolation='none')
         plt.xticks([])
@@ -378,7 +385,6 @@ def bulk_motion_correct(phase_stack,mask,
         errs.append(err)
         out[:,:,rep] = out[:,:,rep]-err
         if diagnostics:
-            #fig = plt.figure()
             plt.subplot(2,n_reps+1,rep+1)
             plt.imshow(mask*phase_stack[:,:,rep],clim=phase_clim,aspect='auto',interpolation='none')
             plt.xlabel('frame %d'%rep)
@@ -396,7 +402,7 @@ def bulk_motion_correct(phase_stack,mask,
                 plt.colorbar()
                 
 
-    if diagnostics:
+    if diagnostics is not None:
         plt.subplot(2,n_reps+1,n_reps+1)
         for idx,err in enumerate(errs):
             plt.plot(err,label='f%d'%(idx+1))

@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 import glob,os,sys
 import octoblob.histogram as blobh
 import octoblob.diagnostics_tools as blobd
+import logging
 
 # some parameters for limiting processing of B-scans
 org_stimulus_frame = 100
@@ -29,12 +30,15 @@ def get_frames(filename_list):
 def compute_phase_velocity(stack,diagnostics=None):
     amplitude_mean = np.mean(np.abs(stack),axis=0)
     phase_stack = np.angle(stack)
-    mask = blobh.make_mask(amplitude_mean)
+    mask = blobh.make_mask(amplitude_mean,diagnostics=diagnostics)
     phase_stack = np.transpose(phase_stack,(1,2,0))
     phase_stack = blobh.bulk_motion_correct(phase_stack,mask,diagnostics=diagnostics)
+    phase_stack = np.transpose(phase_stack,(2,0,1))
 
-    if diagnostics is not None or True:
-        fig = plt.figure()
+    stack = np.abs(stack)*np.exp(1j*phase_stack)
+
+    if diagnostics is not None:
+        fig = diagnostics.figure()
         plt.subplot(phase_stack.shape[2]+1,1,1)
         plt.imshow(amplitude_mean,aspect='auto',interpolation='none')
 
@@ -45,15 +49,123 @@ def compute_phase_velocity(stack,diagnostics=None):
         diagnostics.save(fig)
 
 
+def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogram_threshold_fraction=0.1,first_start=None,last_start=None,diagnostics=None):
+    bscan_files = glob.glob(os.path.join(folder,'complex*.npy'))
+    bscan_files.sort()
+
+    bscans = []
+    for f in bscan_files:
+        bscans.append(np.load(f))
+    
+    N = len(bscan_files)
+
+    if first_start is None:
+        first_start = 0
+    if last_start is None:
+        last_start = N-block_size
+
+    out_folder = os.path.join(folder,'org')
+    os.makedirs(out_folder,exist_ok=True)
+
+    for start_index in range(first_start,last_start+1):
+        logging.info('process_org_block start %d current %d end %d'%(first_start,start_index,last_start))
+        block = bscans[start_index:start_index+block_size]
+        block_files = bscan_files[start_index:start_index+block_size]
+        logging.info('process_org_block processing files %s'%block_files)
+        block = np.array(block)
+
+        # for each block:
+        # 0. an average amplitude bscan
+        bscan = np.nanmean(np.abs(block),axis=0)
+        outfn = os.path.join(out_folder,'block_%04d_amplitude.npy'%start_index)
+        np.save(outfn,bscan)
+        
+        # 1. create masks for signal statistics and bulk motion correction
+        histogram_mask = np.zeros(bscan.shape)
+        signal_mask = np.zeros(bscan.shape)
+
+        # there may be nans, so use nanmax
+        histogram_threshold = np.nanmax(bscan)*histogram_threshold_fraction
+        signal_threshold = np.nanmax(bscan)*signal_threshold_fraction
+
+        histogram_mask = blobh.make_mask(bscan,histogram_threshold,diagnostics)
+        signal_mask = blobh.make_mask(bscan,signal_threshold,diagnostics)
+        
+        outfn = os.path.join(out_folder,'block_%04d_signal_mask.npy'%start_index)
+        np.save(outfn,signal_mask)
+        outfn = os.path.join(out_folder,'block_%04d_histogram_mask.npy'%start_index)
+        np.save(outfn,histogram_mask)
+
+
+        # 3. do bulk-motion correction on block:
+        block_phase = np.angle(block)
+
+        # transpose dimension b/c bulk m.c. requires the first two
+        # dims to be depth and x, and the third dimension to be
+        # repeats
+        transposed = np.transpose(block_phase,(1,2,0))
+
+        corrected_block_phase = blobh.bulk_motion_correct(transposed,histogram_mask,diagnostics=diagnostics)
+
+        corrected_block_phase = np.transpose(corrected_block_phase,(2,0,1))
+        block = np.abs(block)*np.exp(1j*corrected_block_phase)
+        
+        # 4. estimate(s) of correlation of B-scans (single values)
+        corrs = []
+        for im1,im2 in zip(block[:-1],block[1:]):
+            corrs.append(np.corrcoef(np.abs(im1).ravel(),np.abs(im2).ravel())[0,1])
+
+        outfn = os.path.join(out_folder,'block_%04d_correlations.npy'%start_index)
+        np.save(outfn,corrs)
+        
+        # 5. temporal variance of pixels--all pixels and bright pixels (single values)
+        varim = np.nanvar(np.abs(block),axis=0)
+        var = np.nanmean(varim)
+        var_masked = np.nanmean(varim[np.where(signal_mask)])
+        outfn = os.path.join(out_folder,'block_%04d_temporal_variance.npy'%start_index)
+        np.save(outfn,var)
+        outfn = os.path.join(out_folder,'block_%04d_masked_temporal_variance.npy'%start_index)
+        np.save(outfn,var_masked)
+
+        
+        # 6. phase slopes and residual fitting error for all pixels (2D array)
+
+        slopes = np.ones(bscan.shape)*np.nan
+        fitting_error = np.ones(bscan.shape)*np.nan
+        
+        st,sz,sx = corrected_block_phase.shape
+        t = np.arange(st)
+
+        for z in range(sz):
+            for x in range(sx):
+                if not signal_mask[z,x]:
+                    continue
+                phase = corrected_block_phase[:,z,x]
+                phase = phase%(2*np.pi)
+                phase = np.unwrap(phase)
+                poly = np.polyfit(t,phase,1)
+                slope = poly[1]
+                fit = np.polyval(poly,t)
+                err = np.sqrt(np.mean((fit-phase)**2))
+                slopes[z,x] = slope
+                fitting_error[z,x] = err
+        outfn = os.path.join(out_folder,'block_%04d_phase_slope.npy'%start_index)
+        np.save(outfn,slopes)
+        outfn = os.path.join(out_folder,'block_%04d_phase_slope_fitting_error.npy'%start_index)
+        np.save(outfn,fitting_error)
 
 
 if __name__=='__main__':
     
     unp_files = glob.glob('./examples/*.unp')
     for unp_file in unp_files:
+        d = blobd.Diagnostics(unp_file)
         folder = unp_file.replace('.unp','')+'_bscans'
-        block_filenames = get_block_filenames(folder)
-        for bf in block_filenames:
-            d = blobd.Diagnostics(bf[0].replace('.npy',''))
-            frames = get_frames(bf)
-            compute_phase_velocity(frames,diagnostics=d)
+        process_org_blocks(folder)
+
+        
+        # block_filenames = get_block_filenames(folder)
+        # for bf in block_filenames:
+        #     print(bf)
+        #     frames = get_frames(bf)
+        #     compute_phase_velocity(frames,diagnostics=d)

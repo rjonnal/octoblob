@@ -42,15 +42,16 @@ def get_source(fn,diagnostics=None):
 
 def crop_spectra(spectra,diagnostics=None):
     if not diagnostics is None:
-        fig = plt.figure()
+        fig = diagnostics.figure(figsize=(8,4))
         plt.subplot(1,2,1)
         plt.imshow(np.abs(spectra),aspect='auto')
-        
+        plt.title('pre cropping')
     spectra = spectra[k_crop_1:k_crop_2,:]
     
     if not diagnostics is None:
         plt.subplot(1,2,2)
         plt.imshow(np.abs(spectra),aspect='auto')
+        plt.title('post cropping')
         diagnostics.save(fig)
         
     return spectra
@@ -71,7 +72,7 @@ def load_spectra(fn,index=0):
 
 def fbg_align(spectra,fbg_search_distance=15,noise_samples=80,diagnostics=None):
     if not diagnostics is None:
-        fig = plt.figure()
+        fig = diagnostics.figure()
         plt.subplot(1,2,1)
         plt.imshow(np.abs(spectra),aspect='auto')
         
@@ -104,7 +105,7 @@ def dc_subtract(spectra,diagnostics=None):
     """Estimate DC by averaging spectra spatially (dimension 1),
     then subtract by broadcasting."""
     if not diagnostics is None:
-        fig = plt.figure()
+        fig = diagnostics.figure()
         plt.subplot(1,2,1)
         plt.imshow(np.abs(spectra),aspect='auto')
         
@@ -135,7 +136,7 @@ def k_resample(spectra,coefficients,diagnostics=None):
         return spectra
 
     if not diagnostics is None:
-        fig = plt.figure()
+        fig = diagnostics.figure()
         plt.subplot(1,2,1)
         plt.imshow(np.abs(spectra),aspect='auto')
         
@@ -167,7 +168,7 @@ def dispersion_compensate(spectra,coefficients,diagnostics=None):
         return spectra
 
     if not diagnostics is None:
-        fig = plt.figure()
+        fig = diagnostics.figure()
         plt.subplot(1,2,1)
         plt.imshow(np.abs(spectra),aspect='auto')
 
@@ -192,7 +193,7 @@ def gaussian_window(spectra,sigma,diagnostics=None):
         return spectra
     
     if not diagnostics is None:
-        fig = plt.figure()
+        fig = diagnostics.figure()
         plt.subplot(1,2,1)
         plt.imshow(np.abs(spectra),aspect='auto')
         
@@ -288,7 +289,7 @@ def spectra_to_bscan(mdcoefs,spectra,diagnostics=None):
     spectra = crop_spectra(spectra,diagnostics=diagnostics)
     
     if diagnostics is not None:
-        fig = plt.figure(figsize=(6,4))
+        fig = diagnostics.figure(figsize=(6,4))
         plt.subplot(2,2,1)
         plt.imshow(dB(crop_bscan(np.fft.fft(spectra,axis=0))),aspect='auto',clim=(45,85),cmap='gray')
         plt.title('raw B-scan')
