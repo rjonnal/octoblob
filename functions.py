@@ -1,8 +1,9 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import scipy.optimize as spo
-import sys,os,glob
+import sys,os,glob,logging
 import scipy.interpolate as spi
+import scipy.signal as sps
 
 ###################################################
 # Simplified OCT functions for exporatory analysis,
@@ -320,3 +321,71 @@ def spectra_to_bscan(mdcoefs,spectra,diagnostics=None):
     bscan = crop_bscan(bscan)
     return bscan
 
+def flatten_volume(folder,diagnostics=None):
+    flist = glob.glob(os.path.join(folder,'*.npy'))
+    flist.sort()
+    N = len(flist)
+    
+    # grab a section from the middle of the volume to use as a reference
+    ref_size = 5
+    ref_flist = flist[N//2-ref_size//2:N//2+ref_size//2]
+    ref = np.abs(np.load(ref_flist[0])).astype(np.float)
+    for f in ref_flist[1:]:
+        ref = ref + np.abs(np.load(f)).astype(np.float)
+    ref = ref/float(ref_size)
+    ref = np.mean(ref,axis=1)
+
+    coefs = []
+    shifts = []
+
+    out_folder = os.path.join(folder,'flattened')
+    os.makedirs(out_folder,exist_ok=True)
+
+    pre_corrected_fast_projection = []
+    post_corrected_fast_projection = []
+    
+    for f in flist:
+        tar_bscan = np.load(f)
+        
+        tar = np.mean(np.abs(tar_bscan).astype(np.float),axis=1)
+
+        pre_corrected_fast_projection.append(tar)
+        
+        num = np.fft.fft(tar)*np.conj(np.fft.fft(ref))
+        denom = np.abs(num)
+        nxc = np.real(np.fft.ifft(num/denom))
+        shift = np.argmax(nxc)
+        if shift>len(nxc)//2:
+            shift = shift-len(nxc)
+        shifts.append(shift)
+        coefs.append(np.max(nxc))
+        logging.info('flatten_volume cross-correlating file %s'%f)
+        
+
+
+    shifts = sps.medfilt(shifts,9)
+    shifts = np.round(-shifts).astype(np.int)
+    
+    for f,shift in zip(flist,shifts):
+        tar_bscan = np.load(f)
+        tar_bscan = np.roll(tar_bscan,shift,axis=0)
+
+        proj = np.mean(np.abs(tar_bscan).astype(np.float),axis=1)
+        post_corrected_fast_projection.append(proj)
+        logging.info('flatten_volume rolling file %s by %d'%(f,shift))
+        out_fn = os.path.join(out_folder,os.path.split(f)[1])
+        np.save(out_fn,tar_bscan)
+
+
+    print(diagnostics)
+    if diagnostics is not None:
+        pre_corrected_fast_projection = np.array(pre_corrected_fast_projection).T
+        post_corrected_fast_projection = np.array(post_corrected_fast_projection).T
+        fig = diagnostics.figure(figsize=(9,3))
+        ax1,ax2,ax3 = fig.subplots(1,3)
+        ax1.imshow(pre_corrected_fast_projection,aspect='auto',cmap='gray')
+        ax2.imshow(post_corrected_fast_projection,aspect='auto',cmap='gray')
+        ax3.plot(np.mean(pre_corrected_fast_projection,axis=1),label='pre')
+        ax3.plot(np.mean(post_corrected_fast_projection,axis=1),label='post')
+        ax3.legend()
+        plt.show()

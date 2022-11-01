@@ -85,7 +85,9 @@ def process(data_filename,do_mp=False):
         logging.info('File %s B-scans processed. Skipping.'%data_filename)
 
 
-    org_tools.process_org_blocks(bscan_folder)
+    blobf.flatten_volume(bscan_folder,diagnostics=diagnostics)
+        
+    #org_tools.process_org_blocks(bscan_folder)
         
 
 
