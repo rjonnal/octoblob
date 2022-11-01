@@ -2,116 +2,79 @@ from matplotlib import pyplot as plt
 import numpy as np
 import sys,os,glob
 import logging
+import octoblob.functions as blobf
 
 
-def plot(folder):
+# pay attention to the default value of stim_index, since the b-scans right after stimulus
+# determine how the data are displayed to the user; until late 2022, we've been collecting 400
+# @ 400 Hz, and the stimulus is delivered 0.25 seconds into the series, i.e. at frame 100; however
+# we only process B-scans 80-140, i.e. 50 ms before stimulus through 100 ms after stimulus, and
+# thus the stim_index is 20
+def plot(folder,stim_index=20):
 
 
     phase_slope_flist = glob.glob(os.path.join(folder,'*phase_slope.npy'))
     phase_slope_flist.sort()
     amplitude_flist = glob.glob(os.path.join(folder,'*amplitude.npy'))
     amplitude_flist.sort()
-    
 
-    print(phase_slope_flist)
+    display_bscan = np.load(amplitude_flist[stim_index])
     
     markersize = 8.0
     
-    global points,imaxes,imins
+    global points,click_points
     points = []
-    imaxes=[]
-    imins=[]
+    click_points = []
     
     fig,(ax1,ax2) = plt.subplots(1,2)
-    plt.suptitle(title)
+    #plt.suptitle(title)
 
+    ax1.imshow(20*np.log10(display_bscan),clim=(45,85),cmap='gray')
     
     
     def onclick(event):
 
+        global points,click_points
+        
+        if event.xdata is None and event.ydata is None:
+            # clicked outside plot--clear everything
+            print('Clearing.')
+            click_points = []
+            
         if event.inaxes==ax1:
-            return
-        
-        global points,imaxes,imins
-        
-        if event.button==1:
-
-            if event.xdata is None and event.ydata is None:
-                # clicked outside plot--clear everything
-                print('Clearing.')
-                points = []
-                imaxes = []
-                imins = []
-                click_points = []
-                ax2.cla()
-                ax2.set_xlim([c2min,c2max])
-                ax2.set_ylim([c3min,c3max])
-                plt.draw()
-            else:
+            if event.button==1:
                 xnewclick = event.xdata
                 ynewclick = event.ydata
-        
-                click_points = [(xnewclick,ynewclick)]
+                click_points.append((int(round(xnewclick)),int(round(ynewclick))))
+                print(click_points)
+                
+        if len(click_points)==1:
+            ax1.clear()
+            ax1.imshow(20*np.log10(display_bscan),clim=(45,85),cmap='gray')
+            ax1.plot(click_points[0][0],click_points[0][1],'bo')
+            plt.pause(.1)
                 
         elif event.button==3:
+            pass
+
+        
+        if len(click_points)==2:
+
+            x1,x2 = [a[0] for a in click_points]
+            z1,z2 = [a[1] for a in click_points]
+            ax1.plot(x2,z2,'bo')
+            ax1.plot([x1,x2,x2,x1,x1],[z1,z1,z2,z2,z1],'y-')
+            plt.pause(.1)
             click_points = []
-            if len(points)>=2:
-                mat = np.array(points)
-                c2vals = mat[:,0]
-                c3vals = mat[:,1]
-                c3start = c3vals.min()
-                c3end = c3vals.max()
-                c2start = c2vals.min()
-                c2end = c2vals.max()
-            else:
-                c3start = c3min+c3range/float(auto_n_points)/2.0
-                c3end = c3max-c3range/float(auto_n_points)/2.0
-                c2start = c2min+c2range/float(auto_n_points)/2.0
-                c2end = c2max-c2range/float(auto_n_points)/2.0
-                
-            for x in np.linspace(c2start,c2end,auto_n_points):
-                for y in np.linspace(c3start,c3end,auto_n_points):
-                    click_points.append((x,y))
-
-
-        for xnewclick,ynewclick in click_points:
-            points.append((xnewclick,ynewclick))
-
-            im = np.abs(func(raw_data,ynewclick,xnewclick))
-            #print(np.max(im),np.min(im),np.mean(im))
-            # get the max value before scaling
-            imax = max(im)
-            imaxes.append(imax)
-
-            im = bmp_tools.dbscale(im)
-
-            peak_max = np.max(imaxes)
-            peak_min = np.min(imaxes)
-
-            ax1.cla()#plt.cla()
-            ax1.imshow(im,aspect='auto',cmap='gray',clim=(40,90))
-            
-            ax2.cla()
-            for p,imax in zip(points,imaxes):
-                if imax==peak_max:
-                    ax2.plot(p[0],p[1],'ro',markersize=markersize)
-                else:
-                    peak_rel = (imax-peak_min)/(peak_max-peak_min)
-                    b = 1.0-(np.clip(peak_rel,0,.5))
-                    ax2.plot(p[0],p[1],'go',markersize=markersize,color=(b,b,b),alpha=0.85)
-
-            ax2.set_xlim([c2min,c2max])
-            ax2.set_ylim([c3min,c3max])
-            plt.pause(.000001)
-                #plt.draw()
+            osa,osv = blobf.extract_layer_velocities(folder,x1,x2,z1,z2)
+            ax2.plot(osv)
+            plt.pause(.1)
 
     cid = fig.canvas.mpl_connect('button_press_event',onclick)
 
     #plt.subplot(1,2,2,label='foo')
-    ax2.set_xlim([c2min,c2max])
-    ax2.set_ylim([c3min,c3max])
     plt.show()
-    return points,imaxes
+    return points
 
 
 if __name__=='__main__':

@@ -321,14 +321,14 @@ def spectra_to_bscan(mdcoefs,spectra,diagnostics=None):
     bscan = crop_bscan(bscan)
     return bscan
 
-def flatten_volume(folder,diagnostics=None):
+def flatten_volume(folder,nref=3,diagnostics=None):
     flist = glob.glob(os.path.join(folder,'*.npy'))
     flist.sort()
     N = len(flist)
     
     # grab a section from the middle of the volume to use as a reference
-    ref_size = 5
-    ref_flist = flist[N//2-ref_size//2:N//2+ref_size//2]
+    ref_size = nref
+    ref_flist = flist[N//2-ref_size//2:N//2+ref_size//2+1]
     ref = np.abs(np.load(ref_flist[0])).astype(np.float)
     for f in ref_flist[1:]:
         ref = ref + np.abs(np.load(f)).astype(np.float)
@@ -343,10 +343,13 @@ def flatten_volume(folder,diagnostics=None):
 
     pre_corrected_fast_projection = []
     post_corrected_fast_projection = []
-    
+
+    plt.figure()
     for f in flist:
         tar_bscan = np.load(f)
-        
+        plt.cla()
+        plt.imshow(dB(tar_bscan))
+        plt.pause(.0001)
         tar = np.mean(np.abs(tar_bscan).astype(np.float),axis=1)
 
         pre_corrected_fast_projection.append(tar)
@@ -362,8 +365,8 @@ def flatten_volume(folder,diagnostics=None):
         logging.info('flatten_volume cross-correlating file %s'%f)
         
 
-
-    shifts = sps.medfilt(shifts,9)
+    shifts = np.array(shifts)
+    shifts = sps.medfilt(shifts,3)
     shifts = np.round(-shifts).astype(np.int)
     
     for f,shift in zip(flist,shifts):
@@ -389,3 +392,68 @@ def flatten_volume(folder,diagnostics=None):
         ax3.plot(np.mean(post_corrected_fast_projection,axis=1),label='post')
         ax3.legend()
         plt.show()
+
+
+def extract_layer_velocities(folder,x1,x2,z1,y2):
+    phase_slope_flist = glob.glob(os.path.join(folder,'*phase_slope.npy'))
+    phase_slope_flist.sort()
+    amplitude_flist = glob.glob(os.path.join(folder,'*amplitude.npy'))
+    amplitude_flist.sort()
+
+    abscans = []
+    pbscans = []
+    for af,pf in zip(amplitude_flist,phase_slope_flist):
+        abscans.append(np.load(af))
+        pbscans.append(np.load(pf))
+
+    abscans = np.array(abscans)
+    pbscans = np.array(pbscans)
+
+    amean = np.mean(abscans,axis=0)
+
+    isos_points = []
+    cost_points = []
+    amean[:z1,:] = np.nan
+    amean[y2:,:] = np.nan
+
+
+    mprof = np.mean(amean[z1:y2,x1:x2],axis=1)
+
+    left = mprof[:-2]
+    center = mprof[1:-1]
+    right = mprof[2:]
+    peaks = np.where(np.logical_and(center>left,center>right))[0]+1
+
+    peaks = peaks[:2]
+
+    dpeak = peaks[1]-peaks[0]
+
+    os_velocity = []
+    os_amplitude = []
+    
+    for idx in range(abscans.shape[0]):
+        isos_p = []
+        isos_a = []
+        cost_p = []
+        cost_a = []
+        abscan = abscans[idx]
+        pbscan = pbscans[idx]
+        for x in range(x1,x2):
+            dzvec = list(range(-1,2))
+            amps = []
+            for dz in dzvec:
+                amps.append(abscan[z1+peaks[0]+dz,x]+dz+abscan[z1+peaks[1]+dz,x])
+            dz = dzvec[np.argmax(amps)]
+            zisos = z1+peaks[0]+dz
+            zcost = z1+peaks[1]+dz
+            isos_p.append(pbscans[idx][zisos,x])
+            cost_p.append(pbscans[idx][zcost,x])
+            isos_a.append(abscans[idx][zisos,x])
+            cost_a.append(abscans[idx][zcost,x])
+
+        os_p = [c-i for c,i in zip(cost_p,isos_p)]
+        os_a = [(c+i)/2.0 for c,i in zip(cost_a,isos_a)]
+        os_velocity.append(np.nanmean(os_p))
+        os_amplitude.append(np.nanmean(os_a))
+    
+    return os_amplitude,os_velocity
