@@ -50,6 +50,7 @@ def compute_phase_velocity(stack,diagnostics=None):
 
 
 def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogram_threshold_fraction=0.1,first_start=None,last_start=None,diagnostics=None,redo=False):
+
     bscan_files = glob.glob(os.path.join(folder,'complex*.npy'))
     bscan_files.sort()
 
