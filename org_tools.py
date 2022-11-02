@@ -202,6 +202,8 @@ def extract_layer_velocities(folder,x1,x2,z1,y2):
 
     os_velocity = []
     os_amplitude = []
+    isos_z = []
+    cost_z = []
     
     for idx in range(abscans.shape[0]):
         isos_p = []
@@ -210,6 +212,8 @@ def extract_layer_velocities(folder,x1,x2,z1,y2):
         cost_a = []
         abscan = abscans[idx]
         pbscan = pbscans[idx]
+        isos_z.append([])
+        cost_z.append([])
         for x in range(x1,x2):
             dzvec = list(range(-1,2))
             amps = []
@@ -222,7 +226,9 @@ def extract_layer_velocities(folder,x1,x2,z1,y2):
             cost_p.append(pbscans[idx][zcost,x])
             isos_a.append(abscans[idx][zisos,x])
             cost_a.append(abscans[idx][zcost,x])
-
+            isos_z[-1].append(zisos)
+            cost_z[-1].append(zcost)
+            
         os_p = [c-i for c,i in zip(cost_p,isos_p)]
         os_a = [(c+i)/2.0 for c,i in zip(cost_a,isos_a)]
         os_velocity.append(np.nanmean(os_p))
@@ -230,8 +236,9 @@ def extract_layer_velocities(folder,x1,x2,z1,y2):
         
     os_velocity = -np.array(os_velocity)
     os_amplitude = np.array(os_amplitude)
-        
-    return os_amplitude,os_velocity
+    isos_z = np.array(isos_z)
+    cost_z = np.array(cost_z)
+    return os_amplitude,os_velocity,isos_z,cost_z
 
 if __name__=='__main__':
     
