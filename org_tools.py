@@ -166,7 +166,9 @@ def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogr
         np.save(outfn,fitting_error)
 
 
-def extract_layer_velocities(folder,x1,x2,z1,y2):
+
+
+def get_stacks_folder(folder):
     phase_slope_flist = glob.glob(os.path.join(folder,'*phase_slope.npy'))
     phase_slope_flist.sort()
     amplitude_flist = glob.glob(os.path.join(folder,'*amplitude.npy'))
@@ -180,16 +182,23 @@ def extract_layer_velocities(folder,x1,x2,z1,y2):
 
     abscans = np.array(abscans)
     pbscans = np.array(pbscans)
+    return abscans,pbscans
+        
+def extract_layer_velocities_folder(folder,x1,x2,z1,y2):
+    abscans,pbscans = get_stacks_folder(folder)
+    return extract_layer_velocities(abscans,pbscans,x1,x2,z1,z2)
+    
 
+
+def extract_layer_velocities(abscans,pbscans,x1,x2,z1,z2):
     amean = np.mean(abscans,axis=0)
-
     isos_points = []
     cost_points = []
     amean[:z1,:] = np.nan
-    amean[y2:,:] = np.nan
+    amean[z2:,:] = np.nan
 
 
-    mprof = np.mean(amean[z1:y2,x1:x2],axis=1)
+    mprof = np.mean(amean[z1:z2,x1:x2],axis=1)
 
     left = mprof[:-2]
     center = mprof[1:-1]
