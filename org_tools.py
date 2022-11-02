@@ -227,7 +227,10 @@ def extract_layer_velocities(folder,x1,x2,z1,y2):
         os_a = [(c+i)/2.0 for c,i in zip(cost_a,isos_a)]
         os_velocity.append(np.nanmean(os_p))
         os_amplitude.append(np.nanmean(os_a))
-    
+        
+    os_velocity = -np.array(os_velocity)
+    os_amplitude = np.array(os_amplitude)
+        
     return os_amplitude,os_velocity
 
 if __name__=='__main__':
