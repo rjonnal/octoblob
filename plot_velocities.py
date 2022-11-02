@@ -1,6 +1,6 @@
 from matplotlib import pyplot as plt
 import numpy as np
-import sys,os,glob
+import sys,os,glob,shutil
 import logging
 import octoblob.functions as blobf
 import octoblob.org_tools as blobo
@@ -44,7 +44,23 @@ def get_level_roll_vec(im,limit=0.1,N=16):
     rpmax = np.max(rotated_profiles,axis=1)
     widx = np.argmax(rpmax)
     return roll_vecs[widx]
+
+def path2str(f):
+    head,tail = os.path.split(f)
+    tails = []
+    while len(head)>0:
+        tails.append(tail)
+        head,tail = os.path.split(head)
+    tails = tails[::-1]
+    return '_'.join(tails)
         
+def collect_files(src,dst):
+    flist = glob.glob(os.path.join(src,'*'))
+    os.makedirs(dst,exist_ok=True)
+    
+    for f in flist:
+        outf = os.path.join(dst,path2str(f))
+        shutil.copyfile(f,outf)
 
 
 def phase_to_nm(phase):
@@ -226,6 +242,8 @@ def plot(folder,stim_index=20):
                 np.save(fnroot+'outer_segment_velocity.npy',roi[2])
                 np.save(fnroot+'isos_z.npy',roi[3])
                 np.save(fnroot+'cost_z.npy',roi[4])
+
+            collect_files(outfolder,'./plot_velocities_results')
         elif event.key=='backspace':
             rois = rois[:-1]
             click_points = []
