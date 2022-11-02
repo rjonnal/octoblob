@@ -49,7 +49,7 @@ def compute_phase_velocity(stack,diagnostics=None):
         diagnostics.save(fig)
 
 
-def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogram_threshold_fraction=0.1,first_start=None,last_start=None,diagnostics=None):
+def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogram_threshold_fraction=0.1,first_start=None,last_start=None,diagnostics=None,redo=False):
     bscan_files = glob.glob(os.path.join(folder,'complex*.npy'))
     bscan_files.sort()
 
@@ -65,6 +65,12 @@ def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogr
         last_start = N-block_size
 
     out_folder = os.path.join(folder,'org')
+    if os.path.exists(out_folder):
+        if not redo:
+            sys.exit('%s exists; rerun process_org_blocks with redo=True or delete %s'%(out_folder,out_folder))
+        else:
+            shutil.rmtree(out_folder)
+
     os.makedirs(out_folder,exist_ok=True)
 
     for start_index in range(first_start,last_start+1):
@@ -141,10 +147,14 @@ def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogr
                 if not signal_mask[z,x]:
                     continue
                 phase = corrected_block_phase[:,z,x]
-                phase = phase%(2*np.pi)
+                # bug 0: line below does not exist in original ORG processing code:
+                #phase = phase%(2*np.pi)
+                
                 phase = np.unwrap(phase)
                 poly = np.polyfit(t,phase,1)
-                slope = poly[1]
+
+                # bug 1: line below used to say poly[1]!
+                slope = poly[0]
                 fit = np.polyval(poly,t)
                 err = np.sqrt(np.mean((fit-phase)**2))
                 slopes[z,x] = slope
@@ -154,6 +164,70 @@ def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogr
         outfn = os.path.join(out_folder,'block_%04d_phase_slope_fitting_error.npy'%start_index)
         np.save(outfn,fitting_error)
 
+
+def extract_layer_velocities(folder,x1,x2,z1,y2):
+    phase_slope_flist = glob.glob(os.path.join(folder,'*phase_slope.npy'))
+    phase_slope_flist.sort()
+    amplitude_flist = glob.glob(os.path.join(folder,'*amplitude.npy'))
+    amplitude_flist.sort()
+
+    abscans = []
+    pbscans = []
+    for af,pf in zip(amplitude_flist,phase_slope_flist):
+        abscans.append(np.load(af))
+        pbscans.append(np.load(pf))
+
+    abscans = np.array(abscans)
+    pbscans = np.array(pbscans)
+
+    amean = np.mean(abscans,axis=0)
+
+    isos_points = []
+    cost_points = []
+    amean[:z1,:] = np.nan
+    amean[y2:,:] = np.nan
+
+
+    mprof = np.mean(amean[z1:y2,x1:x2],axis=1)
+
+    left = mprof[:-2]
+    center = mprof[1:-1]
+    right = mprof[2:]
+    peaks = np.where(np.logical_and(center>left,center>right))[0]+1
+
+    peaks = peaks[:2]
+
+    dpeak = peaks[1]-peaks[0]
+
+    os_velocity = []
+    os_amplitude = []
+    
+    for idx in range(abscans.shape[0]):
+        isos_p = []
+        isos_a = []
+        cost_p = []
+        cost_a = []
+        abscan = abscans[idx]
+        pbscan = pbscans[idx]
+        for x in range(x1,x2):
+            dzvec = list(range(-1,2))
+            amps = []
+            for dz in dzvec:
+                amps.append(abscan[z1+peaks[0]+dz,x]+dz+abscan[z1+peaks[1]+dz,x])
+            dz = dzvec[np.argmax(amps)]
+            zisos = z1+peaks[0]+dz
+            zcost = z1+peaks[1]+dz
+            isos_p.append(pbscans[idx][zisos,x])
+            cost_p.append(pbscans[idx][zcost,x])
+            isos_a.append(abscans[idx][zisos,x])
+            cost_a.append(abscans[idx][zcost,x])
+
+        os_p = [c-i for c,i in zip(cost_p,isos_p)]
+        os_a = [(c+i)/2.0 for c,i in zip(cost_a,isos_a)]
+        os_velocity.append(np.nanmean(os_p))
+        os_amplitude.append(np.nanmean(os_a))
+    
+    return os_amplitude,os_velocity
 
 if __name__=='__main__':
     
