@@ -4,6 +4,7 @@ import sys,os,glob,shutil
 import logging
 import octoblob.functions as blobf
 import octoblob.org_tools as blobo
+import pathlib
 plt.rcParams["font.family"] = "serif"
 plt.rcParams["font.size"] = 9
 
@@ -164,64 +165,83 @@ def plot(folder,stim_index=20):
     def onclick(event):
 
         global rois,click_points,index,abscans,pbscans
-        
-        if event.xdata is None and event.ydata is None:
-            # clicked outside plot--clear everything
-            print('Clearing.')
-            click_points = []
-            rois = []
-            draw_rois()
-            # ax1.clear()
-            # ax1.imshow(20*np.log10(display_bscan),clim=(45,90),cmap='gray',aspect='auto')
-            # ax2.clear()
-            # ax2.axvline(0.0,color='g',linestyle='--')
-            # ax1.set_xticks([])
-            # ax1.set_yticks([])
-            # plt.pause(.001)
-            
-        if event.inaxes==ax1:
-            if event.button==1:
-                xnewclick = event.xdata
-                ynewclick = event.ydata
-                click_points.append((int(round(xnewclick)),int(round(ynewclick))))
-                
-        if len(click_points)==1:
-            #ax1.clear()
-            #ax1.imshow(20*np.log10(display_bscan),clim=(45,85),cmap='gray')
-            #ax1.plot(click_points[0][0],click_points[0][1],'bo')
-            plt.pause(.1)
-                
-        elif event.button==3:
-            pass
 
-        
-        if len(click_points)==2:
+        print(event.button==1)
+        print(event.button==2)
+        print(event.button==3)
+        print()
 
-            x1,x2 = [a[0] for a in click_points]            
-            z1,z2 = [a[1] for a in click_points]
-            #ax1.clear()
-            #ax1.imshow(20*np.log10(display_bscan),clim=(45,90),cmap='gray')
-            valid = True
-            try:
-                osa,osv,isos_z,cost_z = blobo.extract_layer_velocities(abscans,pbscans,x1,x2,z1,z2)
-            except Exception as e:
-                print('ROI could not be processed:',e)
-                valid = False
+
+        if event.button==1:
+            if event.xdata is None and event.ydata is None:
+                # clicked outside plot--clear everything
+                print('Clearing.')
                 click_points = []
-                
-            if valid:
-                # osv is now in radians/block
-                # we want it in nm/s
-                # osv * blocks/sec * nm/radian
-                # nm/radian = 1060.0/(2*np.pi)
-                osv = 1e-3*phase_to_nm(osv)/2.5e-3
-
-                rois.append((click_points,osa,osv,isos_z,cost_z))
-                click_points = []
-
+                rois = []
                 draw_rois()
-                
-                index+=1
+                # ax1.clear()
+                # ax1.imshow(20*np.log10(display_bscan),clim=(45,90),cmap='gray',aspect='auto')
+                # ax2.clear()
+                # ax2.axvline(0.0,color='g',linestyle='--')
+                # ax1.set_xticks([])
+                # ax1.set_yticks([])
+                # plt.pause(.001)
+
+            if event.inaxes==ax1:
+                if event.button==1:
+                    xnewclick = event.xdata
+                    ynewclick = event.ydata
+                    click_points.append((int(round(xnewclick)),int(round(ynewclick))))
+
+            if len(click_points)==1:
+                #ax1.clear()
+                #ax1.imshow(20*np.log10(display_bscan),clim=(45,85),cmap='gray')
+                #ax1.plot(click_points[0][0],click_points[0][1],'bo')
+                plt.pause(.1)
+
+            if len(click_points)==2:
+
+                x1,x2 = [a[0] for a in click_points]            
+                z1,z2 = [a[1] for a in click_points]
+                #ax1.clear()
+                #ax1.imshow(20*np.log10(display_bscan),clim=(45,90),cmap='gray')
+                valid = True
+                try:
+                    osa,osv,isos_z,cost_z = blobo.extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2)
+                except Exception as e:
+                    print('ROI could not be processed:',e)
+                    valid = False
+                    click_points = []
+
+                if valid:
+                    # osv is now in radians/block
+                    # we want it in nm/s
+                    # osv * blocks/sec * nm/radian
+                    # nm/radian = 1060.0/(2*np.pi)
+                    osv = 1e-3*phase_to_nm(osv)/2.5e-3
+
+                    rois.append((click_points,osa,osv,isos_z,cost_z))
+                    click_points = []
+
+                    draw_rois()
+                    index+=1
+                    
+        elif event.button==3:
+            x = event.xdata
+            y = event.ydata
+            new_rois = []
+            
+            for idx,roi in enumerate(rois):
+                x1,y1 = roi[0][0]
+                x2,y2 = roi[0][1]
+                if x1<x<x2 and y1<y<y2:
+                    pass
+                else:
+                    new_rois.append(roi)
+            rois = new_rois
+            draw_rois()
+
+
 
     def onpress(event):
         global rois,click_points,index
@@ -259,5 +279,14 @@ def plot(folder,stim_index=20):
 
 
 if __name__=='__main__':
-    folder = sys.argv[1]
-    plot(folder)
+
+
+    if len(sys.argv)<2:
+        org_folders = pathlib.Path('.').rglob('org')
+        org_folders = [str(f) for f in org_folders]
+        org_folders.sort()
+        for of in org_folders:
+            plot(of)
+    else:
+        folder = sys.argv[1]
+        plot(folder)

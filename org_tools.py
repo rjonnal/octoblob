@@ -190,7 +190,7 @@ def extract_layer_velocities_folder(folder,x1,x2,z1,y2):
     
 
 
-def extract_layer_velocities(abscans,pbscans,x1,x2,z1,z2):
+def extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2):
     amean = np.mean(abscans,axis=0)
     isos_points = []
     cost_points = []
@@ -198,15 +198,34 @@ def extract_layer_velocities(abscans,pbscans,x1,x2,z1,z2):
     amean[z2:,:] = np.nan
 
 
-    mprof = np.mean(amean[z1:z2,x1:x2],axis=1)
-
+    temp = np.mean(amean[z1:z2,x1:x2],axis=1)
+    mprof = np.zeros(len(temp)+2)
+    mprof[1:-1] = temp
+    z1-=1
+    z2-=1
+    
+    
     left = mprof[:-2]
     center = mprof[1:-1]
     right = mprof[2:]
+    thresh = np.std(amean)
+
     peaks = np.where(np.logical_and(center>left,center>right))[0]+1
 
-    peaks = peaks[:2]
+    peakvals = [mprof[p] for p in peaks]
+    height_order = np.argsort(peakvals)[::-1]
 
+    peaks = peaks[height_order[:2]]
+    peaks.sort()
+    #peaks = peaks[:2]
+
+    if False:
+        plt.figure()
+        plt.plot(mprof)
+        for pidx in peaks:
+            plt.plot(pidx,mprof[pidx],'ro')
+        plt.show()
+    
     dpeak = peaks[1]-peaks[0]
 
     os_velocity = []
@@ -231,6 +250,46 @@ def extract_layer_velocities(abscans,pbscans,x1,x2,z1,z2):
             dz = dzvec[np.argmax(amps)]
             zisos = z1+peaks[0]+dz
             zcost = z1+peaks[1]+dz
+            isos_p.append(pbscans[idx][zisos,x])
+            cost_p.append(pbscans[idx][zcost,x])
+            isos_a.append(abscans[idx][zisos,x])
+            cost_a.append(abscans[idx][zcost,x])
+            isos_z[-1].append(zisos)
+            cost_z[-1].append(zcost)
+            
+        os_p = [c-i for c,i in zip(cost_p,isos_p)]
+        os_a = [(c+i)/2.0 for c,i in zip(cost_a,isos_a)]
+        os_velocity.append(np.nanmean(os_p))
+        os_amplitude.append(np.nanmean(os_a))
+        
+    os_velocity = -np.array(os_velocity)
+    os_amplitude = np.array(os_amplitude)
+    isos_z = np.array(isos_z)
+    cost_z = np.array(cost_z)
+    return os_amplitude,os_velocity,isos_z,cost_z
+
+def extract_layer_velocities_rows(abscans,pbscans,x1,x2,z1,z2):
+    amean = np.mean(abscans,axis=0)
+    isos_points = []
+    cost_points = []
+    
+    os_velocity = []
+    os_amplitude = []
+    isos_z = []
+    cost_z = []
+    
+    for idx in range(abscans.shape[0]):
+        isos_p = []
+        isos_a = []
+        cost_p = []
+        cost_a = []
+        abscan = abscans[idx]
+        pbscan = pbscans[idx]
+        isos_z.append([])
+        cost_z.append([])
+        for x in range(x1,x2):
+            zisos = z1
+            zcost = z2
             isos_p.append(pbscans[idx][zisos,x])
             cost_p.append(pbscans[idx][zcost,x])
             isos_a.append(abscans[idx][zisos,x])
