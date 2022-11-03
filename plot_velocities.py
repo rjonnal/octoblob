@@ -286,6 +286,7 @@ if __name__=='__main__':
         org_folders = [str(f) for f in org_folders]
         org_folders.sort()
         for of in org_folders:
+            print('Working on %s.'%of)
             plot(of)
     else:
         folder = sys.argv[1]
