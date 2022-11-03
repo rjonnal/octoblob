@@ -166,12 +166,6 @@ def plot(folder,stim_index=20):
 
         global rois,click_points,index,abscans,pbscans
 
-        print(event.button==1)
-        print(event.button==2)
-        print(event.button==3)
-        print()
-
-
         if event.button==1:
             if event.xdata is None and event.ydata is None:
                 # clicked outside plot--clear everything
@@ -251,12 +245,19 @@ def plot(folder,stim_index=20):
             os.makedirs(outfolder,exist_ok=True)
             np.save(os.path.join(outfolder,'display_bscan.npy'),display_bscan)
             nrois = len(rois)
-            fig.savefig(os.path.join(outfolder,'figure_%d_rois.png'%nrois),dpi=300)
-            fig.savefig(os.path.join(outfolder,'figure_%d_rois.pdf'%nrois))
+            fx1,fx2 = [a[0] for a in rois[0][0]]
+            fz1,fz2 = [a[1] for a in rois[0][0]]
+            froi_tag = '%d_%d_%d_%d_'%(fx1,fx2,fz1,fz2)
+
+            
+            fig.savefig(os.path.join(outfolder,'figure_%d_rois %s.png'%(nrois,froi_tag)),dpi=300)
+            fig.savefig(os.path.join(outfolder,'figure_%d_rois_%s.pdf'%(nrois,froi_tag)))
             for roi in rois:
+                
                 x1,x2 = [a[0] for a in roi[0]]
                 z1,z2 = [a[1] for a in roi[0]]
-                fnroot = os.path.join(outfolder,'%d_%d_%d_%d_'%(x1,x2,z1,z2))
+                roi_tag = '%d_%d_%d_%d_'%(x1,x2,z1,z2)
+                fnroot = os.path.join(outfolder,roi_tag)
                 np.save(fnroot+'rect_points.npy',roi[0])
                 np.save(fnroot+'outer_segment_amplitude.npy',roi[1])
                 np.save(fnroot+'outer_segment_velocity.npy',roi[2])

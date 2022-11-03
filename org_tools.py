@@ -190,8 +190,12 @@ def extract_layer_velocities_folder(folder,x1,x2,z1,y2):
     
 
 
-def extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2):
-    amean = np.mean(abscans,axis=0)
+def extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2,stim_index=None):
+    if stim_index is None:
+        amean = np.mean(abscans,axis=0)
+    else:
+        amean = np.mean(abscans[stim_index:stim_index+5,:,:],axis=0)
+        
     isos_points = []
     cost_points = []
     amean[:z1,:] = np.nan
@@ -224,7 +228,7 @@ def extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2):
         plt.plot(mprof)
         for pidx in peaks:
             plt.plot(pidx,mprof[pidx],'ro')
-        plt.show()
+        #plt.show()
     
     dpeak = peaks[1]-peaks[0]
 
