@@ -201,7 +201,7 @@ def plot(folder,stim_index=20):
                 #ax1.imshow(20*np.log10(display_bscan),clim=(45,90),cmap='gray')
                 valid = True
                 try:
-                    osa,osv,isos_z,cost_z = blobo.extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2)
+                    osa,osv,isos_z,cost_z = blobo.extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2,stim_index=stim_index)
                 except Exception as e:
                     print('ROI could not be processed:',e)
                     valid = False
