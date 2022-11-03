@@ -154,7 +154,7 @@ def plot(folder,stim_index=20):
             ax2.plot(t,osv,linewidth=plot_linewidth,alpha=plot_alpha,color=colors[k%len(colors)])
         if len(rois)>1:
             osv_mat = np.array(osv_mat)
-            mosv = np.mean(osv_mat,axis=0)
+            mosv = np.nanmean(osv_mat,axis=0)
             ax2.plot(t,mosv,color='k',alpha=mplot_alpha,linewidth=mplot_linewidth)
         ax2.set_xlabel('time (s)')
         ax2.set_ylabel('$v_{OS}$ ($\mu m$/s)')
@@ -283,12 +283,13 @@ if __name__=='__main__':
 
 
     if len(sys.argv)<2:
-        org_folders = pathlib.Path('.').rglob('org')
-        org_folders = [str(f) for f in org_folders]
-        org_folders.sort()
-        for of in org_folders:
-            print('Working on %s.'%of)
-            plot(of)
+        folder = '.'
     else:
         folder = sys.argv[1]
-        plot(folder)
+
+    org_folders = pathlib.Path(folder).rglob('org')
+    org_folders = [str(f) for f in org_folders]
+    org_folders.sort()
+    for of in org_folders:
+        print('Working on %s.'%of)
+        plot(of)
