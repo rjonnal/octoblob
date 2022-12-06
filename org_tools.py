@@ -223,7 +223,7 @@ def extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2,stim_index=None)
     peaks.sort()
     #peaks = peaks[:2]
 
-    if True:
+    if False:
         plt.figure()
         plt.plot(mprof)
         for pidx in peaks:
