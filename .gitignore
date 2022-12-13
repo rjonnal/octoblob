@@ -13,3 +13,8 @@ log/
 obs/
 
 sample.npy
+
+*.unp
+*.xml
+test.unp
+test.xml

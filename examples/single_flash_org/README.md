@@ -6,7 +6,7 @@
 
 * plot_velocities.py: an interactive tool for visualizing outer segment phase changes
 
-## Downloads
+## Download test data
 
 To run this example you must download the test data from the links below:
 
@@ -14,6 +14,8 @@ To run this example you must download the test data from the links below:
 .
 
 * test.xml: acquisition parameters stored by the OCT instrumetation software during acquisition. Download [test.xml](https://www.dropbox.com/s/ux5qlinqq6y1zy4/test.xml?dl=1).
+
+After downloading, put them into the `examples/single_flash_org` folder.
 
 
 ## OCT/ORG processing
