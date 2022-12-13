@@ -11,8 +11,7 @@ from octoblob import mapping_dispersion_optimizer as mdo
 from octoblob import file_manager
 import pathlib
 
-data_filename = '16_24_30.unp'
-#data_filename = '16_31_36.unp'
+data_filename = 'test.unp'
 
 # For ORG processing we needn't process all the frames. 400 frames are acquired
 # in each measurememnt, at a rate of 400 Hz. The stimulus onset is at t=0.25 s,

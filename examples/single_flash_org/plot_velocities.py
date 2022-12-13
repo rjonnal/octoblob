@@ -290,9 +290,13 @@ if __name__=='__main__':
     else:
         folder = sys.argv[1]
 
-    org_folders = pathlib.Path(folder).rglob('org')
-    org_folders = [str(f) for f in org_folders]
-    org_folders.sort()
-    for of in org_folders:
-        print('Working on %s.'%of)
-        plot(of)
+
+    if os.path.split(folder)[1]=='org':
+        plot(folder)
+    else:
+        org_folders = pathlib.Path(folder).rglob('org')
+        org_folders = [str(f) for f in org_folders]
+        org_folders.sort()
+        for of in org_folders:
+            print('Working on %s.'%of)
+            plot(of)

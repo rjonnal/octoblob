@@ -6,6 +6,8 @@
 
 * plot_velocities.py: an interactive tool for visualizing outer segment phase changes
 
+* reset.sh: a bash script for deleting all of the downloaded and processed data, mainly for cleaning up this folder before pushing changes to github
+
 ## Download test data
 
 To run this example you must download the test data from the links below:
