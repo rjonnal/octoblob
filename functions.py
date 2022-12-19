@@ -344,12 +344,8 @@ def flatten_volume(folder,nref=3,diagnostics=None):
     pre_corrected_fast_projection = []
     post_corrected_fast_projection = []
 
-    plt.figure()
     for f in flist:
         tar_bscan = np.load(f)
-        plt.cla()
-        plt.imshow(dB(tar_bscan))
-        plt.pause(.0001)
         tar = np.mean(np.abs(tar_bscan).astype(np.float),axis=1)
 
         pre_corrected_fast_projection.append(tar)
@@ -380,7 +376,6 @@ def flatten_volume(folder,nref=3,diagnostics=None):
         np.save(out_fn,tar_bscan)
 
 
-    print(diagnostics)
     if diagnostics is not None:
         pre_corrected_fast_projection = np.array(pre_corrected_fast_projection).T
         post_corrected_fast_projection = np.array(post_corrected_fast_projection).T
@@ -391,5 +386,5 @@ def flatten_volume(folder,nref=3,diagnostics=None):
         ax3.plot(np.mean(pre_corrected_fast_projection,axis=1),label='pre')
         ax3.plot(np.mean(post_corrected_fast_projection,axis=1),label='post')
         ax3.legend()
-        plt.show()
+        diagnostics.save(fig)
 

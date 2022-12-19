@@ -17,6 +17,7 @@ class Diagnostics:
         self.labels = {}
         self.counts = {}
         self.done = []
+        self.fig = plt.figure()
 
     def log(title,header,data,fmt,clobber):
         print(title)
@@ -47,6 +48,8 @@ class Diagnostics:
         if not label in self.counts.keys():
             self.counts[label] = 0
             os.makedirs(subfolder,exist_ok=True)
-        out = plt.figure(figsize=figsize,dpi=dpi)
-        return out
+        self.fig.clear()
+        self.fig.set_size_inches(figsize[0],figsize[1], forward=True)
+        #out = plt.figure(figsize=figsize,dpi=dpi)
+        return self.fig
     

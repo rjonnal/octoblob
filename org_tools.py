@@ -74,13 +74,8 @@ def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogr
 
     os.makedirs(out_folder,exist_ok=True)
 
-    for start_index in range(first_start,last_start+1):
-        logging.info('process_org_block start %d current %d end %d'%(first_start,start_index,last_start))
-        block = bscans[start_index:start_index+block_size]
-        block_files = bscan_files[start_index:start_index+block_size]
-        logging.info('process_org_block processing files %s'%block_files)
-        block = np.array(block)
-
+    #for start_index in range(first_start,last_start+1):
+    def process_block(block,start_index):
         # for each block:
         # 0. an average amplitude bscan
         bscan = np.nanmean(np.abs(block),axis=0)
@@ -165,6 +160,13 @@ def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogr
         outfn = os.path.join(out_folder,'block_%04d_phase_slope_fitting_error.npy'%start_index)
         np.save(outfn,fitting_error)
 
+    for start_index in range(first_start,last_start+1):
+        logging.info('process_org_block start %d current %d end %d'%(first_start,start_index,last_start))
+        block = bscans[start_index:start_index+block_size]
+        block_files = bscan_files[start_index:start_index+block_size]
+        logging.info('process_org_block processing files %s'%block_files)
+        block = np.array(block)
+        process_block(block,start_index)
 
 
 
