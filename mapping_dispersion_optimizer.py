@@ -36,6 +36,13 @@ def show_bscan(ax,bscan):
 
 def optimize(spectra,bscan_function,show=False,verbose=False,maxiters=200,diagnostics=None):
 
+    if show:
+        realtime_figure = plt.figure()
+        realtime_axis = realtime_figure.subplots(1,1)
+        realtime_axis.clear()
+    else:
+        realtime_axis = None
+    
     # confused about bounds--documentation says they can be used with Nelder-Mead, but warnings
     # say that they can't
     mapping_bounds = [(-2e-8,1e-9),(-6e-5,2e-6)]
@@ -59,15 +66,20 @@ def optimize(spectra,bscan_function,show=False,verbose=False,maxiters=200,diagno
         plt.subplot(1,2,1)
         plt.imshow(blobf.dB(bscan_function(init,spectra)),aspect='auto',clim=(45,85),cmap='gray')
         
-    realtime_axis = None
     sys.stdout.write('Optimizing ')
         
     res = spo.minimize(obj_md,init,args=(spectra,bscan_function,blobf.sharpness,realtime_axis,verbose),bounds=bounds,method=method,options=optimization_options)
+    
+    sys.stdout.write('\n')
+    sys.stdout.flush()
     
     if diagnostics is not None:
         plt.subplot(1,2,2)
         plt.imshow(blobf.dB(bscan_function(res.x,spectra)),aspect='auto',clim=(45,85),cmap='gray')
         diagnostics.save(fig)
+
+    if show:
+        realtime_figure.close()
         
     return res.x
 
