@@ -11,7 +11,14 @@ from octoblob import mapping_dispersion_optimizer as mdo
 from octoblob import file_manager
 import pathlib
 
-data_filename = 'test.unp'
+data_filename = None
+
+if data_filename is None:
+    try:
+        data_filename = sys.argv[1]
+    except IndexError as ie:
+        sys.exit('Please check data_filename. %s not found or data_filename not passed at command line.'%data_filename)
+
 
 # For ORG processing we needn't process all the frames. 400 frames are acquired
 # in each measurememnt, at a rate of 400 Hz. The stimulus onset is at t=0.25 s,
