@@ -192,11 +192,13 @@ def extract_layer_velocities_folder(folder,x1,x2,z1,y2):
     
 
 
-def extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2,stim_index=None):
+def extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2,stim_index=None,refine_z=0):
     if stim_index is None:
         amean = np.mean(abscans,axis=0)
     else:
         amean = np.mean(abscans[stim_index:stim_index+5,:,:],axis=0)
+
+    full_profile = np.mean(amean[:,x1:x2],axis=1)
         
     isos_points = []
     cost_points = []
@@ -248,23 +250,27 @@ def extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2,stim_index=None)
         isos_z.append([])
         cost_z.append([])
         for x in range(x1,x2):
-            dzvec = list(range(-1,2))
-            amps = []
-            for dz in dzvec:
-                amps.append(abscan[z1+peaks[0]+dz,x]+dz+abscan[z1+peaks[1]+dz,x])
-            dz = dzvec[np.argmax(amps)]
+
+            if refine_z:
+                dzvec = list(range(-refine_z,refine_z+1))
+                amps = []
+                for dz in dzvec:
+                    amps.append(abscan[z1+peaks[0]+dz,x]+abscan[z1+peaks[1]+dz,x])
+                dz = dzvec[np.argmax(amps)]
+            else:
+                dz = 0
+
+                
             zisos = z1+peaks[0]+dz
             zcost = z1+peaks[1]+dz
 
-            print(abscans[idx][zisos,x])
-            
             isos_p.append(pbscans[idx][zisos,x])
             cost_p.append(pbscans[idx][zcost,x])
             isos_a.append(abscans[idx][zisos,x])
             cost_a.append(abscans[idx][zcost,x])
             isos_z[-1].append(zisos)
             cost_z[-1].append(zcost)
-            
+        
         os_p = [c-i for c,i in zip(cost_p,isos_p)]
         os_a = [(c+i)/2.0 for c,i in zip(cost_a,isos_a)]
         os_velocity.append(np.nanmean(os_p))
@@ -274,14 +280,16 @@ def extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2,stim_index=None)
     os_amplitude = np.array(os_amplitude)
     isos_z = np.array(isos_z)
     cost_z = np.array(cost_z)
-    return os_amplitude,os_velocity,isos_z,cost_z,x1,x2
+    return os_amplitude,os_velocity,isos_z,cost_z,x1,x2,full_profile
 
 
-def extract_layer_velocities_lines(abscans,pbscans,x1,x2,z1,z2,x3,x4,z3,z4,stim_index=None):
+def extract_layer_velocities_lines(abscans,pbscans,x1,x2,z1,z2,x3,x4,z3,z4,stim_index=None,refine_z=0):
     if stim_index is None:
         amean = np.mean(abscans,axis=0)
     else:
         amean = np.mean(abscans[stim_index:stim_index+5,:,:],axis=0)
+
+    full_profile = np.mean(amean[:,x1:x2],axis=1)
         
     isos_points = []
     cost_points = []
@@ -290,6 +298,7 @@ def extract_layer_velocities_lines(abscans,pbscans,x1,x2,z1,z2,x3,x4,z3,z4,stim_
     # lines
     x1 = max(x1,x3)
     x2 = min(x2,x4)
+
     N = x2-x1
     z_top = np.round(np.linspace(z1,z2,N)).astype(int)
     z_bottom = np.round(np.linspace(z3,z4,N)).astype(int)
@@ -308,12 +317,10 @@ def extract_layer_velocities_lines(abscans,pbscans,x1,x2,z1,z2,x3,x4,z3,z4,stim_
         pbscan = pbscans[idx]
         isos_z.append([])
         cost_z.append([])
-        for idx,x in enumerate(range(x1,x2)):
-            zt = z_top[idx]
-            zb = z_bottom[idx]
-            
-            refine_z = 1
-            
+        for xidx,x in enumerate(range(x1,x2)):
+            zt = z_top[xidx]
+            zb = z_bottom[xidx]
+
             if refine_z:
                 dzvec = list(range(-refine_z,refine_z+1))
                 amps = []
@@ -325,7 +332,6 @@ def extract_layer_velocities_lines(abscans,pbscans,x1,x2,z1,z2,x3,x4,z3,z4,stim_
 
             zisos = zt+dz
             zcost = zb+dz
-            print(abscans[idx][zisos,x])
             
             isos_p.append(pbscans[idx][zisos,x])
             cost_p.append(pbscans[idx][zcost,x])
@@ -333,7 +339,7 @@ def extract_layer_velocities_lines(abscans,pbscans,x1,x2,z1,z2,x3,x4,z3,z4,stim_
             cost_a.append(abscans[idx][zcost,x])
             isos_z[-1].append(zisos)
             cost_z[-1].append(zcost)
-            
+        
         os_p = [c-i for c,i in zip(cost_p,isos_p)]
         os_a = [(c+i)/2.0 for c,i in zip(cost_a,isos_a)]
         os_velocity.append(np.nanmean(os_p))
@@ -343,7 +349,7 @@ def extract_layer_velocities_lines(abscans,pbscans,x1,x2,z1,z2,x3,x4,z3,z4,stim_
     os_amplitude = np.array(os_amplitude)
     isos_z = np.array(isos_z)
     cost_z = np.array(cost_z)
-    return os_amplitude,os_velocity,isos_z,cost_z,x1,x2
+    return os_amplitude,os_velocity,isos_z,cost_z,x1,x2,full_profile
 
 
 
