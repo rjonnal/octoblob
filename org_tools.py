@@ -320,18 +320,40 @@ def extract_layer_velocities_lines(abscans,pbscans,x1,x2,z1,z2,x3,x4,z3,z4,stim_
         for xidx,x in enumerate(range(x1,x2)):
             zt = z_top[xidx]
             zb = z_bottom[xidx]
+            constant_os_length = False
+            
+            if constant_os_length:
+                if refine_z:
+                    dzvec = list(range(-refine_z,refine_z+1))
+                    amps = []
+                    for dz in dzvec:
+                        amps.append(abscan[zt+dz,x]+abscan[zb+dz,x])
+                    dz = dzvec[np.argmax(amps)]
+                else:
+                    dz = 0
 
-            if refine_z:
-                dzvec = list(range(-refine_z,refine_z+1))
-                amps = []
-                for dz in dzvec:
-                    amps.append(abscan[zt+dz,x]+abscan[zb+dz,x])
-                dz = dzvec[np.argmax(amps)]
+                zisos = zt+dz
+                zcost = zb+dz
             else:
-                dz = 0
-
-            zisos = zt+dz
-            zcost = zb+dz
+                if refine_z:
+                    dzvec = list(range(-refine_z,refine_z+1))
+                    amps_isos = []
+                    for dz in dzvec:
+                        amps_isos.append(abscan[zt+dz,x])
+                    dz_isos = dzvec[np.argmax(amps_isos)]
+                    
+                    amps_cost = []
+                    for dz in dzvec:
+                        amps_cost.append(abscan[zb+dz,x])
+                    dz_cost = dzvec[np.argmax(amps_cost)]
+                    
+                else:
+                    dz_isos = 0
+                    dz_cost = 0
+                    
+                zisos = zt+dz_isos
+                zcost = zb+dz_cost
+                
             
             isos_p.append(pbscans[idx][zisos,x])
             cost_p.append(pbscans[idx][zcost,x])

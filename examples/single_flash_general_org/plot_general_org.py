@@ -8,6 +8,18 @@ import pathlib
 plt.rcParams["font.family"] = "serif"
 plt.rcParams["font.size"] = 9
 
+# The index of the processed ORG blocks at which the stimulus was delivered.
+# A few cases:
+# 1. Typical cone ORG applications. We process blocks B-scans 80 through 140.
+#    The stimulus flash is given at B-scan 100, which is the 20th processed
+#    B-scan. Thus, stimulus_index=20
+# 2. Noise/filtering project. We want to see all the pre-stimulus blocks, thus
+#    we process B-scans 0 through 140. The stimulus flash is given at 0.25 s
+#    (with a B-scan rate of 400 Hz and period of 2.5 ms), thus the stimulus
+#    flash is given at the 100th B-scan, and stimulus_index = 100
+
+stimulus_index = 20
+
 box_alpha = 0.75
 box_linewidth = 2.0
 box_padding = 3.0
@@ -21,7 +33,7 @@ org_plot_alpha = 0.5
 mean_org_plot_alpha = 1.0
 mean_org_plot_linewidth = 1
 
-tlim = (-0.1,0.1) # time limits for plotting ORG in s
+tlim = (-0.04,0.04) # time limits for plotting ORG in s
 zlim = (400,600) # depth limits for profile plot in um
 vlim = (-5,5) # velocity limits for plotting in um/s
 
@@ -41,7 +53,7 @@ z_um_per_pixel = 3.0
 # user receives immediate feedback from the program's selection of bright pixels
 # and can observe whether refine_z is too high (i.e., causing the wrong layer
 # to be segmented) or too low (i.e., missing the brightest pixels.
-refine_z = 2
+refine_z = 1
 
 def level(im):
     rv = get_level_roll_vec(im)
@@ -103,7 +115,7 @@ def nm_to_phase(nm):
 # @ 400 Hz, and the stimulus is delivered 0.25 seconds into the series, i.e. at frame 100; however
 # we only process B-scans 80-140, i.e. 50 ms before stimulus through 100 ms after stimulus, and
 # thus the stim_index is 20
-def plot(folder,stim_index=100):
+def plot(folder,stim_index=stimulus_index):
 
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -127,8 +139,8 @@ def plot(folder,stim_index=100):
     temporal_variance_flist = [f for f in temporal_variance_flist if f.find('masked')==-1]
     temporal_variance_flist.sort()
 
-    
-    t = np.arange(len(amplitude_flist))*0.0025-0.24
+    #t = np.arange(len(amplitude_flist))*0.0025-0.24
+    t = (-stim_index+np.arange(len(amplitude_flist)))*0.0025+10e-3
     
     display_bscan = np.load(amplitude_flist[stim_index])
     dB = 20*np.log10(display_bscan)
@@ -335,9 +347,9 @@ def plot(folder,stim_index=100):
                 try:
 
                     if True:
-                        layer_amplitude_mean,osv,layer_1_z,layer_2_z,x1,x2,full_profile = blobo.extract_layer_velocities_lines(abscans,pbscans,x1,x2,z1,z2,x3,x4,z3,z4,stim_index=stim_index)
+                        layer_amplitude_mean,osv,layer_1_z,layer_2_z,x1,x2,full_profile = blobo.extract_layer_velocities_lines(abscans,pbscans,x1,x2,z1,z2,x3,x4,z3,z4,stim_index=stim_index,refine_z=refine_z)
                     else:
-                        layer_amplitude_mean,osv,layer_1_z,layer_2_z,x1,x2,full_profile = blobo.extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2,stim_index=stim_index)
+                        layer_amplitude_mean,osv,layer_1_z,layer_2_z,x1,x2,full_profile = blobo.extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2,stim_index=stim_index,refine_z=refine_z)
                         
                 except Exception as e:
                     print('ROI could not be processed:',e)
