@@ -57,6 +57,10 @@ Selection of these line segments causes the $v$ plot for that region to appear i
 
 ## Example results
 
+### Cone outer segment ORG responses
+
 ![Cone outer segment ORG responses](./figs/cone_os_org.png)
+
+### Subretinal space ORG responses
 
 ![Subretinal space ORG responses](./figs/subretinal_org.png)
