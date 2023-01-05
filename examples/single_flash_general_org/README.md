@@ -54,3 +54,9 @@ After downloading, put them into the `examples/single_flash_general_org` folder.
 ```
 
 Selection of these line segments causes the $v$ plot for that region to appear in the right panel. When multiple regions are created, multiple plots are generated on the right, with the rectangles and plot lines color-coordinated for comparison. The `backspace` key deletes the last region, and clicking outside of the B-scan on the left clears all of the regions. The `enter` key saves the figure and associated data in two places: the working directory, in a folder called `layer_velocities_results` and in the `org` folder containing the raw ORG data.
+
+## Example results
+
+![Cone outer segment ORG responses](./figs/cone_os_org.png)
+
+![Subretinal space ORG responses](./figs/subretinal_org.png)
