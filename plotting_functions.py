@@ -57,15 +57,19 @@ def dots(ax=None,border_fraction=0.03,markersize=4):
         ax.plot(rx,doty,'k.',markersize=markersize)
     
     
-def despine(ax=None):
+def despine(ax=None,do='tr'):
     """Remove the spines from a plot. (These are the lines drawn
     around the edge of the plot.)"""
     if ax is None:
         ax = plt.gca()
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["bottom"].set_visible(False)
-    ax.spines["left"].set_visible(False)
+    if 't' in do:
+        ax.spines["top"].set_visible(False)
+    if 'r' in do:
+        ax.spines["right"].set_visible(False)
+    if 'b' in do:
+        ax.spines["bottom"].set_visible(False)
+    if 'l' in do:
+        ax.spines["left"].set_visible(False)
 
 def setup_plots(mode='paper',style='seaborn-deep',font_size=9,font='Arial'):
     
