@@ -10,8 +10,13 @@ import numpy as np
 from octoblob import mapping_dispersion_optimizer as mdo
 from octoblob import file_manager
 import pathlib
+
+no_parallel = True
+
+
 use_multiprocessing = False
 try:
+    assert not no_parallel
     import multiprocessing as mp
     use_multiprocessing = True
     n_cores_available = mp.cpu_count()
@@ -22,6 +27,8 @@ try:
 except ImportError as ie:
     logging.info('Failed to import multiprocessing: %s'%ie)
     logging.info('Processing serially.')
+except AssertionError as ae:
+    logging.info('Multiprocessing banned by no_parallel.')
     
 data_filename = None
 
