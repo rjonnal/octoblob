@@ -35,10 +35,16 @@ k_crop_2 = 1490
 # steps:
 
 def get_source(fn,diagnostics=None):
-    from octoblob.data_source import DataSource
-    #import octoblob as blob
-    print(fn)
-    src = DataSource(fn)
+    print(os.path.splitext(fn)[1])
+    if os.path.splitext(fn)[1].lower()=='.unp':
+        from octoblob.data_source import DataSource
+        #import octoblob as blob
+        print(fn)
+        src = DataSource(fn)
+    elif os.path.splitext(fn)[1].lower()=='.bin':
+        from octoblob.data_source import DataSourceOptopol
+        print(fn)
+        src = DataSourceOptopol(fn)
     return src
 
 def crop_spectra(spectra,diagnostics=None):

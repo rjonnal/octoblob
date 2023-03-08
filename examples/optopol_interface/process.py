@@ -39,6 +39,11 @@ params = parameters.Parameters(params_filename,verbose=True)
 # Get an octoblob.DataSource object using the filename
 src = blobf.get_source(data_filename)
 
+
+sys.exit()
+
+
+
 # try to read dispersion/mapping coefs from a local processing_parameters file, and run optimization otherwise
 try:
     coefs = np.array(params['mapping_dispersion_coefficients'],dtype=np.float)
