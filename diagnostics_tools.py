@@ -8,8 +8,8 @@ class Diagnostics:
 
     def __init__(self,filename,limit=3):
         self.filename = filename
-        print(filename)
-        self.folder = filename.replace('.unp','')+'_diagnostics'
+        ext = os.path.splitext(filename)[1]
+        self.folder = filename.replace(ext,'')+'_diagnostics'
         os.makedirs(self.folder,exist_ok=True)
         self.limit = limit
         self.dpi = 150

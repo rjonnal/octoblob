@@ -183,7 +183,6 @@ class DataSourceOptopol:
         self.current_frame_index+=1
         return frame
 
-
     def get_samples(self,n):
         """Get n equally spaced samples from this data set."""
         samples = []
@@ -202,58 +201,7 @@ class DataSourceOptopol:
         return temp
     
     def get_frame(self,frame_index,volume_index=0,diagnostics=False):
-        '''Get a raw frame from a UNP file. This function will
-        try to read configuration details from a UNP file with
-        the same name but .xml extension instead of .unp.
-        Parameters:
-            frame_index: the index of the desired frame; must
-              include skipped volumes if file contains multiple
-              volumes, unless volume_index is provided
-        Returns:
-            a 2D numpy array of size n_depth x n_fast
-        '''
         frame = None
-        # open the file and read in the b-scan
-        with open(self.filename,'rb') as fid:
-            # Identify the position (in bytes) corresponding to the start of the
-            # desired frame; maintain volume_index for compatibility with functional
-            # OCT experiments, which have multiple volumes.
-            position = volume_index * self.n_depth * self.n_fast * self.n_slow * self.bytes_per_pixel + frame_index * self.n_depth * self.n_fast * self.bytes_per_pixel + self.n_skip * self.n_depth * self.bytes_per_pixel
-            
-            # Skip to the desired position for reading.
-            fid.seek(position,0)
-
-            # Use numpy fromfile to read raw data.
-            frame = np.fromfile(fid,dtype=self.dtype,count=self.n_depth*self.n_fast)
-            
-            if frame.max()>=self.saturation_value:
-                if diagnostics:
-                    satfig = plt.figure(figsize=(opf.IPSP,opf.IPSP),dpi=opf.screen_dpi)
-                    plt.hist(frame,bins=100)
-                    plt.title('Frame saturated with pixels >= %d.'%self.saturation_value)
-                    self.diagnostics.save(satfig,'saturated',frame_index)
-                    
-                logging.info('Frame saturated, with pixels >= %d.'%self.saturation_value)
-            
-            if diagnostics:
-                bitshiftfig = plt.figure(figsize=(opf.IPSP,2*opf.IPSP),dpi=opf.screen_dpi)
-                bitshiftax1,bitshiftax2 = bitshiftfig.subplots(2,1)
-                
-                bitshiftax1.hist(frame,bins=100)
-                bitshiftax1.set_title('before %d bit shift'%self.bit_shift_right)
-                
-            # Bit-shift if necessary, e.g. for Axsun/Alazar data
-            if self.bit_shift_right:
-                frame = np.right_shift(frame,self.bit_shift_right)
-
-            if diagnostics:
-                bitshiftax2.hist(frame,bins=100)
-                bitshiftax2.set_title('after %d bit shift'%self.bit_shift_right)
-                self.diagnostics.save(bitshiftfig,'bit_shift',frame_index)
-                
-            # Reshape into the k*x 2D array
-            frame = frame.reshape(self.n_fast,self.n_depth).T
-            frame = frame.astype(np.float)
         return frame
 
     

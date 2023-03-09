@@ -10,7 +10,8 @@ def get_params_filename(data_filename):
 
 
 def get_bscan_folder(data_filename,make=True):
-    bscan_folder = data_filename.replace('.unp','')+'_bscans'
+    ext = os.path.splitext(data_filename)[1]
+    bscan_folder = data_filename.replace(ext,'')+'_bscans'
     
     if make:
         os.makedirs(bscan_folder,exist_ok=True)
@@ -18,7 +19,8 @@ def get_bscan_folder(data_filename,make=True):
 
 
 def get_org_folder(data_filename,make=True):
-    bscan_folder = data_filename.replace('.unp','')+'_org'
+    ext = os.path.splitext(data_filename)[1]
+    bscan_folder = data_filename.replace(ext,'')+'_org'
     
     if make:
         os.makedirs(bscan_folder,exist_ok=True)

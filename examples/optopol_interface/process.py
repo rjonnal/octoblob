@@ -11,13 +11,18 @@ from octoblob import mapping_dispersion_optimizer as mdo
 from octoblob import file_manager
 import pathlib
 
-data_filename = None
 
-if data_filename is None:
+amp_filename = None
+
+bscan_height = 320
+
+if amp_filename is None:
     try:
-        data_filename = sys.argv[1]
+        amp_filename = sys.argv[1]
     except IndexError as ie:
-        sys.exit('Please check data_filename. %s not found or data_filename not passed at command line.'%data_filename)
+        sys.exit('Please check amp_filename. %s not found or amp_filename not passed at command line.'%amp_filename)
+
+phase_filename = amp_filename.replace('_Amp.bin','_Phase.bin')
 
 # For ORG processing we needn't process all the frames. 400 frames are acquired
 # in each measurememnt, at a rate of 400 Hz. The stimulus onset is at t=0.25 s,
@@ -30,32 +35,47 @@ org_end_frame = 140
 org_frames = list(range(org_start_frame,org_end_frame))
 
 # Create a diagnostics object for inspecting intermediate processing steps
-diagnostics = diagnostics_tools.Diagnostics(data_filename)
+diagnostics = diagnostics_tools.Diagnostics(amp_filename)
 
 # Create a parameters object for storing and loading processing parameters
-params_filename = file_manager.get_params_filename(data_filename)
+params_filename = file_manager.get_params_filename(amp_filename)
 params = parameters.Parameters(params_filename,verbose=True)
 
-# Get an octoblob.DataSource object using the filename
-src = blobf.get_source(data_filename)
-
-
-sys.exit()
-
-
-
-# try to read dispersion/mapping coefs from a local processing_parameters file, and run optimization otherwise
-try:
-    coefs = np.array(params['mapping_dispersion_coefficients'],dtype=np.float)
-    logging.info('File %s mapping dispersion coefficients found in %s. Skipping optimization.'%(data_filename,params_filename))
-except KeyError:
-    logging.info('File %s mapping dispersion coefficients not found in %s. Running optimization.'%(data_filename,params_filename))
-    samples = src.get_samples(5)
-    coefs = mdo.multi_optimize(samples,blobf.spectra_to_bscan,show_all=False,show_final=True,verbose=False,diagnostics=diagnostics)
-    params['mapping_dispersion_coefficients'] = coefs
-
 # get the folder name for storing bscans
-bscan_folder = file_manager.get_bscan_folder(data_filename)
+bscan_folder = file_manager.get_bscan_folder(amp_filename)
+
+dims = np.fromfile(amp_filename,dtype=np.int32,count=3)
+n_depth,n_fast,n_slow = dims
+
+def get_cube(fn):
+    dat = np.fromfile(fn,dtype=np.int32,offset=12,count=n_depth*n_fast*n_slow)
+    dat = np.reshape(dat,dims[::-1])
+    dat = np.transpose(dat,(0,2,1))
+    dat = dat[:,::-1,:]
+    return dat.astype(np.float)
+
+amp = get_cube(amp_filename)
+amp = amp-amp.min()
+phase = get_cube(phase_filename)
+
+height = 320
+bmean = np.mean(amp,axis=0)
+z1,z2 = blobf.get_bscan_boundaries(bmean,height)
+
+for k in range(org_start_frame,org_end_frame):
+    bamp = blobf.insert_bscan(amp[k,:,:],z1,z2,height)
+    bphase = blobf.insert_bscan(phase[k,:,:],z1,z2,height)
+    bscan = bamp*np.exp(bphase*1j)
+    #bscan = amp[k,:,:]
+    dB = blobf.dB(bscan)
+    plt.cla()
+    plt.imshow(dB)
+    print(dB.min(),dB.max())
+    plt.pause(.01)
+    outfn = 
+    
+    
+sys.exit()
 
 for k in range(src.n_total_frames):
     # skip this frame if it's not in the ORG frame range

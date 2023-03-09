@@ -35,16 +35,12 @@ k_crop_2 = 1490
 # steps:
 
 def get_source(fn,diagnostics=None):
-    print(os.path.splitext(fn)[1])
+    src = None
     if os.path.splitext(fn)[1].lower()=='.unp':
         from octoblob.data_source import DataSource
         #import octoblob as blob
         print(fn)
         src = DataSource(fn)
-    elif os.path.splitext(fn)[1].lower()=='.bin':
-        from octoblob.data_source import DataSourceOptopol
-        print(fn)
-        src = DataSourceOptopol(fn)
     return src
 
 def crop_spectra(spectra,diagnostics=None):
@@ -277,9 +273,8 @@ def crop_bscan0(bscan,top_crop=350,bottom_crop=30,diagnostics=None):
     bscan = bscan[top_crop:-bottom_crop,:]
     return bscan
 
-def crop_bscan(bscan,height=320):
+def get_bscan_boundaries(bscan,height):
     sy,sx = bscan.shape
-    bscan = bscan[sy//2:-30,:]
     prof = np.mean(np.abs(bscan),axis=1)
     prof = prof-np.min(prof)
     prof = prof**2
@@ -287,12 +282,27 @@ def crop_bscan(bscan,height=320):
     com = np.sum(prof*z)/np.sum(prof)
     z1 = int(np.round(com))-height//2
     z2 = int(np.round(com))+height//2
-    return bscan[z1:z2,:]
+    return z1,z2
 
+
+def insert_bscan(bscan,z1,z2,height):
+    sy,sx = bscan.shape
+    z1 = max(0,z1)
+    z2 = min(bscan.shape[0],z2)
+    out = np.zeros((height,sx),dtype=bscan.dtype)
+    out[:(z2-z1),:] = bscan[z1:z2,:]
+    return out
+
+def crop_bscan(bscan,height=320,complex_conjugate_present=True):
+    sy,sx = bscan.shape
+    if complex_conjugate_present:
+        bscan = bscan[sy//2:-30,:]
+    z1,z2 = get_bscan_boundaries(bscan,height)
+    out = insert_bscan(bscan,z1,z2,height)
+    return out
 
 def dB(arr):
     return 20*np.log10(np.abs(arr))
-
 
 def threshold_mask(arr,threshold):
     out = np.zeros(arr.shape)
@@ -407,3 +417,4 @@ def flatten_volume(folder,nref=3,diagnostics=None):
         ax3.legend()
         diagnostics.save(fig)
 
+    
