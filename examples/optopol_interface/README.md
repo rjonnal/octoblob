@@ -1,5 +1,7 @@
 # Basic ORG processing for Optopol data
 
+This example illustrates ORG processing for Optopol data that have already been processed into OCT amplitude and phase, and stored in `.bin` files.
+
 ## Folder contents
 
 * process.py: OCT/ORG processing script
@@ -18,16 +20,15 @@ To run this example you must download the test data from the links below:
 
 After downloading, put them into the `examples/optopol_interface` folder.
 
-
 ## OCT/ORG processing
 
 1. Edit the file `process.py`, and edit the values assigned to `org_start_frame`, `org_end_frame` as needed. For single flash experiments, only a subset of B-scans must be processed; see the code comment for details. 
 
-2. Using the Anaconda terminal (command prompt), change into the `octoblob/examples/optopol_interface` folder and run the program by issuing `python process.py` at the command prompt. This will take a few minutes. The ORG processing in particular is somewhat slow.
+2. Using the Anaconda terminal (command prompt), change into the `octoblob/examples/optopol_interface` folder and run the program by issuing `python process.py FILENAME` at the command prompt. `FILENAME` should be replaced by the name of the file containing **amplitude** data, e.g., `GB_1905021_GB_TrackingON_20230217101223_2_101x250x2048x2_Amp.bin`. This will take a few minutes. The ORG processing in particular is somewhat slow.
 
 ## ORG visualization
 
-0. Edit the following parameters in `plot_general_org.py`:
+0. If necessary, edit the following parameters in `plot_general_org.py`:
 
 ```python
 stimulus_index = 50
