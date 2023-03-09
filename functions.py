@@ -265,11 +265,24 @@ def center_sharpness(im,fraction=0.5):
     x2 = mid+round(sx*0.5*fraction)
     return np.sum(im[:,x1:x2]**2)/(np.sum(im[:,x1:x2])**2)
 
-def crop_bscan(bscan,top_crop=350,bottom_crop=30,diagnostics=None):
+def crop_bscan0(bscan,top_crop=350,bottom_crop=30,diagnostics=None):
     sz,sx = bscan.shape
     bscan = bscan[sz//2:,:]
     bscan = bscan[top_crop:-bottom_crop,:]
     return bscan
+
+def crop_bscan(bscan,height=320):
+    sy,sx = bscan.shape
+    bscan = bscan[sy//2:-30,:]
+    prof = np.mean(np.abs(bscan),axis=1)
+    prof = prof-np.min(prof)
+    prof = prof**2
+    z = np.arange(len(prof))
+    com = np.sum(prof*z)/np.sum(prof)
+    z1 = int(np.round(com))-height//2
+    z2 = int(np.round(com))+height//2
+    return bscan[z1:z2,:]
+
 
 def dB(arr):
     return 20*np.log10(np.abs(arr))
