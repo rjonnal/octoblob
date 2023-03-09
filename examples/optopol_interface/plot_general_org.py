@@ -18,7 +18,14 @@ plt.rcParams["font.size"] = 9
 #    (with a B-scan rate of 400 Hz and period of 2.5 ms), thus the stimulus
 #    flash is given at the 100th B-scan, and stimulus_index = 100
 
-stimulus_index = 20
+
+stimulus_index = 50
+bscan_rate = 400.0
+tlim = (-0.125,0.125) # time limits for plotting ORG in s
+zlim = (400,600) # depth limits for profile plot in um
+vlim = (-5,5) # velocity limits for plotting in um/s
+z_um_per_pixel = 3.0
+
 
 box_alpha = 0.75
 box_linewidth = 2.0
@@ -32,12 +39,6 @@ org_plot_alpha = 0.5
 
 mean_org_plot_alpha = 1.0
 mean_org_plot_linewidth = 1
-
-tlim = (-0.04,0.04) # time limits for plotting ORG in s
-zlim = (400,600) # depth limits for profile plot in um
-vlim = (-5,5) # velocity limits for plotting in um/s
-
-z_um_per_pixel = 3.0
 
 # refine_z specifies the number of pixels (+/-) over which the
 # program may search to identify a local peak. The program begins by asking
@@ -140,7 +141,7 @@ def plot(folder,stim_index=stimulus_index):
     temporal_variance_flist.sort()
 
     #t = np.arange(len(amplitude_flist))*0.0025-0.24
-    t = (-stim_index+np.arange(len(amplitude_flist)))*0.0025+10e-3
+    t = (-stim_index+np.arange(len(amplitude_flist)))/bscan_rate
     
     display_bscan = np.load(amplitude_flist[stim_index])
     dB = 20*np.log10(display_bscan)
@@ -187,8 +188,8 @@ def plot(folder,stim_index=stimulus_index):
     fig.set_dpi(300)
 
     ax1 = fig.add_axes([0.03,0.03,.38,0.94])
-    ax2 = fig.add_axes([0.51,0.6,0.38,0.37])
-    ax3 = fig.add_axes([0.51,0.1,0.38,0.37])
+    ax2 = fig.add_axes([0.51,0.65,0.38,0.32])
+    ax3 = fig.add_axes([0.51,0.15,0.38,0.32])
     
     ax1.set_xlim((10,235))
     ax1.set_xticks([])
@@ -398,8 +399,7 @@ def plot(folder,stim_index=stimulus_index):
             fz1,fz2,fz3,fz4 = [a[1] for a in rois[0][0]]
             froi_tag = '%s_%d_%d_%d_%d_'%(tag,fx1,fx2,fz1,fz3)
 
-            
-            fig.savefig(os.path.join(outfolder,'figure_%d_rois %s.png'%(nrois,froi_tag)),dpi=300)
+            fig.savefig(os.path.join(outfolder,'figure_%d_rois_%s.png'%(nrois,froi_tag)),dpi=300)
             fig.savefig(os.path.join(outfolder,'figure_%d_rois_%s.pdf'%(nrois,froi_tag)))
             fig.savefig(os.path.join(outfolder,'figure_%d_rois_%s.svg'%(nrois,froi_tag)))
             
@@ -431,7 +431,6 @@ def plot(folder,stim_index=stimulus_index):
 
 
 if __name__=='__main__':
-
 
     if len(sys.argv)<2:
         folder = '.'

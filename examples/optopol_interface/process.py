@@ -12,8 +12,16 @@ from octoblob import file_manager
 import pathlib
 
 
-amp_filename = None
+# For ORG processing we needn't process all the frames. 400 frames are acquired
+# in each measurememnt, at a rate of 400 Hz. The stimulus onset is at t=0.25 s,
+# corresponding to the 100th frame. 50 milliseconds before stimulus is sufficient
+# to establish the baseline, and the main ORG response takes place within 100
+# milliseconds of the stimulus. Thus:
+org_start_frame = 0
+org_end_frame = 100
 
+# Enter this here or pass at command line
+amp_filename = None
 bscan_height = 320
 
 if amp_filename is None:
@@ -23,14 +31,6 @@ if amp_filename is None:
         sys.exit('Please check amp_filename. %s not found or amp_filename not passed at command line.'%amp_filename)
 
 phase_filename = amp_filename.replace('_Amp.bin','_Phase.bin')
-
-# For ORG processing we needn't process all the frames. 400 frames are acquired
-# in each measurememnt, at a rate of 400 Hz. The stimulus onset is at t=0.25 s,
-# corresponding to the 100th frame. 50 milliseconds before stimulus is sufficient
-# to establish the baseline, and the main ORG response takes place within 100
-# milliseconds of the stimulus. Thus:
-org_start_frame = 80
-org_end_frame = 140
 
 org_frames = list(range(org_start_frame,org_end_frame))
 
@@ -44,18 +44,27 @@ params = parameters.Parameters(params_filename,verbose=True)
 # get the folder name for storing bscans
 bscan_folder = file_manager.get_bscan_folder(amp_filename)
 
+
+temp = np.fromfile(amp_filename,dtype=np.uint8,count=12)
+
 dims = np.fromfile(amp_filename,dtype=np.int32,count=3)
+
 n_depth,n_fast,n_slow = dims
 
-def get_cube(fn):
-    dat = np.fromfile(fn,dtype=np.int32,offset=12,count=n_depth*n_fast*n_slow)
+assert org_start_frame<n_slow
+assert org_end_frame<=n_slow
+
+def get_cube(fn,show_hist=False):
+    dat = np.fromfile(fn,dtype=np.dtype('<f4'),offset=12,count=n_depth*n_fast*n_slow)
+    if show_hist:
+        plt.hist(dat)
+        plt.show()
     dat = np.reshape(dat,dims[::-1])
     dat = np.transpose(dat,(0,2,1))
     dat = dat[:,::-1,:]
     return dat.astype(np.float)
 
 amp = get_cube(amp_filename)
-amp = amp-amp.min()
 phase = get_cube(phase_filename)
 
 height = 320
@@ -66,29 +75,19 @@ for k in range(org_start_frame,org_end_frame):
     bamp = blobf.insert_bscan(amp[k,:,:],z1,z2,height)
     bphase = blobf.insert_bscan(phase[k,:,:],z1,z2,height)
     bscan = bamp*np.exp(bphase*1j)
+    bscan = bscan.astype(np.complex64)
     #bscan = amp[k,:,:]
     dB = blobf.dB(bscan)
-    plt.cla()
-    plt.imshow(dB)
-    print(dB.min(),dB.max())
+    bphase = np.angle(bscan)
+    plt.clf()
+    plt.imshow(dB,clim=(45,90),cmap='gray')
+    plt.colorbar()
     plt.pause(.01)
-    outfn = 
-    
-    
-sys.exit()
-
-for k in range(src.n_total_frames):
-    # skip this frame if it's not in the ORG frame range
-    if not k in org_frames:
-        continue
-    # compute the B-scan from the spectra, using the provided dispersion coefficients:
-    bscan = blobf.spectra_to_bscan(coefs,src.get_frame(k),diagnostics=diagnostics)
-
-    # save the complex B-scan in the B-scan folder
     outfn = os.path.join(bscan_folder,file_manager.bscan_template%k)
     np.save(outfn,bscan)
-    logging.info('Saving bscan %s.'%outfn)
-
+    
+    print(bscan.dtype)
+    
 # Skip this for now. Needs discussion.
 #blobf.flatten_volume(bscan_folder,diagnostics=diagnostics)
 

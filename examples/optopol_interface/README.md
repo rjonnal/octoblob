@@ -21,13 +21,24 @@ After downloading, put them into the `examples/optopol_interface` folder.
 
 ## OCT/ORG processing
 
-1. Edit the file `process.py`, and edit the values assigned to `data_filename`, `org_start_frame`, and `org_end_frame` as needed. For single flash experiments, only a subset of B-scans must be processed; see the code comment for details. For flicker experiments, the entire set of B-scans must be processed.
+1. Edit the file `process.py`, and edit the values assigned to `org_start_frame`, `org_end_frame` as needed. For single flash experiments, only a subset of B-scans must be processed; see the code comment for details. 
 
-2. Using the Anaconda terminal (command prompt), change into the `octoblob/examples/single_flash_org` folder and run the program by issuing `python process.py` at the command prompt. This will take a few minutes. The ORG processing in particular is somewhat slow.
+2. Using the Anaconda terminal (command prompt), change into the `octoblob/examples/optopol_interface` folder and run the program by issuing `python process.py` at the command prompt. This will take a few minutes. The ORG processing in particular is somewhat slow.
 
 ## ORG visualization
 
-1. Run the program `plot_general_org.py` by issuing `python plot_general_org.py` at the command prompt, in the same folder. If run this way, the program searches recursively for folders called `org` in the current directory and its subdirectories. Alternatively, you may issue `python plot_general_org.py ./test_bscans` to search only that subdirectory (recursively). In these cases, the program will run on each of the `org` folders it finds. Finally, you may specify a particular org folder with `python plot_general_org.py ./test_bscans/org`, in which case it will run only on that folder.
+0. Edit the following parameters in `plot_general_org.py`:
+
+```python
+stimulus_index = 50
+bscan_rate = 400.0
+tlim = (-0.125,0.125) # time limits for plotting ORG in s
+zlim = (400,600) # depth limits for profile plot in um
+vlim = (-5,5) # velocity limits for plotting in um/s
+z_um_per_pixel = 3.0
+```
+
+1. Run the program `plot_general_org.py` by issuing `python plot_general_org.py` at the command prompt, in the same folder. If run this way, the program searches recursively for folders called `org` in the current directory and its subdirectories. This folder will by default be a subfolder of the `FILENAME_bscans` folder.
 
 2. The input required by the user is clicking the end points of two line segments, one at a time. These line segments determine the layers between which phase velocities are computed. The user must click these line segments in a particular order--the left end of the top line segment, the right end of the top line segment, the left end of the bottom line segment, and the right end of the bottom line segment. The program will attempt to convert these line segments into arbitrary paths tracing the contour of the underlying layer by using the `refine_z` parameter:
 
@@ -54,8 +65,5 @@ Selection of these line segments causes the $v$ plot for that region to appear i
 
 ### Cone outer segment ORG responses
 
-![Cone outer segment ORG responses](./figs/cone_os_org.png)
+![Cone outer segment ORG responses](./figs/cone_os_org_optopol.png)
 
-### Subretinal space ORG responses
-
-![Subretinal space ORG responses](./figs/subretinal_org.png)
