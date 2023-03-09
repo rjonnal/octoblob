@@ -10,8 +10,13 @@ import numpy as np
 from octoblob import mapping_dispersion_optimizer as mdo
 from octoblob import file_manager
 import pathlib
+
+no_parallel = True
+
+
 use_multiprocessing = False
 try:
+    assert not no_parallel
     import multiprocessing as mp
     use_multiprocessing = True
     n_cores_available = mp.cpu_count()
@@ -22,6 +27,8 @@ try:
 except ImportError as ie:
     logging.info('Failed to import multiprocessing: %s'%ie)
     logging.info('Processing serially.')
+except AssertionError as ae:
+    logging.info('Multiprocessing banned by no_parallel.')
     
 data_filename = None
 
@@ -55,28 +62,30 @@ except KeyError:
 # get the folder name for storing bscans
 bscan_folder = file_manager.get_bscan_folder(data_filename)
 
-if use_multiprocessing:
-    def proc(k):
-        # compute the B-scan from the spectra, using the provided dispersion coefficients:
-        bscan = blobf.spectra_to_bscan(coefs,src.get_frame(k),diagnostics=diagnostics)
+if __name__=='__main__':
 
-        # save the complex B-scan in the B-scan folder
-        outfn = os.path.join(bscan_folder,file_manager.bscan_template%k)
-        np.save(outfn,bscan)
-        logging.info('Saving bscan %s.'%outfn)
-        
-    pool = mp.Pool(n_cores)
-    pool.map(proc,range(src.n_total_frames))
+    if use_multiprocessing:
+        def proc(k):
+            # compute the B-scan from the spectra, using the provided dispersion coefficients:
+            bscan = blobf.spectra_to_bscan(coefs,src.get_frame(k),diagnostics=diagnostics)
 
-else:
+            # save the complex B-scan in the B-scan folder
+            outfn = os.path.join(bscan_folder,file_manager.bscan_template%k)
+            np.save(outfn,bscan)
+            logging.info('Saving bscan %s.'%outfn)
 
-    for k in range(src.n_total_frames):
+        pool = mp.Pool(n_cores)
+        pool.map(proc,range(src.n_total_frames))
 
-        # compute the B-scan from the spectra, using the provided dispersion coefficients:
-        bscan = blobf.spectra_to_bscan(coefs,src.get_frame(k),diagnostics=diagnostics)
+    else:
 
-        # save the complex B-scan in the B-scan folder
-        outfn = os.path.join(bscan_folder,file_manager.bscan_template%k)
-        np.save(outfn,bscan)
-        logging.info('Saving bscan %s.'%outfn)
+        for k in range(src.n_total_frames):
+
+            # compute the B-scan from the spectra, using the provided dispersion coefficients:
+            bscan = blobf.spectra_to_bscan(coefs,src.get_frame(k),diagnostics=diagnostics)
+
+            # save the complex B-scan in the B-scan folder
+            outfn = os.path.join(bscan_folder,file_manager.bscan_template%k)
+            np.save(outfn,bscan)
+            logging.info('Saving bscan %s.'%outfn)
 

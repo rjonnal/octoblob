@@ -1,4 +1,4 @@
-# Basic single flash ORG processing for arbitrarily chosen layers
+# Basic ORG processing for Optopol data
 
 ## Folder contents
 
@@ -12,16 +12,11 @@
 
 To run this example you must download the test data from the links below:
 
-* test.unp: the spectral data stored in raw binary 16 bit unsigned integer format. 
+[amplitude bin file](https://www.dropbox.com/s/efpieltzhry23nn/GB_1905021_GB_TrackingON_20230217101223_2_101x250x2048x2_Amp.bin?dl=1)
 
-  > Download [test.unp](https://www.dropbox.com/s/pf6b951mlntqq9l/test.unp?dl=1)
-.
+[phase bin file](https://www.dropbox.com/s/6xprkbeg8iff0xb/GB_1905021_GB_TrackingON_20230217101223_2_101x250x2048x2_Phase.bin?dl=1)
 
-* test.xml: acquisition parameters stored by the OCT instrumetation software during acquisition. 
-
-  > Download [test.xml](https://www.dropbox.com/s/ux5qlinqq6y1zy4/test.xml?dl=1).
-
-After downloading, put them into the `examples/single_flash_general_org` folder.
+After downloading, put them into the `examples/optopol_interface` folder.
 
 
 ## OCT/ORG processing
