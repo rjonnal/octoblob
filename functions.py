@@ -34,13 +34,13 @@ k_crop_2 = 1490
 # Now we'll define some functions for the half-dozen or so processing
 # steps:
 
-def get_source(fn,diagnostics=None):
+def get_source(fn,diagnostics=None,x1=None,x2=None):
     src = None
     if os.path.splitext(fn)[1].lower()=='.unp':
         from octoblob.data_source import DataSource
         #import octoblob as blob
         print(fn)
-        src = DataSource(fn)
+        src = DataSource(fn,x1=x1,x2=x2)
     return src
 
 def crop_spectra(spectra,diagnostics=None):
@@ -90,7 +90,13 @@ def fbg_align(spectra,fbg_search_distance=15,noise_samples=80,diagnostics=None):
         temp[:] = np.diff(spectra[:,k],axis=0)
         temp[:idx-fbg_search_distance] = 0
         temp[idx+fbg_search_distance:] = 0
-        fbg_locations[k] = np.argmax(temp[:])
+        fbg_locations[k] = np.argmin(temp[:])
+        if False:
+            plt.cla()
+            plt.plot(temp)
+            plt.axvline(fbg_locations[k],color='r')
+            plt.xlim((70,110))
+            plt.pause(.1)
 
     fbg_locations = fbg_locations - int(np.median(fbg_locations))
     for k in range(spectra.shape[1]):
@@ -348,6 +354,50 @@ def spectra_to_bscan(mdcoefs,spectra,diagnostics=None):
         
     bscan = np.fft.fft(spectra,axis=0)
     bscan = crop_bscan(bscan)
+    return bscan
+
+def spectra_to_bscan_nocrop(mdcoefs,spectra,diagnostics=None):
+    spectra = fbg_align(spectra,diagnostics=diagnostics)
+    spectra = dc_subtract(spectra,diagnostics=diagnostics)
+    spectra = crop_spectra(spectra,diagnostics=diagnostics)
+
+    # A dummy function that does nothing, just to keep a placeholder for the crop_bscan calls
+    # in the imshow functions below; it'll make it easer to find/replace if there's something
+    # there and we want to go back to cropping.
+    idfunc = lambda x: x
+    
+    if diagnostics is not None:
+        fig = diagnostics.figure(figsize=(6,4))
+        plt.subplot(2,2,1)
+        plt.imshow(dB(idfunc(np.fft.fft(spectra,axis=0))),aspect='auto',clim=(45,85),cmap='gray')
+        plt.title('raw B-scan')
+            
+    spectra = k_resample(spectra,mdcoefs[:2],diagnostics=None)
+
+    if diagnostics is not None:
+        plt.subplot(2,2,2)
+        plt.imshow(dB(idfunc(np.fft.fft(spectra,axis=0))),aspect='auto',clim=(45,85),cmap='gray')
+        plt.title('after k-resampling')
+
+    spectra = dispersion_compensate(spectra,mdcoefs[2:],diagnostics=None)
+
+    if diagnostics is not None:
+        plt.subplot(2,2,3)
+        plt.imshow(dB(idfunc(np.fft.fft(spectra,axis=0))),aspect='auto',clim=(45,85),cmap='gray')
+        plt.title('after dispersion_compensation')
+
+    spectra = gaussian_window(spectra,sigma=0.9,diagnostics=None)
+    
+    if diagnostics is not None:
+        plt.subplot(2,2,4)
+        plt.imshow(dB(idfunc(np.fft.fft(spectra,axis=0))),aspect='auto',clim=(45,85),cmap='gray')
+        plt.title('after windowing')
+        diagnostics.save(fig)
+        
+    bscan = np.fft.fft(spectra,axis=0)
+    sy,sx = bscan.shape
+    bscan = bscan[sy//2:-30,:]
+    
     return bscan
 
 def flatten_volume(folder,nref=3,diagnostics=None):

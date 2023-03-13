@@ -19,7 +19,7 @@ class Diagnostics:
         self.done = []
         self.fig = plt.figure()
 
-    def log(title,header,data,fmt,clobber):
+    def log(self,title,header,data,fmt,clobber):
         print(title)
         print(header)
         print(fmt%data)
@@ -34,11 +34,11 @@ class Diagnostics:
         
         if index<self.limit or ignore_limit:
             outfn = os.path.join(subfolder,'%s_%05d.png'%(label,index))
-            figure_handle.savefig(outfn,dpi=self.dpi)
+            plt.savefig(outfn,dpi=self.dpi)
+            logging.info('Saving %s.'%outfn)
             self.counts[label]+=1
         else:
             self.done.append(label)
-            
         plt.close(figure_handle.number)
             
 

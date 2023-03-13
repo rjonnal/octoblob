@@ -17,7 +17,7 @@ import json
 class DataSource:
     """An object that supplies raw OCT data from UNP files and also digests associated
     XML files specifying acquisition parameters."""
-    def __init__(self,filename,n_skip=0):
+    def __init__(self,filename,n_skip=0,x1=None,x2=None):
         cfg_filename = filename.replace('.unp','')+'.xml'
         cfg = config_reader.get_configuration(cfg_filename)
 
@@ -29,6 +29,16 @@ class DataSource:
         self.n_depth = cfg['n_depth']
         self.n_repeats = cfg['n_bm_scans']
 
+        if x1 is None:
+            self.x1 = 0
+        else:
+            self.x1 = x1
+            
+        if x2 is None:
+            self.x2 = self.n_fast
+        else:
+            self.x2 = x2
+        
         self.bytes_per_pixel = self.dtype(1).itemsize
 
         self.n_bytes = self.n_vol*self.n_slow*self.n_fast*self.n_depth*self.bytes_per_pixel
@@ -136,6 +146,7 @@ class DataSource:
             # Reshape into the k*x 2D array
             frame = frame.reshape(self.n_fast,self.n_depth).T
             frame = frame.astype(np.float)
+            frame = frame[:,self.x1:self.x2]
         return frame
 
 
