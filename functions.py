@@ -208,6 +208,11 @@ def gaussian_window(spectra,sigma,diagnostics=None):
         
     # Define a Gaussian window with passed sigma
     x = np.exp(-((np.linspace(-1.0,1.0,spectra.shape[0]))**2/sigma**2))
+    x = x/np.mean(x)
+    #plt.figure()
+    #plt.plot(x)
+    #plt.show()
+    #sys.exit()
     # Multiply spectra by window using broadcasting:
     out = (spectra.T*x).T
 
@@ -364,10 +369,10 @@ def spectra_to_bscan_nocrop(mdcoefs,spectra,diagnostics=None):
     # A dummy function that does nothing, just to keep a placeholder for the crop_bscan calls
     # in the imshow functions below; it'll make it easer to find/replace if there's something
     # there and we want to go back to cropping.
-    idfunc = lambda x: x
+    idfunc = lambda x: x[x.shape[0]//2:-30,:]
     
     if diagnostics is not None:
-        fig = diagnostics.figure(figsize=(6,4))
+        fig = diagnostics.figure(figsize=(12,8))
         plt.subplot(2,2,1)
         plt.imshow(dB(idfunc(np.fft.fft(spectra,axis=0))),aspect='auto',clim=(45,85),cmap='gray')
         plt.title('raw B-scan')
@@ -394,9 +399,7 @@ def spectra_to_bscan_nocrop(mdcoefs,spectra,diagnostics=None):
         plt.title('after windowing')
         diagnostics.save(fig)
         
-    bscan = np.fft.fft(spectra,axis=0)
-    sy,sx = bscan.shape
-    bscan = bscan[sy//2:-30,:]
+    bscan = idfunc(np.fft.fft(spectra,axis=0))
     
     return bscan
 

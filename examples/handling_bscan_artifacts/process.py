@@ -65,7 +65,7 @@ plt.title('raw spectral frame')
 plt.subplot(1,2,2)
 plt.imshow(np.log10(np.abs(np.fft.fft(f,axis=0))),aspect='auto')
 plt.title('FFT in k dimension')
-os.makedirs('./figs')
+os.makedirs('./figs',exist_ok=True)
 plt.savefig('figs/artifact_example.png')
 
 
