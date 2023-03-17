@@ -17,7 +17,7 @@ class Diagnostics:
         self.labels = {}
         self.counts = {}
         self.done = []
-        self.fig = plt.figure()
+        #self.fig = plt.figure()
 
     def log(self,title,header,data,fmt,clobber):
         print(title)
@@ -34,6 +34,8 @@ class Diagnostics:
         
         if index<self.limit or ignore_limit:
             outfn = os.path.join(subfolder,'%s_%05d.png'%(label,index))
+            plt.figure(label)
+            plt.suptitle(label)
             plt.savefig(outfn,dpi=self.dpi)
             logging.info('Saving %s.'%outfn)
             self.counts[label]+=1
@@ -48,8 +50,9 @@ class Diagnostics:
         if not label in self.counts.keys():
             self.counts[label] = 0
             os.makedirs(subfolder,exist_ok=True)
-        self.fig.clear()
-        self.fig.set_size_inches(figsize[0],figsize[1], forward=True)
+        fig = plt.figure(label)
+        fig.clear()
+        fig.set_size_inches(figsize[0],figsize[1], forward=True)
         #out = plt.figure(figsize=figsize,dpi=dpi)
-        return self.fig
+        return fig
     

@@ -11,15 +11,9 @@ from octoblob import mapping_dispersion_optimizer as mdo
 from octoblob import file_manager
 import pathlib
 
-# This example illustrates how to process a dataset that has artifacts such as lens reflexes and/or laser noise.
-# The two key steps are 1) avoiding automatic cropping, which depends on the center of mass of the structure in
-# the image (i.e., the location of the retina) to determine reasonable cropping points in depth (z); 2) forcing
-# some horizontal cropping to remove the bright artifacts from the image; this latter step is critical for automatic
-# optimization of dispersion/mapping coefficients.
 
-# If we want automatic cropping (useful in most contexts) we use the function blobf.spectra_to_bscan, but in this case
-# the artifact dominates the B-scan's center of mass and we have to use the full depth of the B-scan for optimization,
-# thus we only use blobf.spectra_to_bscan_nocrop
+# This example provides a new FBG alignment function based on cross-correlation. It may prove to be more robust than
+# previous methods that used 'feature'-based alignment (e.g. aligning to the largest positive or negative gradients)
 
 no_parallel = True
 
@@ -55,9 +49,9 @@ diagnostics = diagnostics_tools.Diagnostics(data_filename)
 params_filename = file_manager.get_params_filename(data_filename)
 params = parameters.Parameters(params_filename,verbose=True)
 
-# Get a plain frame for viewing
+# Get a plain frame for viewing the FBG alignment errors
 src = blobf.get_source(data_filename)
-f = src.get_frame(10)
+f = src.get_frame(0)
 plt.figure()
 plt.subplot(1,2,1)
 plt.imshow(f,aspect='auto')
@@ -68,77 +62,107 @@ plt.title('FFT in k dimension')
 os.makedirs('./figs',exist_ok=True)
 plt.savefig('figs/artifact_example.png')
 
-# Set a limit on the maximum index where the FBG trough could possibly be located:
-fbg_max_index = 150
+#f = src.get_frame(50)
 
-# Set the edge of the high-frequency fringe region at the start of the spectra:
-fbg_noisy_region = 70
+# New prototype fbg_align function, which uses cross-correlation instead of feature-
+# based alignment of spectra.
+# Set a limit on the maximum index where the FBG trough could possibly be located.
+# This is a critical parameter, as it avoids cross correlation of spectra based on
+# structural information; this would prevent the FBG features from dominating the
+# cross-correlation and introduce additional phase noise.
 
-# Get an octoblob.DataSource object using the filename
-src = blobf.get_source(data_filename,x1=0,x2=200)
+def fbg_align(spectra,fbg_max_index=150,diagnostics=None):
+    # crop the frame to the FBG region
+    f = spectra[:fbg_max_index,:].copy()
 
-f = src.get_frame(15)
+    if not diagnostics is None:
+        fig = diagnostics.figure()
+        axes = fig.subplots(2,2)
+        axes[0][0].imshow(f,aspect='auto')
+        for k in range(f.shape[1]):
+            axes[0][1].plot(f[:,k])
 
-# fill the fringe artifact with its mean value:
-f[:fbg_noisy_region,:] = np.mean(f[:fbg_noisy_region,:])
-# crop the frame to the FBG region
-f = f[:fbg_max_index,:]
+    # group the spectra by amount of shift:
+    # make a list of spectra to group and those not to group
+    to_do = list(range(f.shape[1]))
+    done = []
+    corrs = []
+    groups = []
+    ref = 0
+    while(True):
+        groups.append([ref])
+        #print(groups)
+        to_do.remove(ref)
+        for tar in to_do:
+            c = np.corrcoef(f[:,ref],f[:,tar])[0,1]
+            if c>.90:
+                groups[-1].append(tar)
+                to_do.remove(tar)
+        if len(to_do)==0:
+            break
+        ref = to_do[0]
 
-plt.figure()
-plt.subplot(2,2,1)
-plt.imshow(f,aspect='auto')
-plt.subplot(2,2,2)
-for k in range(f.shape[1]):
-    plt.plot(f[:,k])
+    subframes = []
+    for g in groups:
+        subf = f[:,g]
+        subframes.append(subf)
 
-# group the spectra by amount of shift:
-# make a list of spectra to group and those not to group
-to_do = list(range(f.shape[1]))
-done = []
-corrs = []
-groups = []
-ref = 0
-while(True):
-    groups.append([ref])
-    print(groups)
-    to_do.remove(ref)
-    for tar in to_do:
-        c = np.corrcoef(f[:,ref],f[:,tar])[0,1]
-        if c>.90:
-            groups[-1].append(tar)
-            to_do.remove(tar)
-    if len(to_do)==0:
-        break
-    ref = to_do[0]
+    group_shifts = [0]
+    ref = np.mean(subframes[0],axis=1)
+    for taridx in range(1,len(subframes)):
+        tar = np.mean(subframes[taridx],axis=1)
+        xc = np.fft.ifft(np.fft.fft(ref)*np.fft.fft(tar).conj())
+        shift = np.argmax(xc)
+        if shift>len(xc)//2:
+            shift = shift-len(xc)
+        group_shifts.append(shift)
 
-subframes = []
-for g in groups:
-    subf = f[:,g]
-    subframes.append(subf)
+    for g,s in zip(groups,group_shifts):
+        for idx in g:
+            spectra[:,idx] = np.roll(spectra[:,idx],s)
+            f[:,idx] = np.roll(f[:,idx],s)
 
-group_shifts = [0]
-ref = np.mean(subframes[0],axis=1)
-for taridx in range(1,len(subframes)):
-    tar = np.mean(subframes[taridx],axis=1)
-    xc = np.fft.ifft(np.fft.fft(ref)*np.fft.fft(tar).conj())
-    shift = np.argmax(xc)
-    if shift>len(xc)//2:
-        shift = shift-len(xc)
-    group_shifts.append(shift)
+    if not diagnostics is None:
+        axes[1][0].imshow(f,aspect='auto')
+        for k in range(f.shape[1]):
+            axes[1][1].plot(f[:,k])
+        diagnostics.save(fig)
 
-for g,s in zip(groups,group_shifts):
-    for idx in g:
-        f[:,idx] = np.roll(f[:,idx],s)
+    return spectra
+
+
+def spectra_to_bscan(mdcoefs,spectra,diagnostics=None):
+    # only the fbg_align function is called locally (from this script);
+    # most of the OCT processing is done by blob functions (blobf.XXXX)
+    spectra = fbg_align(spectra,diagnostics=diagnostics)
+    spectra = blobf.dc_subtract(spectra,diagnostics=diagnostics)
+    spectra = blobf.crop_spectra(spectra,diagnostics=diagnostics)
+    spectra = blobf.k_resample(spectra,mdcoefs[:2],diagnostics=diagnostics)
+    spectra = blobf.dispersion_compensate(spectra,mdcoefs[2:],diagnostics=None)
+    spectra = blobf.gaussian_window(spectra,sigma=0.9,diagnostics=None)
+
+    # Now generate the bscan by FFT:
+    bscan = np.fft.fft(spectra,axis=0)
+    # remove the upper half of the B-scan and leave only the bottom half:
+    bscan = bscan[bscan.shape[0]//2:,:]
+
+    # could additionally crop the B-scan if desired;
+    # for example, could remove the top 10 rows, bottom 50 rows, and 10 columns
+    # from the left and right edges:
+    # bscan = bscan[10:-50,10:-10]
+
+    # artifact.png has a lens flare artifact after the 150th column, so we'll remove
+    # it; we'll also remove 50 rows near the DC (bottom of the image):
+    bscan = bscan[:-50,:150]
     
-plt.subplot(2,2,3)
-plt.imshow(f,aspect='auto')
-plt.subplot(2,2,4)
-for k in range(f.shape[1]):
-    plt.plot(f[:,k])
+    if not diagnostics is None:
+        fig = diagnostics.figure()
+        axes = fig.subplots(1,1)
+        im = axes.imshow(20*np.log10(np.abs(bscan)),aspect='auto')
+        plt.colorbar(im)
+        diagnostics.save(fig)
+    return bscan
 
-plt.show()
-
-sys.exit()
 
 # try to read dispersion/mapping coefs from a local processing_parameters file, and run optimization otherwise
 try:
@@ -146,8 +170,9 @@ try:
     logging.info('File %s mapping dispersion coefficients found in %s. Skipping optimization.'%(data_filename,params_filename))
 except KeyError:
     logging.info('File %s mapping dispersion coefficients not found in %s. Running optimization.'%(data_filename,params_filename))
-    samples = src.get_samples(5)
-    coefs = mdo.multi_optimize(samples,blobf.spectra_to_bscan,show_all=False,show_final=True,verbose=False,diagnostics=diagnostics)
+    samples = src.get_samples(3)
+    # modify the next line to use the local spectra_to_bscan function by removing 'blobf.':
+    coefs = mdo.multi_optimize(samples,spectra_to_bscan,show_all=False,show_final=True,verbose=False,diagnostics=diagnostics)
     params['mapping_dispersion_coefficients'] = coefs
 
 # get the folder name for storing bscans
@@ -157,8 +182,9 @@ if __name__=='__main__':
 
     if use_multiprocessing:
         def proc(k):
-            # compute the B-scan from the spectra, using the provided dispersion coefficients:
-            bscan = blobf.spectra_to_bscan(coefs,src.get_frame(k),diagnostics=diagnostics)
+            # compute the B-scan from the spectra, using the provided dispersion coefficients;
+            # use the local spectra_to_bscan function, not the blobf. version
+            bscan = spectra_to_bscan(coefs,src.get_frame(k),diagnostics=diagnostics)
 
             # save the complex B-scan in the B-scan folder
             outfn = os.path.join(bscan_folder,file_manager.bscan_template%k)
@@ -173,7 +199,8 @@ if __name__=='__main__':
         for k in range(src.n_total_frames):
 
             # compute the B-scan from the spectra, using the provided dispersion coefficients:
-            bscan = blobf.spectra_to_bscan_nocrop(coefs,src.get_frame(k),diagnostics=diagnostics)
+            # use the local spectra_to_bscan function, not the blobf. version
+            bscan = spectra_to_bscan(coefs,src.get_frame(k),diagnostics=diagnostics)
 
             # save the complex B-scan in the B-scan folder
             outfn = os.path.join(bscan_folder,file_manager.bscan_template%k)
