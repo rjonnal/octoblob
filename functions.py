@@ -73,16 +73,18 @@ def load_spectra(fn,index=0):
     return spectra.astype(np.float)
 
 
-def fbg_align(spectra,fbg_search_distance=15,noise_samples=80,diagnostics=None):
+def fbg_align(spectra,fbg_search_distance=15,noise_samples=70,diagnostics=None):
     if not diagnostics is None:
         fig = diagnostics.figure()
-        plt.subplot(1,2,1)
-        plt.imshow(np.abs(spectra),aspect='auto')
+        plt.subplot(2,2,1)
+        plt.imshow(np.abs(spectra[:150,:]),aspect='auto')
+        plt.subplot(2,2,3)
+        for k in range(spectra.shape[1]):
+            plt.plot(np.abs(spectra[:150,k]))
         
     spectra[:noise_samples,:] = spectra[noise_samples,:]
-    prof = np.nanmean(spectra,axis=1)
+    prof = np.nanmean(np.diff(spectra,axis=0),axis=1)
     idx = np.argmax(np.diff(prof))
-
     fbg_locations = np.zeros(spectra.shape[1],dtype=np.int)
     temp = np.zeros(len(prof)-1)
 
@@ -103,8 +105,11 @@ def fbg_align(spectra,fbg_search_distance=15,noise_samples=80,diagnostics=None):
         spectra[:,k] = np.roll(spectra[:,k],-fbg_locations[k])
 
     if not diagnostics is None:
-        plt.subplot(1,2,2)
-        plt.imshow(np.abs(spectra),aspect='auto')
+        plt.subplot(2,2,2)
+        plt.imshow(np.abs(spectra[:150,:]),aspect='auto')
+        plt.subplot(2,2,4)
+        for k in range(spectra.shape[1]):
+            plt.plot(np.abs(spectra[:150,k]))
         diagnostics.save(fig)
         
     return spectra
