@@ -8,6 +8,17 @@ Unlike most processing scripts, this `process.py` script does not call `octoblob
 
 ![Example diagnostic image for cross-correlation-based FBG alignment.](./figs/fbg_example.png)
 
+
+Please pay attention to the details of the `spectra_to_bscan` function. In particular, in this example, the cropping is hard coded in this section:
+
+```python
+    # artifact.png has a lens flare artifact after the 150th column, so we'll remove
+    # it; we'll also remove 50 rows near the DC (bottom of the image):
+    bscan = bscan[:-50,:150]
+```
+
+If you don't want to crop your B-scans, or if you want to crop them differently, you'll have to modify this section.
+
 ## Folder contents
 
 * process.py: OCT/ORG processing script

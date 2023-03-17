@@ -49,20 +49,6 @@ diagnostics = diagnostics_tools.Diagnostics(data_filename)
 params_filename = file_manager.get_params_filename(data_filename)
 params = parameters.Parameters(params_filename,verbose=True)
 
-# Get a plain frame for viewing the FBG alignment errors
-src = blobf.get_source(data_filename)
-f = src.get_frame(0)
-plt.figure()
-plt.subplot(1,2,1)
-plt.imshow(f,aspect='auto')
-plt.title('raw spectral frame')
-plt.subplot(1,2,2)
-plt.imshow(np.log10(np.abs(np.fft.fft(f,axis=0))),aspect='auto')
-plt.title('FFT in k dimension')
-os.makedirs('./figs',exist_ok=True)
-plt.savefig('figs/artifact_example.png')
-
-#f = src.get_frame(50)
 
 # New prototype fbg_align function, which uses cross-correlation instead of feature-
 # based alignment of spectra.
@@ -70,8 +56,9 @@ plt.savefig('figs/artifact_example.png')
 # This is a critical parameter, as it avoids cross correlation of spectra based on
 # structural information; this would prevent the FBG features from dominating the
 # cross-correlation and introduce additional phase noise.
-
-def fbg_align(spectra,fbg_max_index=150,diagnostics=None):
+# Correlation threshold is the minimum correlation required to consider two spectra
+# to be in phase with one another
+def fbg_align(spectra,fbg_max_index=150,correlation_threshold=0.9,diagnostics=None):
     # crop the frame to the FBG region
     f = spectra[:fbg_max_index,:].copy()
 
@@ -82,20 +69,22 @@ def fbg_align(spectra,fbg_max_index=150,diagnostics=None):
         for k in range(f.shape[1]):
             axes[0][1].plot(f[:,k])
 
-    # group the spectra by amount of shift:
-    # make a list of spectra to group and those not to group
+    # group the spectra by amount of shift
+    # this step avoids having to perform cross-correlation operations on every
+    # spectrum; first, we group them by correlation with one another
+    # make a list of spectra to group
     to_do = list(range(f.shape[1]))
-    done = []
-    corrs = []
+    # make a list for the groups of similarly shifted spectra
     groups = []
     ref = 0
+
+    # while there are spectra left to group, do the following loop:
     while(True):
         groups.append([ref])
-        #print(groups)
         to_do.remove(ref)
         for tar in to_do:
             c = np.corrcoef(f[:,ref],f[:,tar])[0,1]
-            if c>.90:
+            if c>correlation_threshold:
                 groups[-1].append(tar)
                 to_do.remove(tar)
         if len(to_do)==0:
@@ -107,8 +96,12 @@ def fbg_align(spectra,fbg_max_index=150,diagnostics=None):
         subf = f[:,g]
         subframes.append(subf)
 
+    # now decide how to shift the groups of spectra by cross-correlating their means
+    # we'll use the first group as the reference group:
     group_shifts = [0]
     ref = np.mean(subframes[0],axis=1)
+    # now, iterate through the other groups, compute their means, and cross-correlate
+    # with the reference. keep track of the cross-correlation peaks in the list group_shifts
     for taridx in range(1,len(subframes)):
         tar = np.mean(subframes[taridx],axis=1)
         xc = np.fft.ifft(np.fft.fft(ref)*np.fft.fft(tar).conj())
@@ -117,6 +110,8 @@ def fbg_align(spectra,fbg_max_index=150,diagnostics=None):
             shift = shift-len(xc)
         group_shifts.append(shift)
 
+    # now, use the groups and the group_shifts to shift all of the spectra according to their
+    # group membership:
     for g,s in zip(groups,group_shifts):
         for idx in g:
             spectra[:,idx] = np.roll(spectra[:,idx],s)
