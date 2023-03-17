@@ -63,7 +63,7 @@ def fbg_align(spectra,fbg_max_index=150,correlation_threshold=0.9,diagnostics=No
     f = spectra[:fbg_max_index,:].copy()
 
     if not diagnostics is None:
-        fig = diagnostics.figure()
+        fig = diagnostics.figure(figsize=(6,4))
         axes = fig.subplots(2,2)
         axes[0][0].imshow(f,aspect='auto')
         for k in range(f.shape[1]):
