@@ -41,6 +41,7 @@ if data_filename is None:
     except IndexError as ie:
         sys.exit('Please check data_filename. %s not found or data_filename not passed at command line.'%data_filename)
 
+src = blobf.get_source(data_filename)
 
 # Create a diagnostics object for inspecting intermediate processing steps
 diagnostics = diagnostics_tools.Diagnostics(data_filename)

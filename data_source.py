@@ -81,7 +81,8 @@ class DataSource:
         samples = []
         stride = self.n_total_frames//n
         for k in range(0,self.n_total_frames,stride):
-            samples.append(self.get_frame(k))
+            frame = self.get_frame(k)
+            samples.append(frame)
         return samples
             
     def log_info(self):
@@ -117,36 +118,36 @@ class DataSource:
 
             # Use numpy fromfile to read raw data.
             frame = np.fromfile(fid,dtype=self.dtype,count=self.n_depth*self.n_fast)
-            
-            if frame.max()>=self.saturation_value:
-                if diagnostics:
-                    satfig = plt.figure(figsize=(opf.IPSP,opf.IPSP),dpi=opf.screen_dpi)
-                    plt.hist(frame,bins=100)
-                    plt.title('Frame saturated with pixels >= %d.'%self.saturation_value)
-                    self.diagnostics.save(satfig,'saturated',frame_index)
-                    
-                logging.info('Frame saturated, with pixels >= %d.'%self.saturation_value)
-            
-            if diagnostics:
-                bitshiftfig = plt.figure(figsize=(opf.IPSP,2*opf.IPSP),dpi=opf.screen_dpi)
-                bitshiftax1,bitshiftax2 = bitshiftfig.subplots(2,1)
-                
-                bitshiftax1.hist(frame,bins=100)
-                bitshiftax1.set_title('before %d bit shift'%self.bit_shift_right)
-                
-            # Bit-shift if necessary, e.g. for Axsun/Alazar data
-            if self.bit_shift_right:
-                frame = np.right_shift(frame,self.bit_shift_right)
 
+        if frame.max()>=self.saturation_value:
             if diagnostics:
-                bitshiftax2.hist(frame,bins=100)
-                bitshiftax2.set_title('after %d bit shift'%self.bit_shift_right)
-                self.diagnostics.save(bitshiftfig,'bit_shift',frame_index)
-                
-            # Reshape into the k*x 2D array
-            frame = frame.reshape(self.n_fast,self.n_depth).T
-            frame = frame.astype(np.float)
-            frame = frame[:,self.x1:self.x2]
+                satfig = plt.figure(figsize=(opf.IPSP,opf.IPSP),dpi=opf.screen_dpi)
+                plt.hist(frame,bins=100)
+                plt.title('Frame saturated with pixels >= %d.'%self.saturation_value)
+                self.diagnostics.save(satfig,'saturated',frame_index)
+
+            logging.info('Frame saturated, with pixels >= %d.'%self.saturation_value)
+
+        if diagnostics:
+            bitshiftfig = plt.figure(figsize=(opf.IPSP,2*opf.IPSP),dpi=opf.screen_dpi)
+            bitshiftax1,bitshiftax2 = bitshiftfig.subplots(2,1)
+
+            bitshiftax1.hist(frame,bins=100)
+            bitshiftax1.set_title('before %d bit shift'%self.bit_shift_right)
+
+        # Bit-shift if necessary, e.g. for Axsun/Alazar data
+        if self.bit_shift_right:
+            frame = np.right_shift(frame,self.bit_shift_right)
+
+        if diagnostics:
+            bitshiftax2.hist(frame,bins=100)
+            bitshiftax2.set_title('after %d bit shift'%self.bit_shift_right)
+            self.diagnostics.save(bitshiftfig,'bit_shift',frame_index)
+
+        # Reshape into the k*x 2D array
+        frame = frame.reshape(self.n_fast,self.n_depth).T
+        frame = frame.astype(np.float)
+        frame = frame[:,self.x1:self.x2]
         return frame
 
 
