@@ -86,7 +86,7 @@ def fbg_align(spectra,fbg_search_distance=15,noise_samples=70,diagnostics=None):
     prof = np.nanmean(np.diff(spectra,axis=0),axis=1)
     idx = np.argmax(np.diff(prof))
     fbg_locations = np.zeros(spectra.shape[1],dtype=np.int)
-    temp = np.zeros(len(prof)-1)
+    temp = np.zeros(len(prof))
 
     for k in range(spectra.shape[1]):
         temp[:] = np.diff(spectra[:,k],axis=0)
