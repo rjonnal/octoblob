@@ -59,7 +59,7 @@ If you are working on multiple ORG measurements in the same folder, e.g. IS, OS,
 
 ## Example results
 
-### Average cone outer segment ORG responses
+### Average cone inner segment ORG responses
 
 ![Cone inner segment ORG responses](./figs/average_response.png)
 
