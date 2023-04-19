@@ -45,10 +45,8 @@ def optimize(spectra,bscan_function,show=False,verbose=False,maxiters=200,diagno
     
     # confused about bounds--documentation says they can be used with Nelder-Mead, but warnings
     # say that they can't
-    mapping_bounds = [(-2e-8,1e-9),(-6e-5,2e-6)]
     dispersion_bounds = [(-5e-7,5e-7),(-1e-4,1e-4)]
-    bounds = mapping_bounds+dispersion_bounds
-    #bounds = None
+    bounds = dispersion_bounds
     
     # spo.minimize accepts an additional argument, a dictionary containing further
     # options; we want can specify an error tolerance, say about 1% of the bounds.
@@ -59,7 +57,7 @@ def optimize(spectra,bscan_function,show=False,verbose=False,maxiters=200,diagno
     # See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
     method = 'nelder-mead'
 
-    init = [0.0,0.0,0.0,0.0]
+    init = [0.0,0.0]
 
     if diagnostics is not None:
         fig = diagnostics.figure()

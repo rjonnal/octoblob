@@ -19,6 +19,7 @@ plt.rcParams["font.size"] = 9
 #    flash is given at the 100th B-scan, and stimulus_index = 100
 
 stimulus_index = 20
+figure_dpi = 100
 
 box_alpha = 0.75
 box_linewidth = 2.0
@@ -184,7 +185,7 @@ def plot(folder,stim_index=stimulus_index):
 
     fig = plt.figure()
     fig.set_size_inches((6,3))
-    fig.set_dpi(300)
+    fig.set_dpi(figure_dpi)
 
     ax1 = fig.add_axes([0.03,0.03,.38,0.94])
     ax2 = fig.add_axes([0.51,0.6,0.38,0.37])
