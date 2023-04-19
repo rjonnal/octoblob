@@ -5,9 +5,6 @@ import logging
 import octoblob.functions as blobf
 import octoblob.org_tools as blobo
 import pathlib
-plt.rcParams["font.family"] = "serif"
-plt.rcParams["font.size"] = 9
-
 # The index of the processed ORG blocks at which the stimulus was delivered.
 # A few cases:
 # 1. Typical cone ORG applications. We process blocks B-scans 80 through 140.
@@ -18,8 +15,12 @@ plt.rcParams["font.size"] = 9
 #    (with a B-scan rate of 400 Hz and period of 2.5 ms), thus the stimulus
 #    flash is given at the 100th B-scan, and stimulus_index = 100
 
+plt.rcParams["font.family"] = "sansserif"
+plt.rcParams["font.size"] = 12
+
 stimulus_index = 20
-figure_dpi = 100
+figure_dpi = 40
+figsize_inches = (15,12)
 
 box_alpha = 0.75
 box_linewidth = 2.0
@@ -35,7 +36,7 @@ mean_org_plot_alpha = 1.0
 mean_org_plot_linewidth = 1
 
 tlim = (-0.04,0.04) # time limits for plotting ORG in s
-zlim = (400,600) # depth limits for profile plot in um
+#zlim = (400,600) # depth limits for profile plot in um
 vlim = (-5,5) # velocity limits for plotting in um/s
 
 z_um_per_pixel = 3.0
@@ -172,6 +173,10 @@ def plot(folder,stim_index=stimulus_index):
         temporal_variance.append(np.load(tvf))
         
     abscans = np.array(abscans)
+    all_prof = np.mean(np.mean(abscans,axis=2),axis=0)
+    ztemp = np.arange(len(all_prof))
+    com = int(round(np.sum(all_prof*ztemp)/np.sum(all_prof)))
+    zlim = (com-100,com+100)
     pbscans = np.array(pbscans)
     correlations = np.array(correlations)
     masked_temporal_variance = np.array(masked_temporal_variance)
@@ -184,7 +189,7 @@ def plot(folder,stim_index=stimulus_index):
     index = 0
 
     fig = plt.figure()
-    fig.set_size_inches((6,3))
+    fig.set_size_inches(figsize_inches)
     fig.set_dpi(figure_dpi)
 
     ax1 = fig.add_axes([0.03,0.03,.38,0.94])
@@ -201,7 +206,8 @@ def plot(folder,stim_index=stimulus_index):
     ax2.set_xlim(tlim)
     ax2.set_xlabel('time (s)')
     ax2.set_ylabel('$v$ ($\mu m$/s)')
-
+    ax2.axhline(0,color='k',alpha=0.25)
+    
     ax3.set_xlabel('depth ($\mu m$)')
     ax3.set_xlim(zlim)
     ax3.set_yticks([])
@@ -448,4 +454,7 @@ if __name__=='__main__':
         org_folders.sort()
         for of in org_folders:
             print('Working on %s.'%of)
-            plot(of)
+            try:
+                plot(of)
+            except IndexError as ie:
+                continue
