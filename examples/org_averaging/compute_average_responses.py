@@ -7,7 +7,10 @@ import octoblob.org_tools as blobo
 import octoblob.plotting_functions as blobp
 import pathlib
 
-root_folder = '.'
+try:
+    root_folder = sys.argv[1]
+except:
+    root_folder = '.'
 
 # When you run plot_general_org.py or plot_cone_org.py, you save results (using the Enter key)
 # to two locations: the working folder (wherever you run the script) and also into the *_bscans/org
@@ -17,22 +20,19 @@ root_folder = '.'
 # locations, so we have to keep it this way for now.)
 
 # This program can take a list of the *_velocity.npy files and generate an average result from these.
-# If the files are not specified (in the velocity_files list below), then the program will find
-# all of the *_velocity.npy files below the working folder and average these. It will avoid
-# duplicates (such as those in the working folder being duplicates of those in the org subfolders)
+# The program will find all of the *_velocity.npy files below the root folder and average these. It will
+# avoid duplicates (such as those in the working folder being duplicates of those in the org subfolders)
 # and only average unique responses.
 
+# Specify root_folder as the first argument to this script call, to avoid ambiguities about which
+# data it will execute on.
 
-# make velocity_files = [] for automatic detection of all velocity files
-#velocity_files = [
-#    '16_58_12_bscans/org/layer_velocities_results/16_58_12_bscans_org_16_176_182_188_velocity.npy',
-#    '16_53_25_bscans/org/layer_velocities_results/16_53_25_bscans_org_17_174_172_178_velocity.npy']
-velocity_files = []
+velocity_files = [str(v) for v in pathlib.Path(root_folder).rglob('*velocity.npy')]
 
-if len(velocity_files)==0:
-    velocity_files = [str(v) for v in pathlib.Path(root_folder).rglob('*velocity.npy')]
+# IMPORTANT! Please check that stimulus_index is set correctly. It should be set to the same value used in
+# plot_general_org.py
 
-stimulus_index = 100
+stimulus_index = 20
 
 # in the average plot, do you want the component plots potted too?
 plot_background = True

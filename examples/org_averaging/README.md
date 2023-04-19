@@ -14,7 +14,7 @@ To run this example you must download the test data from the links below:
 
 * org_averaging_data.zip: the spectral data stored in raw binary 16 bit unsigned integer format. 
 
-  > Download [org_averaging_data.zip](https://www.dropbox.com/s/z9q2tiw53dg5q24/org_averaging_data.zip?dl=0)
+  > Download [org_averaging_data.zip](https://www.dropbox.com/s/z9q2tiw53dg5q24/org_averaging_data.zip). (Use the `Download` button instead of exploring the contents of the zip file.)
 .
 
 After downloading, put it into the `examples/org_averaging` folder and unzip.
@@ -49,13 +49,17 @@ Selection of these line segments causes the $v$ plot for that region to appear i
 
 To produce averaged ORG plots, run the `compute_average_responses.py` script. Without modification, it will search for data saved in the previous *ORG visualization* step, and average all located data. It will produce a large figure with plots of the individual responses, as well as a plot of the average response. These will all be contained in the resulting `average.png` and `average.pdf` files, which will be overwritten by successive runs. The output files are meant to be manually cropped/cut for use.
 
+**Important:** because the results of plotting above are stored in multiple locations, you have to guard against averaging together multiple copies of the same responses. This can be accomplished in two ways:
+
+1. Pass a command line argument to `compute_average_responses.py`, as in `python compute_average_responses.py layer_velocity_results` or, if as described below, you have already renamed that folder to describe the ORG region of interest, something like `python compute_average_responses.py OS_results` or `python compute_average_responses.py layer_velocity_results_SRS`.
+
 ## Multiple ORG types
 
-If you are working on multiple ORG measurements in the same folder, e.g. IS, OS, and SRS, please change the names of the `layer_velocities_results` folders accordingly, e.g., `IS_results`, `OS_results`, etc., and then either 1) specify the filenames in the `compute_average_responses.py` script, or 2) copy `compute_average_responses.py` into the results folder of interest and run it there. Otherwise, results from different layers will be averaged together, which makes no sense.
+If you are working on multiple ORG measurements in the same folder, e.g. IS, OS, and SRS, please change the names of the `layer_velocities_results` folders accordingly, e.g., `IS_results`, `OS_results`, `layer_velocity_results_SRS`, etc., and then either 1) specify the folder as an argument, e.g. `python compute_average_responses.py IS_results`, or 2) copy `compute_average_responses.py` into the results folder of interest and run it there. Otherwise, results from different layers will be averaged together, which makes no sense.
 
 ## Example results
 
 ### Average cone outer segment ORG responses
 
-![Cone outer segment ORG responses](./figs/average.png)
+![Cone inner segment ORG responses](./figs/average_response.png)
 

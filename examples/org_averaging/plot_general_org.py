@@ -18,7 +18,7 @@ plt.rcParams["font.size"] = 9
 #    (with a B-scan rate of 400 Hz and period of 2.5 ms), thus the stimulus
 #    flash is given at the 100th B-scan, and stimulus_index = 100
 
-stimulus_index = 100
+stimulus_index = 20
 
 screen_dpi = 100
 
@@ -145,6 +145,7 @@ def plot(folder,stim_index=stimulus_index):
     t = (-stim_index+np.arange(len(amplitude_flist)))*0.0025+10e-3
     
     display_bscan = np.load(amplitude_flist[stim_index])
+    
     dB = 20*np.log10(display_bscan)
     dbclim = np.percentile(dB,(30,99.99))
     
