@@ -15,7 +15,7 @@ import pathlib
 #    (with a B-scan rate of 400 Hz and period of 2.5 ms), thus the stimulus
 #    flash is given at the 100th B-scan, and stimulus_index = 100
 
-plt.rcParams["font.family"] = "sansserif"
+plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.size"] = 12
 
 stimulus_index = 20
@@ -29,14 +29,15 @@ box_padding = 3.0
 line_alpha = 1.0
 line_linewidth = 1.0
 
-org_plot_linewidth = 0.75
+org_plot_linewidth = 1.0
 org_plot_alpha = 0.5
 
 mean_org_plot_alpha = 1.0
 mean_org_plot_linewidth = 1
 
 tlim = (-0.04,0.04) # time limits for plotting ORG in s
-#zlim = (400,600) # depth limits for profile plot in um
+zlim = (350,650) # depth limits for profile plot in um
+
 vlim = (-5,5) # velocity limits for plotting in um/s
 
 z_um_per_pixel = 3.0
@@ -103,7 +104,7 @@ def collect_files(src,dst):
     
     for f in flist:
         outf = os.path.join(dst,path2str(f))
-        shutil.copyfile(f,outf)
+        shutil.move(f,outf)
 
 
 def phase_to_nm(phase):
@@ -171,12 +172,12 @@ def plot(folder,stim_index=stimulus_index):
         masked_temporal_variance.append(np.load(mtvf))
         phase_slope_fitting_error_bscans.append(shear(np.load(psfef),roll_vec))
         temporal_variance.append(np.load(tvf))
+        #plt.figure()
+        #plt.imshow(abscans[-1])
+        #plt.show()
         
     abscans = np.array(abscans)
-    all_prof = np.mean(np.mean(abscans,axis=2),axis=0)
-    ztemp = np.arange(len(all_prof))
-    com = int(round(np.sum(all_prof*ztemp)/np.sum(all_prof)))
-    zlim = (com-100,com+100)
+
     pbscans = np.array(pbscans)
     correlations = np.array(correlations)
     masked_temporal_variance = np.array(masked_temporal_variance)
@@ -209,7 +210,7 @@ def plot(folder,stim_index=stimulus_index):
     ax2.axhline(0,color='k',alpha=0.25)
     
     ax3.set_xlabel('depth ($\mu m$)')
-    ax3.set_xlim(zlim)
+    #ax3.set_xlim(zlim)
     ax3.set_yticks([])
     ax3.set_ylabel('amplitude (ADU)')
     
@@ -234,6 +235,8 @@ def plot(folder,stim_index=stimulus_index):
         ax3.clear()
         ax3.set_xlim(zlim)
 
+        l1zmean = 500
+        l2zmean = 500
         for k,roi in enumerate(rois):
 
             full_profile = roi[7]
@@ -246,6 +249,12 @@ def plot(folder,stim_index=stimulus_index):
             offset = offset0*k
             
             z_um = np.arange(len(full_profile))*z_um_per_pixel
+
+            
+            #all_prof = np.mean(np.mean(abscans,axis=2),axis=0)
+            #com = int(round(np.sum(all_prof*z_um)/np.sum(all_prof)))
+            #zlim = (com-200,com+200)
+
             
             x1 = roi[5]
             x2 = roi[6]
@@ -279,7 +288,9 @@ def plot(folder,stim_index=stimulus_index):
         ax2.set_xlim(tlim)
         
         ax3.set_xlabel('depth ($\mu m$)')
-        ax3.set_xlim(zlim)
+        lzmean = (l1zmean+l2zmean)/2.0
+        new_zlim = (lzmean-150,lzmean+150)
+        ax3.set_xlim(new_zlim)
         ax3.set_yticks([])
 
         

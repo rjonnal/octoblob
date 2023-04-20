@@ -40,6 +40,8 @@ screen_dpi = 100
 col_width_inches = 2.5
 row_height_inches = 2.5
 large_integer = 10000000000
+default_clim = (45,85)
+
 
 def norm(im):
     return (im - np.nanmean(im)/np.nanstd(im))
@@ -232,7 +234,7 @@ class Boundaries:
         
 class Volume:
 
-    def __init__(self,bscan_folder,use_cache=False,diagnostics=False,hold_volume_in_ram=True,resampling=1):
+    def __init__(self,bscan_folder,use_cache=True,diagnostics=False,hold_volume_in_ram=True,resampling=1):
 
         t0 = tick()
         
@@ -266,6 +268,7 @@ class Volume:
         self.hold_volume_in_ram = hold_volume_in_ram
 
         volume = self.build_volume()
+        
         self.unique_id = self.make_id(volume)
         logging.info('Initializing volume with id %s.'%self.unique_id)
         sy,sz,sx = volume.shape
@@ -363,7 +366,10 @@ class Volume:
         return volume
 
 
-    def write_tiffs(self,output_folder,filename_format='bscan_%05d.tif',do_dB=False,clim=None):
+    def write_tiffs(self,output_folder=None,filename_format='bscan_%05d.tif',do_dB=True,clim=default_clim):
+        if output_folder is None:
+            output_folder=os.path.join(self.bscan_folder,'tiff')
+        
         os.makedirs(output_folder,exist_ok=True)
         
         vol = self.get_volume()
