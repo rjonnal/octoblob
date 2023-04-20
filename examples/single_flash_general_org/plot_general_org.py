@@ -16,11 +16,12 @@ import pathlib
 #    flash is given at the 100th B-scan, and stimulus_index = 100
 
 plt.rcParams["font.family"] = "sans-serif"
-plt.rcParams["font.size"] = 12
+plt.rcParams["font.size"] = 10
+#plt.rcParams.update({'figure.autolayout': True})
 
 stimulus_index = 20
-figure_dpi = 40
-figsize_inches = (15,12)
+figure_dpi = 48
+figsize_inches = (15,10)
 
 box_alpha = 0.75
 box_linewidth = 2.0
@@ -30,7 +31,7 @@ line_alpha = 1.0
 line_linewidth = 1.0
 
 org_plot_linewidth = 1.0
-org_plot_alpha = 0.5
+org_plot_alpha = 1.0
 
 mean_org_plot_alpha = 1.0
 mean_org_plot_linewidth = 1
@@ -192,10 +193,12 @@ def plot(folder,stim_index=stimulus_index):
     fig = plt.figure()
     fig.set_size_inches(figsize_inches)
     fig.set_dpi(figure_dpi)
-
+    
     ax1 = fig.add_axes([0.03,0.03,.38,0.94])
     ax2 = fig.add_axes([0.51,0.6,0.38,0.37])
     ax3 = fig.add_axes([0.51,0.1,0.38,0.37])
+    
+    fig.tight_layout()
     
     ax1.set_xlim((10,235))
     ax1.set_xticks([])
