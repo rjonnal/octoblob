@@ -21,9 +21,12 @@ plt.rcParams["font.size"] = 9
 
 stimulus_index = 50
 bscan_rate = 400.0
-tlim = (-0.125,0.125) # time limits for plotting ORG in s
+
+# tlim is now defined in terms of time from the first B-scan
+tlim = (0.0,0.25) # time limits for plotting ORG in s
+
 zlim = (400,600) # depth limits for profile plot in um
-vlim = (-5,5) # velocity limits for plotting in um/s
+vlim = (-10,10) # velocity limits for plotting in um/s
 z_um_per_pixel = 3.0
 
 
@@ -116,7 +119,7 @@ def nm_to_phase(nm):
 # @ 400 Hz, and the stimulus is delivered 0.25 seconds into the series, i.e. at frame 100; however
 # we only process B-scans 80-140, i.e. 50 ms before stimulus through 100 ms after stimulus, and
 # thus the stim_index is 20
-def plot(folder,stim_index=stimulus_index):
+def plot(folder):
 
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -139,11 +142,11 @@ def plot(folder,stim_index=stimulus_index):
     temporal_variance_flist = glob.glob(os.path.join(folder,'*temporal_variance.npy'))
     temporal_variance_flist = [f for f in temporal_variance_flist if f.find('masked')==-1]
     temporal_variance_flist.sort()
-
-    #t = np.arange(len(amplitude_flist))*0.0025-0.24
-    t = (-stim_index+np.arange(len(amplitude_flist)))/bscan_rate
     
-    display_bscan = np.load(amplitude_flist[stim_index])
+    n_scans = len(amplitude_flist)
+    t = np.arange(n_scans)/bscan_rate
+    
+    display_bscan = np.load(amplitude_flist[stimulus_index])
     dB = 20*np.log10(display_bscan)
     dbclim = np.percentile(dB,(30,99.99))
     
@@ -249,8 +252,8 @@ def plot(folder,stim_index=stimulus_index):
             
             x = np.arange(x1,x2)
 
-            layer_1_z = roi[3][stim_index,:]
-            layer_2_z = roi[4][stim_index,:]
+            layer_1_z = roi[3][stimulus_index,:]
+            layer_2_z = roi[4][stimulus_index,:]
 
             bz1 = np.min(layer_1_z)-box_padding
             bz2 = np.max(layer_2_z)+box_padding
@@ -348,9 +351,9 @@ def plot(folder,stim_index=stimulus_index):
                 try:
 
                     if True:
-                        layer_amplitude_mean,osv,layer_1_z,layer_2_z,x1,x2,full_profile = blobo.extract_layer_velocities_lines(abscans,pbscans,x1,x2,z1,z2,x3,x4,z3,z4,stim_index=stim_index,refine_z=refine_z)
+                        layer_amplitude_mean,osv,layer_1_z,layer_2_z,x1,x2,full_profile = blobo.extract_layer_velocities_lines(abscans,pbscans,x1,x2,z1,z2,x3,x4,z3,z4,stim_index=stimulus_index,refine_z=refine_z)
                     else:
-                        layer_amplitude_mean,osv,layer_1_z,layer_2_z,x1,x2,full_profile = blobo.extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2,stim_index=stim_index,refine_z=refine_z)
+                        layer_amplitude_mean,osv,layer_1_z,layer_2_z,x1,x2,full_profile = blobo.extract_layer_velocities_region(abscans,pbscans,x1,x2,z1,z2,stim_index=stimulus_index,refine_z=refine_z)
                         
                 except Exception as e:
                     print('ROI could not be processed:',e)
@@ -409,13 +412,14 @@ def plot(folder,stim_index=stimulus_index):
                 z1,z2,z3,z4 = [a[1] for a in roi[0]]
                 roi_tag = '%s_%d_%d_%d_%d_'%(tag,x1,x2,z1,z3)
                 fnroot = os.path.join(outfolder,roi_tag)
-                np.save(fnroot+'rect_points.npy',roi[0])
-                np.save(fnroot+'amplitude.npy',roi[1])
-                np.save(fnroot+'velocity.npy',roi[2])
-                np.save(fnroot+'layer_1_z.npy',roi[3])
-                np.save(fnroot+'layer_2_z.npy',roi[4])
+                fmt = '%0.3f'
+                np.savetxt(fnroot+'rect_points.txt',roi[0],fmt=fmt)
+                np.savetxt(fnroot+'amplitude.txt',roi[1],fmt=fmt)
+                np.savetxt(fnroot+'velocity.txt',roi[2],fmt=fmt)
+                np.savetxt(fnroot+'layer_1_z.txt',roi[3],fmt=fmt)
+                np.savetxt(fnroot+'layer_2_z.txt',roi[4],fmt=fmt)
 
-            collect_files(outfolder,'./layer_velocities_results')
+            #collect_files(outfolder,'./layer_velocities_results')
         elif event.key=='backspace':
             rois = rois[:-1]
             click_points = []

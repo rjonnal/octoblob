@@ -33,7 +33,6 @@ After downloading, put them into the `examples/optopol_interface` folder.
 ```python
 stimulus_index = 50
 bscan_rate = 400.0
-tlim = (-0.125,0.125) # time limits for plotting ORG in s
 zlim = (400,600) # depth limits for profile plot in um
 vlim = (-5,5) # velocity limits for plotting in um/s
 z_um_per_pixel = 3.0
@@ -60,7 +59,7 @@ z_um_per_pixel = 3.0
 # to be segmented) or too low (i.e., missing the brightest pixels.
 ```
 
-Selection of these line segments causes the $v$ plot for that region to appear in the right panel. When multiple regions are created, multiple plots are generated on the right, with the rectangles and plot lines color-coordinated for comparison. The `backspace` key deletes the last region, and clicking outside of the B-scan on the left clears all of the regions. The `enter` key saves the figure and associated data in two places: the working directory, in a folder called `layer_velocities_results` and in the `org` folder containing the raw ORG data.
+Selection of these line segments causes the $v$ plot for that region to appear in the right panel. When multiple regions are created, multiple plots are generated on the right, with the rectangles and plot lines color-coordinated for comparison. The `backspace` key deletes the last region, and clicking outside of the B-scan on the left clears all of the regions. The `enter` key saves the figure and associated data in two places: the working directory, in a folder called `layer_velocities_results` in the `org` folder containing the raw ORG data.
 
 ## Example results
 

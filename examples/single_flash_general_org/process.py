@@ -53,14 +53,21 @@ except KeyError:
 bscan_folder = file_manager.get_bscan_folder(data_filename)
 
 for k in range(src.n_total_frames):
+    outfn = os.path.join(bscan_folder,file_manager.bscan_template%k)
+
     # skip this frame if it's not in the ORG frame range
     if not k in org_frames:
+        logging.info('Skipping bscan %s.'%outfn)
         continue
+    # skip this frame if it's been processed already
+    if os.path.exists(outfn):
+        logging.info('Bscan %s exists.'%outfn)
+        continue
+    
     # compute the B-scan from the spectra, using the provided dispersion coefficients:
     bscan = blobf.spectra_to_bscan(coefs,src.get_frame(k),diagnostics=diagnostics)
 
     # save the complex B-scan in the B-scan folder
-    outfn = os.path.join(bscan_folder,file_manager.bscan_template%k)
     np.save(outfn,bscan)
     logging.info('Saving bscan %s.'%outfn)
 
