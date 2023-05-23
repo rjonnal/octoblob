@@ -31,10 +31,8 @@ After downloading, put them into the `examples/optopol_interface` folder.
 0. If necessary, edit the following parameters in `plot_general_org.py`:
 
 ```python
-stimulus_index = 50
-bscan_rate = 400.0
 zlim = (400,600) # depth limits for profile plot in um
-vlim = (-5,5) # velocity limits for plotting in um/s
+vlim = (-10,10) # velocity limits for plotting in um/s
 z_um_per_pixel = 3.0
 ```
 
