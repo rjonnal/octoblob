@@ -5,6 +5,9 @@ import logging
 import octoblob.functions as blobf
 import octoblob.org_tools as blobo
 import pathlib
+plt.rcParams["font.family"] = "serif"
+plt.rcParams["font.size"] = 9
+
 # The index of the processed ORG blocks at which the stimulus was delivered.
 # A few cases:
 # 1. Typical cone ORG applications. We process blocks B-scans 80 through 140.
@@ -15,13 +18,9 @@ import pathlib
 #    (with a B-scan rate of 400 Hz and period of 2.5 ms), thus the stimulus
 #    flash is given at the 100th B-scan, and stimulus_index = 100
 
-plt.rcParams["font.family"] = "sans-serif"
-plt.rcParams["font.size"] = 10
-#plt.rcParams.update({'figure.autolayout': True})
-
 stimulus_index = 20
-figure_dpi = 48
-figsize_inches = (15,10)
+
+screen_dpi = 100
 
 box_alpha = 0.75
 box_linewidth = 2.0
@@ -30,15 +29,14 @@ box_padding = 3.0
 line_alpha = 1.0
 line_linewidth = 1.0
 
-org_plot_linewidth = 1.0
-org_plot_alpha = 1.0
+org_plot_linewidth = 0.75
+org_plot_alpha = 0.5
 
 mean_org_plot_alpha = 1.0
 mean_org_plot_linewidth = 1
 
 tlim = (-0.04,0.04) # time limits for plotting ORG in s
-zlim = (350,650) # depth limits for profile plot in um
-
+zlim = (400,600) # depth limits for profile plot in um
 vlim = (-5,5) # velocity limits for plotting in um/s
 
 z_um_per_pixel = 3.0
@@ -105,7 +103,7 @@ def collect_files(src,dst):
     
     for f in flist:
         outf = os.path.join(dst,path2str(f))
-        shutil.move(f,outf)
+        shutil.copyfile(f,outf)
 
 
 def phase_to_nm(phase):
@@ -147,6 +145,7 @@ def plot(folder,stim_index=stimulus_index):
     t = (-stim_index+np.arange(len(amplitude_flist)))*0.0025+10e-3
     
     display_bscan = np.load(amplitude_flist[stim_index])
+    
     dB = 20*np.log10(display_bscan)
     dbclim = np.percentile(dB,(30,99.99))
     
@@ -173,12 +172,8 @@ def plot(folder,stim_index=stimulus_index):
         masked_temporal_variance.append(np.load(mtvf))
         phase_slope_fitting_error_bscans.append(shear(np.load(psfef),roll_vec))
         temporal_variance.append(np.load(tvf))
-        #plt.figure()
-        #plt.imshow(abscans[-1])
-        #plt.show()
         
     abscans = np.array(abscans)
-
     pbscans = np.array(pbscans)
     correlations = np.array(correlations)
     masked_temporal_variance = np.array(masked_temporal_variance)
@@ -191,14 +186,12 @@ def plot(folder,stim_index=stimulus_index):
     index = 0
 
     fig = plt.figure()
-    fig.set_size_inches(figsize_inches)
-    fig.set_dpi(figure_dpi)
-    
+    fig.set_size_inches((6,3))
+    fig.set_dpi(screen_dpi)
+
     ax1 = fig.add_axes([0.03,0.03,.38,0.94])
     ax2 = fig.add_axes([0.51,0.6,0.38,0.37])
     ax3 = fig.add_axes([0.51,0.1,0.38,0.37])
-    
-    fig.tight_layout()
     
     ax1.set_xlim((10,235))
     ax1.set_xticks([])
@@ -210,10 +203,9 @@ def plot(folder,stim_index=stimulus_index):
     ax2.set_xlim(tlim)
     ax2.set_xlabel('time (s)')
     ax2.set_ylabel('$v$ ($\mu m$/s)')
-    ax2.axhline(0,color='k',alpha=0.25)
-    
+
     ax3.set_xlabel('depth ($\mu m$)')
-    #ax3.set_xlim(zlim)
+    ax3.set_xlim(zlim)
     ax3.set_yticks([])
     ax3.set_ylabel('amplitude (ADU)')
     
@@ -238,8 +230,6 @@ def plot(folder,stim_index=stimulus_index):
         ax3.clear()
         ax3.set_xlim(zlim)
 
-        l1zmean = 500
-        l2zmean = 500
         for k,roi in enumerate(rois):
 
             full_profile = roi[7]
@@ -252,12 +242,6 @@ def plot(folder,stim_index=stimulus_index):
             offset = offset0*k
             
             z_um = np.arange(len(full_profile))*z_um_per_pixel
-
-            
-            #all_prof = np.mean(np.mean(abscans,axis=2),axis=0)
-            #com = int(round(np.sum(all_prof*z_um)/np.sum(all_prof)))
-            #zlim = (com-200,com+200)
-
             
             x1 = roi[5]
             x2 = roi[6]
@@ -291,9 +275,7 @@ def plot(folder,stim_index=stimulus_index):
         ax2.set_xlim(tlim)
         
         ax3.set_xlabel('depth ($\mu m$)')
-        lzmean = (l1zmean+l2zmean)/2.0
-        new_zlim = (lzmean-150,lzmean+150)
-        ax3.set_xlim(new_zlim)
+        ax3.set_xlim(zlim)
         ax3.set_yticks([])
 
         
@@ -468,7 +450,4 @@ if __name__=='__main__':
         org_folders.sort()
         for of in org_folders:
             print('Working on %s.'%of)
-            try:
-                plot(of)
-            except IndexError as ie:
-                continue
+            plot(of)

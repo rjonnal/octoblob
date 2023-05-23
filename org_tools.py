@@ -66,11 +66,12 @@ def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogr
         last_start = N-block_size
 
     out_folder = os.path.join(folder,'org')
-    if os.path.exists(out_folder):
-        if not redo:
-            sys.exit('%s exists; rerun process_org_blocks with redo=True or delete %s'%(out_folder,out_folder))
-        else:
-            shutil.rmtree(out_folder)
+    
+    # if os.path.exists(out_folder):
+    #     if not redo:
+    #         sys.exit('%s exists; rerun process_org_blocks with redo=True or delete %s'%(out_folder,out_folder))
+    #     else:
+    #         shutil.rmtree(out_folder)
 
     os.makedirs(out_folder,exist_ok=True)
 
@@ -162,6 +163,12 @@ def process_org_blocks(folder,block_size=5,signal_threshold_fraction=0.1,histogr
 
     for start_index in range(first_start,last_start+1):
         logging.info('process_org_block start %d current %d end %d'%(first_start,start_index,last_start))
+        # look to see if this block has already been calculated; unless redo is True,
+        # if it has, then skip
+        test_fn = os.path.join(out_folder,'block_%04d_phase_slope_fitting_error.npy'%start_index)
+        if os.path.exists(test_fn) and not redo:
+            continue
+
         block = bscans[start_index:start_index+block_size]
         block_files = bscan_files[start_index:start_index+block_size]
         logging.info('process_org_block processing files %s'%block_files)
