@@ -23,7 +23,7 @@ stimulus_index = 50
 bscan_rate = 400.0
 
 # tlim is now defined in terms of time from the first B-scan
-tlim = (0.0,0.25) # time limits for plotting ORG in s
+tlim = (0.0,1.0) # time limits for plotting ORG in s
 
 zlim = (400,600) # depth limits for profile plot in um
 vlim = (-10,10) # velocity limits for plotting in um/s

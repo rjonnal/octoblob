@@ -18,11 +18,11 @@ import pathlib
 # to establish the baseline, and the main ORG response takes place within 100
 # milliseconds of the stimulus. Thus:
 org_start_frame = 0
-org_end_frame = 100
+org_end_frame = 250
 
 # Enter this here or pass at command line
 amp_filename = None
-bscan_height = 320
+bscan_height = 400
 
 if amp_filename is None:
     try:
@@ -67,13 +67,16 @@ def get_cube(fn,show_hist=False):
 amp = get_cube(amp_filename)
 phase = get_cube(phase_filename)
 
-height = 320
 bmean = np.mean(amp,axis=0)
-z1,z2 = blobf.get_bscan_boundaries(bmean,height)
+z1,z2 = blobf.get_bscan_boundaries(bmean,bscan_height,intensity=False)
+plt.figure()
+plt.imshow(20*np.log10(bmean),aspect='auto',cmap='gray',clim=(40,90))
+plt.colorbar()
+plt.pause(.1)
 
 for k in range(org_start_frame,org_end_frame):
-    bamp = blobf.insert_bscan(amp[k,:,:],z1,z2,height)
-    bphase = blobf.insert_bscan(phase[k,:,:],z1,z2,height)
+    bamp = blobf.insert_bscan(amp[k,:,:],z1,z2,bscan_height)
+    bphase = blobf.insert_bscan(phase[k,:,:],z1,z2,bscan_height)
     bscan = bamp*np.exp(bphase*1j)
     bscan = bscan.astype(np.complex64)
     #bscan = amp[k,:,:]

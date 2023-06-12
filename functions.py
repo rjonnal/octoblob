@@ -289,11 +289,12 @@ def crop_bscan0(bscan,top_crop=350,bottom_crop=30,diagnostics=None):
     bscan = bscan[top_crop:-bottom_crop,:]
     return bscan
 
-def get_bscan_boundaries(bscan,height):
+def get_bscan_boundaries(bscan,height,intensity=True):
     sy,sx = bscan.shape
     prof = np.mean(np.abs(bscan),axis=1)
     prof = prof-np.min(prof)
-    prof = prof**2
+    if intensity:
+        prof = prof**2
     z = np.arange(len(prof))
     com = np.sum(prof*z)/np.sum(prof)
     z1 = int(np.round(com))-height//2
