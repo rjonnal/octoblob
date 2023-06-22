@@ -133,7 +133,7 @@ def spectra_to_bscan(mdcoefs,spectra,diagnostics=None):
     spectra = fbg_align(spectra,diagnostics=diagnostics)
     spectra = blobf.dc_subtract(spectra,diagnostics=diagnostics)
     spectra = blobf.crop_spectra(spectra,diagnostics=diagnostics)
-    spectra = blobf.k_resample(spectra,mdcoefs[:2],diagnostics=diagnostics)
+    #spectra = blobf.k_resample(spectra,mdcoefs[:2],diagnostics=diagnostics)
     spectra = blobf.dispersion_compensate(spectra,mdcoefs[2:],diagnostics=None)
     spectra = blobf.gaussian_window(spectra,sigma=0.9,diagnostics=None)
 
