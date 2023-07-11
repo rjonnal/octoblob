@@ -6,9 +6,17 @@
 # Matplotlib version 3.7.0
 import numpy as np
 from matplotlib import pyplot as plt
+import os,sys
 
-# Specify the filename
-filename = '16_53_25.unp'
+###################################################################
+###################################################################
+# Processing parameters
+# This section contains all of the constants used to process this
+# dataset. Some of these are derived from the XML file created during
+# acquisition. The XML file is shown in this section as well.
+
+filename = '/home/rjonnal/Dropbox/Data/conventional_org/flash/minimal_working_example/16_53_25.unp'
+
 
 # Data dimensions are recorded in separate 16_53_25.xml:
 
@@ -65,16 +73,36 @@ dtype = np.uint16
 bit_shift_right = 4
 bytes_per_pixel = 2
 
-# Getting a single frame of raw data from the UNP file
-# The UNP file has no header information, only the spectral data
-
 # Describing the index of the frame we want, in terms of volume_index
 # and frame_index: each UNP file may contain multiple volumes, so to get
 # a single frame we need to index both the volume and the frame within
 # that volume
-
-volume_index = 0
+volume_index = 0 # this file contains only one volume, so anything >0 causes error
 frame_index = 50 # arbitrary frame between 0 and n_slow-1 (399, in this case)
+
+# Where to crop the spectra before dispersion compensation, processing
+# into B-scans, etc.
+k_crop_1 = 100
+k_crop_2 = 1490
+
+
+# For FBG alignment, specify the maximum index (in the k dimension) where the FBG
+# could be found and the correlation threshold required to assume two spectra,
+# cropped at that index (i.e., containing only the FBG portion and not the main
+# sample-induced fringes), are aligned with one another (i.e., requiring no shifting)
+fbg_max_index = 150
+fbg_region_correlation_threshold = 0.9
+
+# Define (and create, if necessary, a folder for figures)
+fig_folder = 'figures'
+os.makedirs(fig_folder,exist_ok=True)
+
+
+
+
+# Getting a single frame of raw data from the UNP file
+# The UNP file has no header information, only the spectral data
+
 
 # Calculate the entry point into the file:
 bytes_per_volume = n_depth * n_fast * n_slow * bytes_per_pixel
@@ -108,7 +136,9 @@ if show_figures:
     plt.imshow(frame,aspect='auto')
     plt.subplot(1,2,2)
     plt.plot(np.mean(frame,axis=1))
+    plt.title('lateral mean')
     plt.suptitle('Raw data')
+    plt.savefig(os.path.join(fig_folder,'raw_data.png'))
     
 # The next step is to align the spectra to their FBG features. The spectra are cropped
 # around the FBG feature (up to index 150 in the spectral scan), and the individual
@@ -123,7 +153,7 @@ if show_figures:
 # Correlation threshold is the minimum correlation required to consider two spectra
 # to be in phase with one another
 # We'll package the FBG alignment into a function to keep things somewhat neat:
-def fbg_align(spectra,fbg_max_index=150,correlation_threshold=0.9,diagnostics=None):
+def fbg_align(spectra,max_index,correlation_threshold):
     # crop the frame to the FBG region
     f = spectra[:fbg_max_index,:].copy()
 
@@ -179,7 +209,7 @@ def fbg_align(spectra,fbg_max_index=150,correlation_threshold=0.9,diagnostics=No
 
 
 # Use our function to align the spectra:
-spectra = fbg_align(frame)
+spectra = fbg_align(frame,max_index=fbg_max_index,correlation_threshold=fbg_region_correlation_threshold)
 
 # show the FBG-aligned frame:
 if show_figures:
@@ -188,14 +218,22 @@ if show_figures:
     plt.imshow(spectra,aspect='auto')
     plt.subplot(1,2,2)
     plt.plot(np.mean(spectra,axis=1))
+    plt.title('lateral mean')
     plt.suptitle('FBG-aligned')
+    plt.savefig(os.path.join(fig_folder,'fbg_aligned.png'))
 
 
 # Now we DC-subtract the spectra. We estimate the DC by averaging the spectra together,
 # and subtract it from each one (using [array broadcasting](https://numpy.org/doc/stable/user/basics.broadcasting.html)).
 dc = spectra.mean(1)
+
 spectra = (spectra.T-dc).T
 
+# non-broadcasting version, for reference, which
+# does the same thing as the broadcasting version above,
+# but obviates the for-loop:
+# for x in range(spectra.shape[1]):
+#    spectra[:,x] = spectra[:,x]-dc
 
 
 
@@ -205,10 +243,10 @@ if show_figures:
     plt.subplot(1,2,1)
     plt.imshow(spectra,aspect='auto')
     plt.subplot(1,2,2)
-    plt.plot(np.mean(spectra,axis=1))
+    plt.plot(spectra[:,100])
+    plt.title('scan 100')
     plt.suptitle('DC subtracted')
-
-
+    plt.savefig(os.path.join(fig_folder,'dc_subtracted.png'))
 
 
     
