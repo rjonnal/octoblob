@@ -249,6 +249,25 @@ if show_figures:
     plt.savefig(os.path.join(fig_folder,'dc_subtracted.png'))
 
 
+
+# The next steps are optimization of mapping and dispersion coefficients. This will be
+# done using numerical optimization. But in order to do that we need to write a function
+# that takes our FBG-aligned/DC-subtracted spectra, mapping coefficients, and dispersion
+# coefficients, and produces a B-scan. We need this function first because the objective
+# function for optimization operates on the sharpness of the resulting B-scan.
+
+# Mapping correction
+# By "mapping" we mean the process by which we infer the wave number (k) at which each
+# of our spectral samples were measured. We cannot in general assume that k is a linear
+# function of sample index. This is obviously true in cases where the spectrum is sampled
+# uniformly with respect to lambda, since k=(2 pi)/lambda. In those cases, we minimally
+# require interpolation into uniformly sampled k space. However, we shouldn't generally
+# assume uniform sampling in lambda either, since swept-sources like the Broadsweeper
+# and spectrometers may not behave linearly in time/space.
+
+
+def spectra_to_bscan(spectra,
+
     
 # If the script made any figures, show them now:
 if plt.gcf().number > 0:
