@@ -46,7 +46,7 @@ default_clim = (45,85)
 def norm(im):
     return (im - np.nanmean(im)/np.nanstd(im))
 
-def gaussian_filter(shape,sigmas,diagnostics=False):
+def gaussian_filter(shape,sigmas):
     f = np.zeros(shape)
     sy,sz,sx = shape
     wy,wz,wx = sigmas
@@ -59,15 +59,6 @@ def gaussian_filter(shape,sigmas,diagnostics=False):
     yy = YY**2/(2*wy**2)
     xx = XX**2/(2*wx**2)
     g = np.exp(-(xx+yy+zz))
-
-    if diagnostics:
-        plt.figure()
-        for k in range(sy):
-            plt.clf()
-            plt.imshow(g[k,:,:],clim=(g.min(),g.max()))
-            plt.colorbar()
-            plt.pause(.5)
-        plt.close()
 
     g = np.fft.fftshift(g)
     return g
@@ -234,7 +225,7 @@ class Boundaries:
         
 class Volume:
 
-    def __init__(self,bscan_folder,use_cache=True,diagnostics=False,hold_volume_in_ram=True,resampling=1):
+    def __init__(self,bscan_folder,use_cache=False,diagnostics=False,hold_volume_in_ram=True,resampling=1,motion_correct=False,autocrop=True,cropz=150):
 
         t0 = tick()
         
@@ -242,8 +233,9 @@ class Volume:
         print(self.bscan_folder)
         self.bscan_filenames = sorted(glob.glob(os.path.join(self.bscan_folder,'*.npy')))
         self.resampling=resampling
-
-
+        self.motion_correct = motion_correct
+        self.autocrop = autocrop
+        self.cropz = cropz
         
         # determine volume shape from file list length and sample B-scan:
         self.n_slow = len(self.bscan_filenames)
@@ -355,6 +347,65 @@ class Volume:
                 volume = np.reshape(volume,(len(rz_vec),len(ry_vec),len(rx_vec)))
                 volume = np.transpose(volume,(1,0,2))
 
+
+            if self.autocrop:
+                avol = np.abs(volume)
+                prof = np.mean(np.mean(avol,axis=2),axis=0)
+                z = np.arange(len(prof))
+                com = np.sum(prof*z)/np.sum(prof)
+                com = int(round(com))
+                volume = volume[:,com-self.cropz:com+self.cropz,:]
+                
+            if self.motion_correct:
+                crop_edge = 50
+                nxc_threshold = 0.05
+                sy,sz,sx = volume.shape
+                # use the bscan with the highest mean intensity as the reference:
+                mprof = np.mean(np.mean(np.abs(volume),axis=2),axis=1)
+                startidx = np.argmax(mprof)
+                dx_vec = np.zeros(len(mprof),dtype=int)
+                dz_vec = np.zeros(len(mprof),dtype=int)
+                ref = volume[startidx,:,crop_edge:-crop_edge]
+
+                for y in range(startidx,-1,-1):
+                    tar = volume[y,:,crop_edge:-crop_edge]
+                    nxc = np.fft.fft2(tar)*np.conj(np.fft.fft2(ref))
+                    nxc = nxc/np.abs(nxc)
+                    nxc = np.fft.ifft2(nxc)
+                    nxc = np.real(nxc)
+                    dz,dx = np.unravel_index(np.argmax(nxc),nxc.shape)
+                    if dz>sz//2:
+                        dz = dz - sz
+                    if dx>sx//2:
+                        dx = dx - sx
+                    if nxc.max()>nxc_threshold and np.sqrt(dz**2+dx**2)<10:
+                        dz_vec[y] = dz
+                        dx_vec[y] = dx
+                    ref = tar
+                
+                ref = volume[startidx,:,crop_edge:-crop_edge]
+                for y in range(startidx+1,sy):
+                    tar = volume[y,:,crop_edge:-crop_edge]
+                    nxc = np.fft.fft2(tar)*np.conj(np.fft.fft2(ref))
+                    nxc = nxc/np.abs(nxc)
+                    nxc = np.fft.ifft2(nxc)
+                    nxc = np.real(nxc)
+                    dz,dx = np.unravel_index(np.argmax(nxc),nxc.shape)
+                    if dz>sz//2:
+                        dz = dz - sz
+                    if dx>sx//2:
+                        dx = dx - sx
+                    if nxc.max()>nxc_threshold and np.sqrt(dz**2+dx**2)<10:
+                        dz_vec[y] = dz
+                        dx_vec[y] = dx
+                    ref = tar
+
+                dx_vec = np.cumsum(dx_vec).astype(int)
+                dz_vec = np.cumsum(dz_vec).astype(int)
+
+                for y in range(sy):
+                    volume[y,:,:] = np.roll(volume[y,:,:],(dz_vec[y],dx_vec[y]))
+                    
             #self.flythrough(1,volume=volume)
             #self.flythrough(2,volume=volume)
             #sys.exit()
@@ -366,9 +417,15 @@ class Volume:
         return volume
 
 
-    def write_tiffs(self,output_folder=None,filename_format='bscan_%05d.tif',do_dB=True,clim=default_clim):
+    def write_bitmaps(self,output_folder=None,axis=1,do_dB=True,clim=default_clim,bmp_fmt='tif'):
+
+        if axis==0:
+            filename_format='bscan_%05d.'+bmp_fmt
+        elif axis==1:
+            filename_format='enface_%05d.'+bmp_fmt
+        
         if output_folder is None:
-            output_folder=os.path.join(self.bscan_folder,'tiff')
+            output_folder=os.path.join(self.bscan_folder,bmp_fmt)
         
         os.makedirs(output_folder,exist_ok=True)
         
@@ -385,13 +442,25 @@ class Volume:
         vmax = np.nanmax(avol)
         vmin = np.nanmin(avol)
 
-        avol = (avol - vmin)/(vmax-vmin)*(2**16-1)
-        avol[np.isnan(avol)] = 0
-        avol = np.round(avol).astype(np.uint16)
-        for y in range(sy):
-            outfn = os.path.join(output_folder,filename_format%y)
-            imageio.imwrite(outfn,avol[y,:,:])
-            print('Writing TIFF to %s.'%outfn)
+        if bmp_fmt == 'tif':
+            avol = (avol - vmin)/(vmax-vmin)*(2**16-1)
+            avol[np.isnan(avol)] = 0
+            avol = np.round(avol).astype(np.uint16)
+        elif bmp_fmt == 'png':
+            avol = (avol - vmin)/(vmax-vmin)*(2**8-1)
+            avol[np.isnan(avol)] = 0
+            avol = np.round(avol).astype(np.uint8)
+            
+        if axis==0:
+            for y in range(sy):
+                outfn = os.path.join(output_folder,filename_format%y)
+                imageio.imwrite(outfn,avol[y,:,:])
+                logging.info('Writing %s to %s.'%(bmp_fmt,outfn))
+        elif axis==1:
+            for z in range(sz):
+                outfn = os.path.join(output_folder,filename_format%z)
+                imageio.imwrite(outfn,avol[:,z,:])
+                logging.info('Writing %s to %s.'%(bmp_fmt,outfn))
 
         with open(os.path.join(output_folder,'raw_image_stats.txt'),'w') as fid:
             fid.write('volume max: %0.3f\n'%vmax)

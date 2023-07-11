@@ -341,7 +341,7 @@ def spectra_to_bscan(mdcoefs,spectra,diagnostics=None):
         plt.imshow(dB(crop_bscan(np.fft.fft(spectra,axis=0))),aspect='auto',clim=(45,85),cmap='gray')
         plt.title('raw B-scan')
             
-    #spectra = k_resample(spectra,mdcoefs[:2],diagnostics=None)
+    spectra = k_resample(spectra,mdcoefs[:2],diagnostics=None)
 
     if diagnostics is not None:
         plt.subplot(2,2,2)
@@ -383,7 +383,7 @@ def spectra_to_bscan_nocrop(mdcoefs,spectra,diagnostics=None):
         plt.imshow(dB(idfunc(np.fft.fft(spectra,axis=0))),aspect='auto',clim=(45,85),cmap='gray')
         plt.title('raw B-scan')
             
-    #spectra = k_resample(spectra,mdcoefs[:2],diagnostics=None)
+    spectra = k_resample(spectra,mdcoefs[:2],diagnostics=None)
 
     if diagnostics is not None:
         plt.subplot(2,2,2)
