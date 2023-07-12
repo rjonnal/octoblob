@@ -33,6 +33,8 @@ print('Matplotlib %s'%matplotlib.__version__)
 # You have to modify the path below to point at your data:
 filename = '/home/rjonnal/Dropbox/Data/conventional_org/flash/minimal_working_example/16_53_25.unp'
 
+# The data (.unp file, and .xml file if desired) can be downloaded from:
+# https://www.dropbox.com/scl/fo/o9nskz1bkw0mkfc6iqhir/h?rlkey=ijdhh1ta648ajlmvvqql3qu48&dl=0
 
 # Data dimensions are recorded in separate 16_53_25.xml:
 ###### XML ######################################
