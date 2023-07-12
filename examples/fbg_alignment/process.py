@@ -168,7 +168,7 @@ except KeyError:
     logging.info('File %s mapping dispersion coefficients not found in %s. Running optimization.'%(data_filename,params_filename))
     samples = src.get_samples(3)
     # modify the next line to use the local spectra_to_bscan function by removing 'blobf.':
-    coefs = mdo.multi_optimize(samples,spectra_to_bscan,show_all=False,show_final=True,verbose=False,diagnostics=diagnostics)
+    coefs = mdo.multi_optimize(samples,spectra_to_bscan,show_all=False,show_final=True,verbose=True,diagnostics=diagnostics)
     params['mapping_dispersion_coefficients'] = coefs
 
 # get the folder name for storing bscans
