@@ -4,9 +4,24 @@
 # Python 3.10.9
 # Numpy 1.23.5
 # Matplotlib version 3.7.0
+# Scipy version 1.10.0
+
 import numpy as np
 from matplotlib import pyplot as plt
 import os,sys
+import scipy.optimize as spo
+import scipy.interpolate as spi
+
+# print library version information
+import platform
+import numpy
+import scipy
+import matplotlib
+print('Python %s'%platform.python_version())
+print('Numpy %s'%numpy.__version__)
+print('Scipy %s'%scipy.__version__)
+print('Matplotlib %s'%matplotlib.__version__)
+
 
 ###################################################################
 ###################################################################
@@ -15,11 +30,11 @@ import os,sys
 # dataset. Some of these are derived from the XML file created during
 # acquisition. The XML file is shown in this section as well.
 
+# You have to modify the path below to point at your data:
 filename = '/home/rjonnal/Dropbox/Data/conventional_org/flash/minimal_working_example/16_53_25.unp'
 
 
 # Data dimensions are recorded in separate 16_53_25.xml:
-
 ###### XML ######################################
 # <?xml version="1.0" encoding="utf-8"?>
 # <MonsterList>
@@ -97,7 +112,11 @@ fbg_region_correlation_threshold = 0.9
 fig_folder = 'figures'
 os.makedirs(fig_folder,exist_ok=True)
 
+dB_clims = (40,None)
 
+# End of processing parameters section
+###################################################################
+###################################################################
 
 
 # Getting a single frame of raw data from the UNP file
@@ -256,17 +275,152 @@ if show_figures:
 # coefficients, and produces a B-scan. We need this function first because the objective
 # function for optimization operates on the sharpness of the resulting B-scan.
 
-# Mapping correction
+# Mapping correction (k_resample)
 # By "mapping" we mean the process by which we infer the wave number (k) at which each
 # of our spectral samples were measured. We cannot in general assume that k is a linear
 # function of sample index. This is obviously true in cases where the spectrum is sampled
 # uniformly with respect to lambda, since k=(2 pi)/lambda. In those cases, we minimally
 # require interpolation into uniformly sampled k space. However, we shouldn't generally
 # assume uniform sampling in lambda either, since swept-sources like the Broadsweeper
-# and spectrometers may not behave linearly in time/space.
+# and spectrometers may not behave linearly in time/space. Even sources with k-clocks,
+# such as the Axsun swept source, may have mapping errors.
+# To correct the mapping error we do the following:
+# 1. Interpolate from lambda-space into k-space (not required for the Axsun source used
+#    to acquire these data).
+# 2. Let s(m+e(m)) be the acquired spectrum, with indexing error e(m). We determine a polynomial
+#    e(m) = c3*m^3+c2*m^2, with coefficients c3 and c2, and then we interpolate from s(m+e(m))
+#    to s(m+e(m)-e(m))=s(m).
+
+# Dispersion correction (dispersion_compensate)
+# This is a standard approach, described in multiple sources [add citations]. We define a unit
+# amplitude phasor exp[j (mc3*k^3 + mc2*k^2)] with two coefficients mc3 and mc2, and multiply this
+# by the acquired spectra.
+
+def k_resample(spectra,coefficients):
+    # If all coefficients are 0, return the spectra w/o further computation:
+    if not any(coefficients):
+        return spectra
+
+    # the coefficients passed into this function are just the 3rd and 2nd order ones; we
+    # add zeros so that we can use convenience functions like np.polyval that handle the
+    # algebra; the input coefficients are [mc3,mc2], either a list or numpy array;
+    # cast as a list to be on the safe side.
+    coefficients = list(coefficients) + [0.0,0.0]
+
+    # For historic, MATLAB-related reasons, the index m is defined between 1 and the spectral
+    # length. This is a good opportunity to mention 
+    # x_in specified on array index 1..N+1
+    x_in = np.arange(1,spectra.shape[0]+1)
+
+    # define an error polynomial, using the passed coefficients, and then
+    # use this polynomial to define the error at each index 1..N+1
+    error = np.polyval(coefficients,x_in)
+    x_out = x_in + error
+
+    # using the spectra measured at indices x_in, interpolate the spectra at indices x_out
+    # See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp1d.html
+    interpolator = spi.interp1d(x_in,spectra,axis=0,kind='cubic',fill_value='extrapolate')
+    interpolated = interpolator(x_out)
+    return interpolated
+    
+# Next we need to dispersion compensate; for historical reasons the correction polynomial
+# is defined on index x rather than k, but for physically meaningful numbers we should
+# use k instead
+def dispersion_compensate(spectra,coefficients):
+    # If all coefficients are 0, return the spectra w/o further computation:
+    if not any(coefficients):
+        return spectra
+
+    # the coefficients passed into this function are just the 3rd and 2nd order ones; we
+    # add zeros so that we can use convenience functions like np.polyval that handle the
+    # algebra; the input coefficients are [dc3,dc2], either a list or numpy array;
+    # cast as a list to be on the safe side.
+    coefs = list(coefficients) + [0.0,0.0]
+    # define index x:
+    x = np.arange(1,spectra.shape[0]+1)
+    
+    # define the phasor and multiply by spectra using broadcasting:
+    dechirping_phasor = np.exp(-1j*np.polyval(coefs,x))
+    dechirped = (spectra.T*dechirping_phasor).T
+        
+    return dechirped
 
 
-def spectra_to_bscan(spectra,
+# Now we can define our B-scan making function, which consists of:
+# 1. k-resampling
+# 2. dispersion compensation
+# 3. windowing (optionally)
+# 3. DFT
+# We package the mapping and dispersion coefficients into a single list or array,
+# in this order: 3rd order mapping coefficient, 2nd order mapping coefficient,
+# 3rd order dispersion coefficient, 2nd order dispersion coefficient
+def spectra_to_bscan(spectra,mapping_dispersion_coefficients):
+    mapping_coefficients = mapping_dispersion_coefficients[:2]
+    dispersion_coefficients = mapping_dispersion_coefficients[2:]
+
+    spectra = k_resample(spectra,mapping_coefficients)
+    spectra = dispersion_compensate(spectra,dispersion_coefficients)
+
+    if True:
+        # use a sigma (standard deviation) equal to 0.9 times the half-width
+        # of the spectrum; this is arbitrary and was selected empirically, sort of
+        sigma = 0.9
+        window = np.exp(-((np.linspace(-1.0,1.0,spectra.shape[0]))**2/sigma**2))
+        # multiply by broadcasting:
+        spectra = (spectra.T*window).T
+
+    bscan = np.fft.fft(spectra,axis=0)
+
+    # remove one of the conjugate pairs--the top (inverted) one, by default
+    bscan = bscan[bscan.shape[0]//2:,:]
+    
+    return bscan
+
+# Let's make a B-scan with 0 for all mapping and dispersion coefficients, and show
+# it.
+bscan_uncorrected = spectra_to_bscan(spectra,[0.0,0.0,0.0,0.0])
+
+if show_figures:
+    plt.figure()
+    plt.imshow(20*np.log10(np.abs(bscan_uncorrected)),cmap='gray',clim=dB_clims,aspect='auto')
+    plt.colorbar()
+    plt.title('B-scan w/o mapping or dispersion correction')
+    plt.savefig(os.path.join(fig_folder,'bscan_uncorrected.png'))
+
+
+# Now we are ready to run a four parameter optimization of the mapping and dispersion
+# coefficients.
+
+# First we need an objective function--one to be minimized. It will be based on image
+# sharpness.
+def sharpness(im):
+    """Image sharpness"""
+    return np.sum(im**2)/(np.sum(im)**2)
+
+def objective_function(mapping_dispersion_coefficients,spectra):
+    bscan = spectra_to_bscan(spectra,mapping_dispersion_coefficients)
+    bscan = np.abs(bscan)
+    bscan_sharpness = sharpness(bscan)
+    print(1.0/bscan_sharpness)
+    return 1.0/bscan_sharpness # remember this is a minimization algorithm
+
+# initial guess for mapping_dispersion_coefficients
+initial_guess = [0.0,0.0,0.0,0.0]
+
+# run the optimizer
+result = spo.minimize(objective_function,initial_guess,args=(spectra))
+
+# get the optimized coefficients
+coefs = result.x
+
+bscan_corrected = spectra_to_bscan(spectra,coefs)
+
+if show_figures:
+    plt.figure()
+    plt.imshow(20*np.log10(np.abs(bscan_corrected)),cmap='gray',clim=dB_clims,aspect='auto')
+    plt.colorbar()
+    plt.title('B-scan w/ mapping and dispersion correction')
+    plt.savefig(os.path.join(fig_folder,'bscan_corrected.png'))
 
     
 # If the script made any figures, show them now:

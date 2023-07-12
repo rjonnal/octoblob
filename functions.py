@@ -154,7 +154,7 @@ def k_resample(spectra,coefficients,diagnostics=None):
         plt.subplot(1,2,1)
         plt.imshow(np.abs(spectra),aspect='auto')
         
-    coefficients = coefficients + [0.0,0.0]
+    coefficients = list(coefficients) + [0.0,0.0]
     # x_in specified on array index 1..N+1
     x_in = np.arange(1,spectra.shape[0]+1)
 
