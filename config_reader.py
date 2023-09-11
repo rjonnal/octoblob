@@ -4,24 +4,6 @@ import logging
 from xml.etree import ElementTree as ET
 
 
-XML_DICT = {}
-# populate XML_DICT with required parameters from Yifan's XML grammar
-# keys of this dictionary [x,y] are x = element tag and y = element attribute
-# the values of this dictionary (x,y) are x = our new name for the data and
-# y = the data type (i.e. a function that we can cast the output with)
-XML_DICT['Time','Data_Acquired_at'] = ('time_stamp',str)
-XML_DICT['Volume_Size','Width'] = ('n_depth',int)
-XML_DICT['Volume_Size','Height'] = ('n_fast',int)
-XML_DICT['Volume_Size','Number_of_Frames'] = ('n_slow',int)
-XML_DICT['Volume_Size','Number_of_Volumes'] = ('n_vol',int)
-XML_DICT['Scanning_Parameters','X_Scan_Range'] = ('x_scan_mv',int)
-XML_DICT['Scanning_Parameters','X_Scan_Offset'] = ('x_offset_mv',int)
-XML_DICT['Scanning_Parameters','Y_Scan_Range'] = ('y_scan_mv',int)
-XML_DICT['Scanning_Parameters','Y_Scan_Offset'] = ('y_offset_mv',int)
-XML_DICT['Scanning_Parameters','Number_of_BM_scans'] = ('n_bm_scans',int)
-
-
-
 def get_configuration(filename):
 
     ''' Pull configuration parameters from Yifan's
@@ -66,6 +48,22 @@ def get_configuration(filename):
 
     '''
     
+    XML_DICT = {}
+    # populate XML_DICT with required parameters from Yifan's XML grammar
+    # keys of this dictionary [x,y] are x = element tag and y = element attribute
+    # the values of this dictionary (x,y) are x = our new name for the data and
+    # y = the data type (i.e. a function that we can cast the output with)
+    XML_DICT['Time','Data_Acquired_at'] = ('time_stamp',str)
+    XML_DICT['Volume_Size','Width'] = ('n_depth',int)
+    XML_DICT['Volume_Size','Height'] = ('n_fast',int)
+    XML_DICT['Volume_Size','Number_of_Frames'] = ('n_slow',int)
+    XML_DICT['Volume_Size','Number_of_Volumes'] = ('n_vol',int)
+    XML_DICT['Scanning_Parameters','X_Scan_Range'] = ('x_scan_mv',int)
+    XML_DICT['Scanning_Parameters','X_Scan_Offset'] = ('x_offset_mv',int)
+    XML_DICT['Scanning_Parameters','Y_Scan_Range'] = ('y_scan_mv',int)
+    XML_DICT['Scanning_Parameters','Y_Scan_Offset'] = ('y_offset_mv',int)
+    XML_DICT['Scanning_Parameters','Number_of_BM_scans'] = ('n_bm_scans',int)
+
     # append extension if it's not there
     if not filename[-4:].lower()=='.xml':
         filename = filename + '.xml'
