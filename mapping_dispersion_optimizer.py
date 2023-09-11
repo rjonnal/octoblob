@@ -35,7 +35,6 @@ def show_bscan(ax,bscan):
     ax.imshow(dB(bscan),cmap='gray',clim=dB_clim)
 
 def optimize(spectra,bscan_function,show=False,verbose=False,maxiters=200,diagnostics=None):
-
     if show:
         realtime_figure = plt.figure()
         realtime_axis = realtime_figure.subplots(1,1)
@@ -45,20 +44,22 @@ def optimize(spectra,bscan_function,show=False,verbose=False,maxiters=200,diagno
     
     # confused about bounds--documentation says they can be used with Nelder-Mead, but warnings
     # say that they can't
-    mapping_bounds = [(-2e-8,1e-9),(-6e-5,2e-6)]
-    dispersion_bounds = [(-5e-7,5e-7),(-1e-4,1e-4)]
-    bounds = mapping_bounds+dispersion_bounds
-    #bounds = None
+    #mapping_bounds = [(-2e-8,1e-9),(-6e-5,2e-6)]
+    #dispersion_bounds = [(-5e-7,5e-7),(-1e-4,1e-4)]
+    #bounds = mapping_bounds+dispersion_bounds
+    bounds = None
     
     # spo.minimize accepts an additional argument, a dictionary containing further
     # options; we want can specify an error tolerance, say about 1% of the bounds.
     # we can also specify maximum iterations:
-    optimization_options = {'xatol':1e-6,'maxiter':200,'disp':False}
-
+    #optimization_options = {'xatol':1e-6,'maxiter':200,'disp':False}
+    optimization_options = {}
+    
     # optimization algorithm:
     # See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
-    method = 'nelder-mead'
-
+    #method = 'nelder-mead'
+    method = None
+    
     init = [0.0,0.0,0.0,0.0]
 
     if diagnostics is not None:
@@ -75,7 +76,9 @@ def optimize(spectra,bscan_function,show=False,verbose=False,maxiters=200,diagno
     
     if diagnostics is not None:
         plt.subplot(1,2,2)
-        plt.imshow(blobf.dB(bscan_function(res.x,spectra)),aspect='auto',clim=(45,85),cmap='gray')
+        corrected_bscan = blobf.dB(bscan_function(res.x,spectra))
+        print(np.max(corrected_bscan),np.min(corrected_bscan))
+        plt.imshow(corrected_bscan,aspect='auto',clim=(45,85),cmap='gray')
         diagnostics.save(fig)
 
     if show:
