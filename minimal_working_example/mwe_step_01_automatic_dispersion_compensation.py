@@ -128,9 +128,6 @@ initial_guess = [0.0,0.0,0.0,0.0]
 coefs = blobf.optimize_resampling_dispersion_coefficients(spectra,initial_guess=initial_guess)
 
 print('Optimized coefs: %s'%coefs)
-# For 2023 data, coefficients are [ 6.61026428e-05 -7.20718161e-02 -1.39001361e-06  5.33739024e-05]
-# For 2021 data, coefficients are [-1.95242853e-08  1.35407215e-11 -6.33964727e-11  8.04882650e-12]
-
 
 bscan_corrected = blobf.spectra_to_bscan(spectra,coefs)
 

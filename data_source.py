@@ -146,7 +146,7 @@ class DataSource:
 
         # Reshape into the k*x 2D array
         frame = frame.reshape(self.n_fast,self.n_depth).T
-        frame = frame.astype(np.float)
+        frame = frame.astype(float)
         frame = frame[:,self.x1:self.x2]
         return frame
 

@@ -11,6 +11,7 @@ import os,sys
 import scipy.optimize as spo
 import scipy.interpolate as spi
 from xml.etree import ElementTree as ET
+import inspect
 
 # print library version information
 import platform
@@ -49,6 +50,15 @@ fbg_max_index = 150
 fbg_region_correlation_threshold = 0.9
 
 ##### End data file parameters ######
+
+
+
+def phase_to_nm(phase):
+    return phase/(4*np.pi*1.38)*1050.0
+
+def nm_to_phase(nm):
+    return nm*(4*np.pi*1.38)/1050.0
+
 
 def get_configuration(filename):
 
@@ -585,6 +595,70 @@ def get_bscan_folder(data_filename,make=True):
     return bscan_folder
 
 
+################################## Diagnostics class ##################################################
+class Diagnostics:
+
+    def __init__(self,tag,limit=3):
+        if tag.find('_bscans')>-1:
+            tag = tag.replace('_bscans/','')
+        if tag.find('.unp')>-1:
+            tag = tag.replace('.unp','')
+            
+        self.folder = tag+'_diagnostics'
+        os.makedirs(self.folder,exist_ok=True)
+        self.limit = limit
+        self.dpi = 150
+        self.figures = {}
+        self.labels = {}
+        self.counts = {}
+        self.done = []
+        self.current_figure = None
+
+    def log(self,title,header,data,fmt,clobber):
+        print(title)
+        print(header)
+        print(fmt%data)
+        
+    def save(self,figure_handle=None,ignore_limit=False):
+
+        if figure_handle is None:
+            figure_handle = self.current_figure
+        label = self.labels[figure_handle]
+        
+        if label in self.done:
+            return
+        
+        subfolder = os.path.join(self.folder,label)
+        os.makedirs(subfolder,exist_ok=True)
+        index = self.counts[label]
+
+        if index<self.limit or ignore_limit:
+            outfn = os.path.join(subfolder,'%s_%05d.png'%(label,index))
+            plt.figure(label)
+            plt.suptitle(label)
+            plt.savefig(outfn,dpi=self.dpi)
+            #plt.show()
+            self.counts[label]+=1
+        else:
+            self.done.append(label)
+        #plt.close(figure_handle.number)
+            
+
+    def figure(self,figsize=(6,6),dpi=100,label=None):
+        if label is None:
+            label = inspect.currentframe().f_back.f_code.co_name
+            
+        subfolder = os.path.join(self.folder,label)
+        if not label in self.counts.keys():
+            self.counts[label] = 0
+            os.makedirs(subfolder,exist_ok=True)
+        fig = plt.figure(label)
+        self.labels[fig] = label
+        fig.clear()
+        fig.set_size_inches(figsize[0],figsize[1], forward=True)
+        #out = plt.figure(figsize=figsize,dpi=dpi)
+        self.current_figure = fig
+        return fig
 
 
 
