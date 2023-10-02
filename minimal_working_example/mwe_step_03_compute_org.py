@@ -87,6 +87,8 @@ def get_z_crop_coords(bscan,inner_border=20,outer_border=0,noise_level=0.05,diag
     thresh = np.max(prof)*noise_level
     valid = np.where(prof>thresh)[0]
     z2,z1 = valid[-1]+outer_border,valid[0]-inner_border
+    z2 = min(bscan.shape[0],z2)
+    z1 = max(valid[0],0)
     if diagnostics:
         fig = diagnostics.figure()
         ax1 = fig.add_subplot(111)
@@ -184,8 +186,16 @@ def get_isos_cost(profile,peak_threshold=PEAK_THRESHOLD,diagnostics=False):
 
     peaks = (center>left).astype(int) * (center>right).astype(int)
     peaks = np.where(peaks)[0]+1
-    isos_index = peaks[0]
-    cost_index = peaks[1]
+    try:
+        isos_index = peaks[0]
+        cost_index = peaks[1]
+    except IndexError as ie:
+        plt.figure()
+        plt.plot(profile)
+        plt.axhline(peak_threshold)
+        plt.title('Error: %s'%ie)
+        plt.show()
+        sys.exit()
 
     if diagnostics:
         fig = diagnostics.figure()

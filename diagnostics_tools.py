@@ -1,7 +1,5 @@
 from matplotlib import pyplot as plt
 import os,sys,glob
-import logging
-from octoblob import logger
 import inspect
 
 class Diagnostics:
@@ -37,7 +35,6 @@ class Diagnostics:
             plt.figure(label)
             plt.suptitle(label)
             plt.savefig(outfn,dpi=self.dpi)
-            logging.info('Saving %s.'%outfn)
             self.counts[label]+=1
         else:
             self.done.append(label)

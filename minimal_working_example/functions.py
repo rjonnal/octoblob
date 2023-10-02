@@ -594,6 +594,14 @@ def get_bscan_folder(data_filename,make=True):
         os.makedirs(bscan_folder,exist_ok=True)
     return bscan_folder
 
+def get_png_folder(data_filename,make=True):
+    ext = os.path.splitext(data_filename)[1]
+    bscan_folder = data_filename.replace(ext,'')+'_bscans'
+    png_folder = os.path.join(bscan_folder,'png')
+    if make:
+        os.makedirs(png_folder,exist_ok=True)
+    return png_folder
+
 
 ################################## Diagnostics class ##################################################
 class Diagnostics:
