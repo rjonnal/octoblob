@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys,os,glob
 import functions as blobf
+from matplotlib.widgets import Button, Slider
 
 dB_clims = (40,90)
 
@@ -37,7 +38,7 @@ STIMULUS_FAST_END = 130
 # parameters shifting histogram method
 N_BASE_BINS = 64
 N_BIN_SHIFTS = 8#24
-HISTOGRAM_THRESHOLD_FRACTION = 0.1
+HISTOGRAM_THRESHOLD_FRACTION = 0.05
 
 
 #################################### End of hard coded parameters #############################
@@ -176,7 +177,7 @@ bscans = [flatten(b) for b in bscans]
 reference_bscan = bscans[stimulus_index]
 reference_profile = np.mean(np.abs(reference_bscan),axis=1)
 
-def get_isos_cost(profile,peak_threshold=PEAK_THRESHOLD,diagnostics=False):
+def get_isos_cost0(profile,peak_threshold=PEAK_THRESHOLD,diagnostics=False):
     temp = np.array([val for val in reference_profile])
     temp[np.where(temp<peak_threshold)] = 0
 
@@ -207,7 +208,103 @@ def get_isos_cost(profile,peak_threshold=PEAK_THRESHOLD,diagnostics=False):
         
     return isos_index,cost_index
 
+
+
+def get_isos_cost(profile,peak_threshold=PEAK_THRESHOLD,diagnostics=False):
+    temp = np.array([val for val in reference_profile])
+    temp[np.where(temp<peak_threshold)] = 0
+
+    left = temp[:-2]
+    center = temp[1:-1]
+    right = temp[2:]
+
+    peaks = (center>left).astype(int) * (center>right).astype(int)
+    peaks = np.where(peaks)[0]+1
+    
+    try:
+        isos_index = peaks[0]
+        cost_index = peaks[1]
+    except IndexError as ie:
+        isos_index = 0
+        cost_index = 0
+
+
+    # Define initial parameters
+    init_isos = isos_index
+    init_cost = cost_index
+    isos_abs_max = len(profile)
+    cost_abs_max = len(profile)
+
+    # Create the figure and the line that we will manipulate
+    fig, ax = plt.subplots()
+    plot_handle = ax.plot(profile)
+    isos_line_handle = ax.axvline(isos_index)
+    cost_line_handle = ax.axvline(cost_index)
+    threshold_handle = ax.axhline(peak_threshold,color='r')
+    
+    # adjust the main plot to make room for the sliders
+    fig.subplots_adjust(bottom=0.4)
+
+    # Make a horizontal slider to control the cost
+    axisos = fig.add_axes([0.25, 0.2, 0.5, 0.03])
+    isos_slider = Slider(
+        ax=axisos,
+        label='ISOS index',
+        valmin=0,
+        valmax=isos_abs_max,
+        valinit=init_isos,
+    )
+
+    # Make a second horizontally oriented slider to control the isos
+    axcost = fig.add_axes([0.25, 0.1, 0.5, 0.03])
+    cost_slider = Slider(
+        ax=axcost,
+        label='COST index',
+        valmin=0,
+        valmax=cost_abs_max,
+        valinit=init_cost
+    )
+
+
+    # The function to be called anytime a slider's value changes
+    def update(val):
+        isos_index = isos_slider.val
+        cost_index = cost_slider.val
+        isos_line_handle.set_xdata([isos_slider.val,isos_slider.val])
+        cost_line_handle.set_xdata([cost_slider.val,cost_slider.val])
+        fig.canvas.draw_idle()
+
+
+    # register the update function with each slider
+    isos_slider.on_changed(update)
+    cost_slider.on_changed(update)
+
+    # Create a `matplotlib.widgets.Button` to quit the sliders to initial values.
+    quitax = fig.add_axes([0.8, 0.025, 0.1, 0.04])
+    quitbutton = Button(quitax, 'Quit', hovercolor='0.975')
+
+    # Create a `matplotlib.widgets.Button` to save slider values.
+    continueax = fig.add_axes([0.65, 0.025, 0.1, 0.04])
+    continuebutton = Button(continueax, 'Continue', hovercolor='0.975')
+
+
+    def quit(event):
+        sys.exit()
+
+    quitbutton.on_clicked(quit)
+
+    def cont(event):
+        plt.close('all')
+    
+    continuebutton.on_clicked(cont)
+    plt.show()
+    
+    return isos_index,cost_index
+
+
 isos_ref,cost_ref = get_isos_cost(reference_profile,diagnostics=diagnostics)
+
+
 
 def register_profiles(tar,ref):
     nxc = np.abs(np.fft.ifft(np.fft.fft(tar)*np.conj(np.fft.fft(ref))))
