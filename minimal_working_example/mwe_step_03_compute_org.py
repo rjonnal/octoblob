@@ -36,8 +36,8 @@ STIMULUS_FAST_START = 10
 STIMULUS_FAST_END = 130
 
 # parameters shifting histogram method
-N_BASE_BINS = 64
-N_BIN_SHIFTS = 8#24
+N_BASE_BINS = 8
+N_BIN_SHIFTS = 8
 HISTOGRAM_THRESHOLD_FRACTION = 0.05
 
 
@@ -346,6 +346,7 @@ first_start = 0
 last_start = N-BLOCK_SIZE
 # working with frames 80 - 140; stimulus at frame 100
 org = []
+block_variances = []
 block_t_vec = np.arange(0,BLOCK_SIZE*BSCAN_INTERVAL,BSCAN_INTERVAL)
 diagnostic_histogram_count = 0
 
@@ -380,8 +381,8 @@ for start_idx in range(first_start,last_start):
         ascan = amplitude[:,x]
         isos_temp = np.zeros(ascan.shape)
         cost_temp = np.zeros(ascan.shape)
-        isos_temp[isos_ref-Z_SEARCH_HALF_WIDTH:isos_ref+Z_SEARCH_HALF_WIDTH] = ascan[isos_ref-Z_SEARCH_HALF_WIDTH:isos_ref+Z_SEARCH_HALF_WIDTH]
-        cost_temp[cost_ref-Z_SEARCH_HALF_WIDTH:cost_ref+Z_SEARCH_HALF_WIDTH] = ascan[cost_ref-Z_SEARCH_HALF_WIDTH:cost_ref+Z_SEARCH_HALF_WIDTH]
+        isos_temp[isos_ref-Z_SEARCH_HALF_WIDTH:isos_ref+Z_SEARCH_HALF_WIDTH+1] = ascan[isos_ref-Z_SEARCH_HALF_WIDTH:isos_ref+Z_SEARCH_HALF_WIDTH+1]
+        cost_temp[cost_ref-Z_SEARCH_HALF_WIDTH:cost_ref+Z_SEARCH_HALF_WIDTH+1] = ascan[cost_ref-Z_SEARCH_HALF_WIDTH:cost_ref+Z_SEARCH_HALF_WIDTH+1]
         isos_max = np.max(isos_temp)
         cost_max = np.max(cost_temp)
         if isos_max>ORG_THRESHOLD and cost_max>ORG_THRESHOLD:
@@ -397,7 +398,7 @@ for start_idx in range(first_start,last_start):
         ax.plot(fast_locations,isos_depths,'ro',markersize=2)
         ax.plot(fast_locations,cost_depths,'ro',markersize=2)
         diagnostics.save(fig)
-        plt.close(fig)
+        #plt.close(fig)
 
     
     # 2. The next step is bulk-motion correction
@@ -406,6 +407,11 @@ for start_idx in range(first_start,last_start):
     mask = np.zeros(amplitude.shape)
     
     mask[amplitude>np.max(amplitude)*HISTOGRAM_THRESHOLD_FRACTION] = 1
+    if diagnostics:
+        fig = diagnostics.figure(label='bulk_motion_correction_mask')
+        ax = fig.add_subplot(111)
+        ax.imshow(mask)
+        diagnostics.save(fig)
 
     # 2b. Now we work our way across the B-scan and do bulk motion correction for each set of 5 sister A-scans;
     #     we use the same mask for each B-scan, obviously. And we measure bulk motion relative to the first
@@ -424,6 +430,7 @@ for start_idx in range(first_start,last_start):
     phase_slopes = []
 
     velocity_bscan = np.zeros(mask.shape)
+    sister_variances = []
     for f,isos_depth,cost_depth in zip(fast_locations,isos_depths,cost_depths):
         mask_column = mask[:,f]
         abs_reference_ascan = block[0,:,f]
@@ -542,6 +549,8 @@ for start_idx in range(first_start,last_start):
 
 
         sisters = block[:,:,f]
+        sister_variance = np.mean(np.var(sisters,axis=0))
+        sister_variances.append(sister_variance)
         velocity_ascan = np.zeros(ascan.shape)
         x = np.arange(n_bscans)
         
@@ -573,6 +582,7 @@ for start_idx in range(first_start,last_start):
         
     print(start_idx,np.mean(phase_slopes))
     org.append(-np.mean(phase_slopes))
+    block_variances.append(np.mean(sister_variances))
     
     if diagnostics and start_idx>stimulus_index-5 and start_idx<stimulus_index+5:
         fig = diagnostics.figure(label='phase_velocity_b_scan')
@@ -590,15 +600,23 @@ for start_idx in range(first_start,last_start):
 org = np.array(org)
 org = blobf.phase_to_nm(org)/1000.0 # express in microns/sec
 
-result = np.array([t_vec,org])
+result = np.array([t_vec,org,block_variances])
 result = result.T
-header = 'First column is time in seconds, second column is OS velocity in microns/sec.'
+header = 'First column is time in seconds, second column is OS velocity in microns/sec, third column is block variance.'
 np.savetxt(os.path.join(org_folder,'org.txt'),result,header=header)
-        
+
+
 plt.figure()
 plt.plot(1000*t_vec,org)
 plt.ylabel('$\Delta L_{OS}$ ($\mu m$/s)')
 plt.xlabel('time (ms)')
 plt.axvline(0,color='g')
 plt.savefig(os.path.join(org_folder,'org.png'))
+
+plt.figure()
+plt.plot(1000*t_vec,block_variances)
+plt.ylabel('block variance')
+plt.xlabel('time (ms)')
+plt.axvline(0,color='g')
+plt.savefig(os.path.join(org_folder,'block_variance.png'))
 plt.show()
