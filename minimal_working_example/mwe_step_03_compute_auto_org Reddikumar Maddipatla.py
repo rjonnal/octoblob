@@ -12,7 +12,7 @@ except:
     print('Please supply the bscan folder at the command line, i.e., python mwe_step_03_make_org_blocks.py XX_YY_ZZ_bscans')
     sys.exit()
 
-BLOCK_SIZE = 5 # number of B-scans to use in phase velocity estimation
+BLOCK_SIZE = 3 # number of B-scans to use in phase velocity estimation
 BSCAN_INTERVAL = 2.5e-3 # time between B-scans
 
 # IMPORTANT: DEFINE T_STIMULUS RELATIVE TO THE B-SCANS BEING PROCESSED!
@@ -21,9 +21,8 @@ BSCAN_INTERVAL = 2.5e-3 # time between B-scans
 # at 50 ms (i.e., the 100th scan, the 20th in the series, thus 20x2.5ms)
 T_STIMULUS = 50e-3
 
-# set these to None for automatic estimation of thresholds
-PEAK_THRESHOLD = None #6000 # threshold for detecting IS/OS and COST peaks
-ORG_THRESHOLD = None #2000 # threshold that must be met by IS/OS and COST to calculate ORG
+PEAK_THRESHOLD = 5000 # threshold for detecting IS/OS and COST peaks
+ORG_THRESHOLD = 4800 # threshold that must be met by IS/OS and COST to calculate ORG
 
 Z_SEARCH_HALF_WIDTH = 1 # distance from nominal IS/OS or COST location to search for true peak
 AXIAL_AVERAGING_HALF_WIDTH = 1 # 
@@ -111,14 +110,6 @@ crop_z2,crop_z1 = get_z_crop_coords(bscan_mean,diagnostics=diagnostics)
 # crop the B-scans to make them easier to work with
 bscans = [b[crop_z1:crop_z2,:] for b in bscans]
 bscan_mean_cropped = np.mean(np.abs(np.array(bscans)),axis=0)
-
-bscans_arr = np.array(bscans)
-bscans_max = np.max(bscans_arr)
-if ORG_THRESHOLD is None:
-    ORG_THRESHOLD = bscans_max*0.1
-if PEAK_THRESHOLD is None:
-    PEAK_THRESHOLD = bscans_max*0.1
-
 
 if diagnostics:
     label = 'bscan_auto_crop'
@@ -307,13 +298,13 @@ def get_isos_cost(profile,peak_threshold=PEAK_THRESHOLD,diagnostics=False):
     
     continuebutton.on_clicked(cont)
     plt.show()
-
-    return int(round(isos_slider.val)), int(round(cost_slider.val))
+    
+    return isos_index,cost_index
 
 
 isos_ref,cost_ref = get_isos_cost(reference_profile,diagnostics=diagnostics)
 
-print(isos_ref,cost_ref)
+
 
 def register_profiles(tar,ref):
     nxc = np.abs(np.fft.ifft(np.fft.fft(tar)*np.conj(np.fft.fft(ref))))
@@ -394,11 +385,11 @@ for start_idx in range(first_start,last_start):
         cost_temp[cost_ref-Z_SEARCH_HALF_WIDTH:cost_ref+Z_SEARCH_HALF_WIDTH+1] = ascan[cost_ref-Z_SEARCH_HALF_WIDTH:cost_ref+Z_SEARCH_HALF_WIDTH+1]
         isos_max = np.max(isos_temp)
         cost_max = np.max(cost_temp)
-        #print('isos_max=%0.1f, cost_max=%0.1f, threshold=%0.1f'%(isos_max,cost_max,ORG_THRESHOLD))
         if isos_max>ORG_THRESHOLD and cost_max>ORG_THRESHOLD:
             isos_depths.append(np.argmax(isos_temp))
             cost_depths.append(np.argmax(cost_temp))
             fast_locations.append(x)
+        
     if diagnostics:
         fig = diagnostics.figure(label='ISOS_COST_segmentation')
         ax = fig.add_subplot(111)
