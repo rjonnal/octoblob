@@ -12,7 +12,11 @@ except:
 
 #################################### Start of hard coded parameters ###########################
 DB_CLIMS = (40,90)
-
+PHASE_VELOCITY_PNG_CONTRAST_PERCENTILES = (5,95)
+AMPLITUDE_PNG_CONTRAST_PERCENTILES = (40,99)
+VARIANCE_PNG_CONTRAST_PERCENTILES = (40,99)
+RESIDUAL_ERROR_PNG_CONTRAST_PERCENTILES = (5,95)
+            
 BLOCK_SIZE = 5 # number of B-scans to use in phase velocity estimation
 BSCAN_INTERVAL = 2.5e-3 # time between B-scans
 REFERENCE_BSCAN_FILENAME = 'complex_00100.npy'
@@ -383,16 +387,25 @@ for start_idx in range(first_start,last_start):
     np.save(os.path.join(residual_error_folder,'%05d.npy'%output_index),residual_error)
     
     if WRITE_PNGS:
+        if start_idx==first_start:
+            pv_clims = np.percentile(phase_velocity,PHASE_VELOCITY_PNG_CONTRAST_PERCENTILES)
+            ba_clims = np.percentile(amplitude,AMPLITUDE_PNG_CONTRAST_PERCENTILES)
+            bv_clims = np.percentile(np.abs(complex_variance),VARIANCE_PNG_CONTRAST_PERCENTILES)
+            re_clims = np.percentile(residual_error,RESIDUAL_ERROR_PNG_CONTRAST_PERCENTILES)
+            
         plt.figure()
-        plt.imshow(phase_velocity)
+        plt.imshow(phase_velocity,clim=pv_clims)
         plt.savefig(os.path.join(phase_velocity_folder,'%05d.png'%output_index))
         plt.clf()
-        plt.imshow(amplitude)
-        plt.savefig(os.path.join(block_amp_folder,'%05d.png'%output_index))
+        plt.imshow(amplitude,clim=ba_clims)
+        plt.savefig(os.path.join(block_amp_folder,'amp_%05d.png'%output_index))
         plt.clf()
-        plt.imshow(np.abs(complex_variance))
+        plt.imshow(dB(amplitude),clim=DB_CLIMS)
+        plt.savefig(os.path.join(block_amp_folder,'dB_%05d.png'%output_index))
+        plt.clf()
+        plt.imshow(np.abs(complex_variance),clim=bv_clims)
         plt.savefig(os.path.join(block_var_folder,'%05d.png'%output_index))
         plt.clf()
-        plt.imshow(residual_error)
+        plt.imshow(residual_error,clim=re_clims)
         plt.savefig(os.path.join(residual_error_folder,'%05d.png'%output_index))
         plt.close()
