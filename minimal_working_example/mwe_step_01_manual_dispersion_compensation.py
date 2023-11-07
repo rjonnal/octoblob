@@ -106,7 +106,8 @@ def save(event):
     coefs = [0.0,0.0,dc3_slider.val,dc2_slider.val]
     print('Saving %s to mapping_dispersion_coefficients.txt'%coefs)
     np.savetxt('mapping_dispersion_coefficients.txt',coefs)
-
+    sys.exit()
+    
 savebutton.on_clicked(save)
 
 plt.show()

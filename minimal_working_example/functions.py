@@ -580,6 +580,14 @@ def bulk_motion_correct(phase_stack,mask,
     out = wrap_into_range(out)
     return out
 
+
+def guess_bscan_crop_coords(bscan,padding=20):
+    mprof = np.mean(np.abs(bscan),axis=1)
+    thresh = 2*np.min(mprof)
+    z1 = np.where(mprof>thresh)[0][0]-padding
+    z2 = np.where(mprof>thresh)[0][-1]+padding
+    return z1,z2
+
 ################################## ORG functions #######################################################
 
 

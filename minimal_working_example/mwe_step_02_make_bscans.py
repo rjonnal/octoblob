@@ -39,6 +39,19 @@ except FileNotFoundError as fnfe:
 
 magnitudes = []
 
+bscans = []
+
+for v in range(n_vol):
+    for s in range(n_slow):
+        if s<start_bscan or s>=end_bscan:
+            continue
+        spectra = blobf.get_frame(fn,s,v)
+        bscan = blobf.spectra_to_bscan(spectra,coefs)
+        bscan = np.abs(bscan)
+        bscans.append(bscan)
+bscans = np.array(bscans)
+mbscan = np.mean(np.abs(bscans),axis=0)
+z1,z2 = blobf.guess_bscan_crop_coords(mbscan)
 
 for v in range(n_vol):
     for s in range(n_slow):
@@ -78,10 +91,17 @@ for v in range(n_vol):
 if do_post_processing_crop:
     bscan_mean = np.mean(magnitudes,axis=0)
     plt.imshow(20*np.log10(bscan_mean))
+    plt.axhline(z1)
+    plt.axhline(z2)
     plt.title('Note z1 and z2 cropping coordinates.')
     plt.show()
-    z1 = int(input('Please enter the inner cropping coordinate (z1): '))
-    z2 = int(input('Please enter the outer cropping coordinate (z2): '))
+    z1str = input('Please enter the inner cropping coordinate (z1) or Enter to accept default: ')
+    z2str = input('Please enter the outer cropping coordinate (z2) or Enter to accept default: ')
+    if len(z1str)>0:
+        z1 = int(z1str)
+    if len(z2str)>0:
+        z2 = int(z2str)
+
     bscan_flist = glob.glob(os.path.join(bscan_folder,'complex*.npy'))
     for bf in bscan_flist:
         print('Cropping %s'%bf)
