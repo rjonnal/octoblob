@@ -23,7 +23,7 @@ REFERENCE_BSCAN_FILENAME = 'complex_00100.npy'
 
 # parameters shifting histogram method
 N_BASE_BINS = 8
-N_BIN_SHIFTS = 8
+N_BIN_SHIFTS = 12
 HISTOGRAM_THRESHOLD_FRACTION = 0.05
 
 WRITE_PNGS = True
@@ -212,6 +212,8 @@ for start_idx in range(first_start,last_start):
         abs_reference_ascan = block[0,:,f]
         abs_reference_pixels = abs_reference_ascan[np.where(mask_column)]
         rel_phase_shifts = np.zeros(len(abs_reference_pixels))
+
+        cumulative_rel_ascan_phase_shift = 0.0
         
         for step in range(1,n_bscans):
             rel_reference_ascan = block[step-1,:,f]
@@ -221,46 +223,33 @@ for start_idx in range(first_start,last_start):
             target_pixels = target_ascan[np.where(mask_column)]
 
             abs_phase_shifts = np.angle(target_pixels)-np.angle(abs_reference_pixels)
-            rel_phase_shifts = rel_phase_shifts + np.angle(target_pixels)-np.angle(rel_reference_pixels)
+            abs_phase_shifts = np.unwrap(abs_phase_shifts)%(np.pi*2)
 
+
+            # IMPORTANT: the rel_phase_shifts will not have to be integrated (cumsum) because we are taking the difference
+            # between the target pixels and the rel_reference_pixels, which have already been corrected at the end of this
+            # loop.
+            
+            rel_phase_shifts = np.angle(target_pixels)-np.angle(rel_reference_pixels)
+            rel_phase_shifts = np.unwrap(rel_phase_shifts)%(np.pi*2)
+            
+            
             # Now we have the phase shifts between the target and reference pixels; these should tell us how much
             # the target A-scan has moved relative to the reference A-scan. Typically, this phase shift is corrected
             # by using the resampling histogram method proposed by Makita 2006 "Optical coherence angiography".
 
-            # Mod 2pi so that negative phase values get wrapped into the [0,2pi] range; this is preferable to using
-            # np.unwrap because if the first phase is negative, unwrap will make them all negative
-
-            # NOTE TO SELF: WHAT IS THE RANGE OF THE PHASE DIFFERENCES? (It's [-2pi,2pi]).
-            # mod 2 pi causes any negative values to be wrapped into the [0,2pi] range in the "correct locations"
-
-            #plt.figure()
-            #plt.plot(abs_phase_shifts)
-            #plt.plot(rel_phase_shifts)
-            
-            # abs_phase_shifts = abs_phase_shifts%(np.pi*2)
-            # rel_phase_shifts = rel_phase_shifts%(np.pi*2)
-            abs_phase_shifts = np.unwrap(abs_phase_shifts)
-            rel_phase_shifts = np.unwrap(rel_phase_shifts)
-
-            #plt.plot(abs_phase_shifts)
-            #plt.plot(rel_phase_shifts)
-            #plt.show()
-            
-            # The difference between mod and unwrap:
-            # start with [-1.9pi, 1.8pi]
-            # mod -> [0.1pi, 1.8pi]
-            # unwrap -> [-1.9pi, -2.2pi]
-            # The question is: are the statistics (e.g. std, var, skew) of the resulting distributions the same?
-            # to permit negative values to persist we would have to cover the range [-2pi,2pi]
             full_range = 2*np.pi
 
             base_bin_width = full_range/N_BASE_BINS
+            base_bin_centers = np.arange(0.0,full_range,base_bin_width)
+            
+            base_bin_starts = base_bin_centers-base_bin_width/2.0
+            base_bin_ends = base_bin_centers+base_bin_width/2.0
+
+            base_bin_edges = np.array(list(base_bin_starts) + [base_bin_ends[-1]])
+            
             shift_size = base_bin_width/N_BIN_SHIFTS
-            #base_bin_starts = np.arange(0,N_BASE_BINS-1)*base_bin_width
-
-            base_bin_starts = np.arange(2*np.pi-full_range,2*np.pi-base_bin_width,base_bin_width)
-            base_bin_end = base_bin_starts[-1]+base_bin_width
-
+            
             abs_resampled_centers = []
             abs_resampled_counts = []
             rel_resampled_centers = []
@@ -270,48 +259,51 @@ for start_idx in range(first_start,last_start):
                 fig = diagnostics.figure(figsize=(6,N_BIN_SHIFTS//3),label='shifting_histogram')
                 ax = fig.subplots(N_BIN_SHIFTS+1,1)
                 
-            for n_shift in range(N_BIN_SHIFTS+1):
+            for n_shift in range(N_BIN_SHIFTS):
                 # to use numpy hist we must specify bin edges including the rightmost edge
-                bin_edges = np.zeros(N_BASE_BINS)
-                bin_edges[:N_BASE_BINS-1] = base_bin_starts+n_shift*shift_size
-                bin_edges[-1] = base_bin_end+n_shift*shift_size
-
+                bin_edges = base_bin_edges + n_shift*shift_size
                 abs_counts,abs_edges = np.histogram(abs_phase_shifts,bins=bin_edges)
                 abs_centers = (abs_edges[1:]+abs_edges[:-1])/2.0
+                
                 abs_resampled_centers = abs_resampled_centers+list(abs_centers)
                 abs_resampled_counts = abs_resampled_counts+list(abs_counts)
 
-                if diagnostics and start_idx==first_start and diagnostic_histogram_count<5:
-                    ax[n_shift].bar(abs_centers,abs_counts,width=base_bin_width,linewidth=1,edgecolor='k')
-                    ax[n_shift].set_xlim((0,2*np.pi))
-                
                 rel_counts,rel_edges = np.histogram(rel_phase_shifts,bins=bin_edges)
                 rel_centers = (rel_edges[1:]+rel_edges[:-1])/2.0
                 rel_resampled_centers = rel_resampled_centers+list(rel_centers)
                 rel_resampled_counts = rel_resampled_counts+list(rel_counts)
+                if diagnostics and start_idx==first_start and diagnostic_histogram_count<5:
+                    ax[n_shift].bar(abs_centers,abs_counts,width=base_bin_width,linewidth=1,edgecolor='k',alpha=0.5,label='abs')
+                    ax[n_shift].bar(rel_centers,rel_counts,width=base_bin_width,linewidth=1,edgecolor='k',alpha=0.5,label='rel')
+                    ax[n_shift].set_xlim((0,2*np.pi))
+                
 
             if diagnostics and start_idx==first_start and diagnostic_histogram_count<5:
                 plt.suptitle('bin_shifted_histograms')
+                #plt.legend()
                 diagnostics.save(ignore_limit=True)
 
             abs_order = np.argsort(abs_resampled_centers)
             abs_resampled_counts = np.array(abs_resampled_counts)[abs_order]
             abs_resampled_centers = np.array(abs_resampled_centers)[abs_order]
             abs_all_counts[step-1].append(abs_resampled_counts)
+            
             rel_order = np.argsort(rel_resampled_centers)
             rel_resampled_counts = np.array(rel_resampled_counts)[rel_order]
             rel_resampled_centers = np.array(rel_resampled_centers)[rel_order]
             rel_all_counts[step-1].append(rel_resampled_counts)
 
-            if diagnostics and start_idx==first_start and diagnostic_histogram_count<5:
+            if diagnostics and start_idx==first_start and diagnostic_histogram_count<8:
                 fig = diagnostics.figure(label='resampled_histogram')
                 ax = fig.add_subplot(111)
-                ax.bar(abs_resampled_centers,abs_resampled_counts,width=base_bin_width/N_BIN_SHIFTS,linewidth=0.25,edgecolor='k')
+                ax.bar(abs_resampled_centers,abs_resampled_counts,width=base_bin_width/N_BIN_SHIFTS,linewidth=0.25,edgecolor='k',alpha=0.5,label='abs')
+                ax.bar(rel_resampled_centers,rel_resampled_counts,width=base_bin_width/N_BIN_SHIFTS,linewidth=0.25,edgecolor='k',alpha=0.5,label='rel')
                 ax.set_xlim((0,2*np.pi))
-                ax.set_title('resampled_histogram')
+                ax.legend()
+                ax.set_title('resampled sister phase differences\nblock %d, fast %d, sister %d'%(start_idx,f,step))
                 diagnostics.save(ignore_limit=True)
                 diagnostic_histogram_count += 1
-
+                
 
             abs_winners = abs_resampled_centers[np.where(abs_resampled_counts==np.max(abs_resampled_counts))]
             abs_winners = np.unwrap(abs_winners)
@@ -321,7 +313,8 @@ for start_idx in range(first_start,last_start):
             rel_winners = np.unwrap(rel_winners)
             rel_ascan_phase_shift = np.median(rel_winners)
 
-
+            #print(abs_ascan_phase_shift,cumulative_rel_ascan_phase_shift)
+            
             if False:
                 plt.figure()
                 plt.subplot(2,1,1)
@@ -338,7 +331,7 @@ for start_idx in range(first_start,last_start):
 
             #print(abs_ascan_phase_shift,rel_ascan_phase_shift)
             
-            block[step,:,f] = block[step,:,f] * np.exp(-1j*abs_ascan_phase_shift)
+            block[step,:,f] = block[step,:,f] * np.exp(-1j*rel_ascan_phase_shift)
             if False:
                 test_pixels = block[step,:,f][np.where(mask_column)]
                 print('pre-correction correlation:',np.corrcoef(np.angle(abs_reference_pixels),np.angle(target_pixels))[1,0])
