@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import sys,os,glob
 import functions as blobf
 from matplotlib.widgets import Button, Slider
+import config as cfg
 
 try:
     bscan_folder = sys.argv[1]
@@ -11,22 +12,22 @@ except:
     sys.exit()
 
 #################################### Start of hard coded parameters ###########################
-DB_CLIMS = (40,90)
-PHASE_VELOCITY_PNG_CONTRAST_PERCENTILES = (5,95)
-AMPLITUDE_PNG_CONTRAST_PERCENTILES = (40,99)
-VARIANCE_PNG_CONTRAST_PERCENTILES = (40,99)
-RESIDUAL_ERROR_PNG_CONTRAST_PERCENTILES = (5,95)
-            
-BLOCK_SIZE = 5 # number of B-scans to use in phase velocity estimation
-BSCAN_INTERVAL = 2.5e-3 # time between B-scans
-REFERENCE_BSCAN_FILENAME = 'complex_00100.npy'
+dB_clims = cfg.dB_clims
+
+phase_velocity_png_contrast_percentiles = cfg.phase_velocity_png_contrast_percentiles
+amplitude_png_contrast_percentiles = cfg.amplitude_png_contrast_percentiles
+variance_png_contrast_percentiles = cfg.variance_png_contrast_percentiles
+residual_error_png_contrast_percentiles = cfg.residual_error_png_contrast_percentiles
+
+block_size = cfg.block_size
+bscan_interval = cfg.bscan_interval
+reference_bscan_filename = cfg.reference_bscan_filename
 
 # parameters shifting histogram method
-N_BASE_BINS = 8
-N_BIN_SHIFTS = 12
-HISTOGRAM_THRESHOLD_FRACTION = 0.05
-
-WRITE_PNGS = True
+n_base_bins = cfg.n_base_bins
+n_bin_shifts = cfg.n_bin_shifts
+histogram_threshold_fraction = cfg.histogram_threshold_fraction
+write_pngs = cfg.write_pngs
 
 #################################### End of hard coded parameters #############################
 
@@ -53,7 +54,7 @@ os.makedirs(residual_error_folder,exist_ok=True)
 bscan_files = glob.glob(os.path.join(bscan_folder,'complex*.npy'))
 bscan_files.sort()
 
-reference_bscan_index = bscan_files.index(os.path.join(bscan_folder,REFERENCE_BSCAN_FILENAME))
+reference_bscan_index = bscan_files.index(os.path.join(bscan_folder,reference_bscan_filename))
 
 bscans = []
 for f in bscan_files:
@@ -62,7 +63,7 @@ for f in bscan_files:
 N = len(bscan_files)
 
 # time taken by each block, for calculating phase velocity
-dt = (BLOCK_SIZE-1)*BSCAN_INTERVAL
+dt = (block_size-1)*bscan_interval
 
 def get_z_crop_coords(bscan,inner_border=20,outer_border=0,noise_level=0.05,diagnostics=False):
     prof = np.mean(np.abs(bscan),axis=1)
@@ -85,31 +86,31 @@ def dB(bscan):
     return 20*np.log10(np.abs(bscan))
 
 # average all B-scans and get automatic cropping coordinates
-bscan_mean = np.mean(np.abs(np.array(bscans)),axis=0)
-crop_z2,crop_z1 = get_z_crop_coords(bscan_mean,diagnostics=diagnostics)
+#bscan_mean = np.mean(np.abs(np.array(bscans)),axis=0)
+#crop_z2,crop_z1 = get_z_crop_coords(bscan_mean,diagnostics=diagnostics)
 
 # crop the B-scans to make them easier to work with
-bscans = [b[crop_z1:crop_z2,:] for b in bscans]
-bscan_mean_cropped = np.mean(np.abs(np.array(bscans)),axis=0)
+#bscans = [b[crop_z1:crop_z2,:] for b in bscans]
+#bscan_mean_cropped = np.mean(np.abs(np.array(bscans)),axis=0)
 
 reference_bscan = bscans[reference_bscan_index]
 reference_profile = np.mean(np.abs(reference_bscan),axis=1)
 
-if diagnostics:
-    label = 'bscan_auto_crop'
-    fig = diagnostics.figure(label=label,figsize=(8,6))
-    ax1 = fig.add_subplot(121)
-    ax2 = fig.add_subplot(122)
+# if diagnostics:
+#     label = 'bscan_auto_crop'
+#     fig = diagnostics.figure(label=label,figsize=(8,6))
+#     ax1 = fig.add_subplot(121)
+#     ax2 = fig.add_subplot(122)
     
-    ax1.imshow(dB(bscan_mean),cmap='gray')
-    ax1.set_title('mean bscan before cropping')
-    ax2.imshow(dB(bscan_mean_cropped),cmap='gray')
-    ax2.set_title('mean bscan after cropping')
-    ax1.set_xticks([])
-    ax1.set_yticks([])
-    ax2.set_xticks([])
-    ax2.set_yticks([])
-    diagnostics.save()
+#     ax1.imshow(dB(bscan_mean),cmap='gray')
+#     ax1.set_title('mean bscan before cropping')
+#     ax2.imshow(dB(bscan_mean_cropped),cmap='gray')
+#     ax2.set_title('mean bscan after cropping')
+#     ax1.set_xticks([])
+#     ax1.set_yticks([])
+#     ax2.set_xticks([])
+#     ax2.set_yticks([])
+#     diagnostics.save()
 
 def register_profiles(tar,ref):
     nxc = np.abs(np.fft.ifft(np.fft.fft(tar)*np.conj(np.fft.fft(ref))))
@@ -147,11 +148,9 @@ def align_bscans_axially(bscan_list,diagnostics=False):
 
 bscans = align_bscans_axially(bscans,diagnostics=diagnostics)
 
-mbscan = np.mean(np.abs(np.array(bscans)),axis=0)
-
 
 first_start = 0
-last_start = N-BLOCK_SIZE
+last_start = N-block_size
 # working with frames 80 - 140; stimulus at frame 100
 diagnostic_histogram_count = 0
 
@@ -159,12 +158,12 @@ for start_idx in range(first_start,last_start):
     print('Working on block %d of %d.'%(start_idx,last_start))
     output_index = start_idx
     
-    end_idx = start_idx+BLOCK_SIZE
+    end_idx = start_idx+block_size
     block = bscans[start_idx:end_idx]
 
     block = np.array(block)
     
-    # block shape is BLOCK_SIZE, n_depth, n_fast
+    # block shape is block_size, n_depth, n_fast
 
     # 1. Average the block in time to get an average amplitude B-scan
     temp = np.nanmean(np.abs(block),axis=0)
@@ -174,7 +173,7 @@ for start_idx in range(first_start,last_start):
     #     of the image max.
     mask = np.zeros(temp.shape)
     
-    mask[temp>np.max(temp)*HISTOGRAM_THRESHOLD_FRACTION] = 1
+    mask[temp>np.max(temp)*histogram_threshold_fraction] = 1
     if diagnostics:
         fig = diagnostics.figure(label='bulk_motion_correction_mask')
         ax = fig.add_subplot(111)
@@ -240,7 +239,7 @@ for start_idx in range(first_start,last_start):
 
             full_range = 2*np.pi
 
-            base_bin_width = full_range/N_BASE_BINS
+            base_bin_width = full_range/n_base_bins
             base_bin_centers = np.arange(0.0,full_range,base_bin_width)
             
             base_bin_starts = base_bin_centers-base_bin_width/2.0
@@ -248,7 +247,7 @@ for start_idx in range(first_start,last_start):
 
             base_bin_edges = np.array(list(base_bin_starts) + [base_bin_ends[-1]])
             
-            shift_size = base_bin_width/N_BIN_SHIFTS
+            shift_size = base_bin_width/n_bin_shifts
             
             abs_resampled_centers = []
             abs_resampled_counts = []
@@ -256,10 +255,10 @@ for start_idx in range(first_start,last_start):
             rel_resampled_counts = []
 
             if diagnostics and start_idx==first_start and diagnostic_histogram_count<5:
-                fig = diagnostics.figure(figsize=(6,N_BIN_SHIFTS//3),label='shifting_histogram')
-                ax = fig.subplots(N_BIN_SHIFTS+1,1)
+                fig = diagnostics.figure(figsize=(6,n_bin_shifts//3),label='shifting_histogram')
+                ax = fig.subplots(n_bin_shifts+1,1)
                 
-            for n_shift in range(N_BIN_SHIFTS):
+            for n_shift in range(n_bin_shifts):
                 # to use numpy hist we must specify bin edges including the rightmost edge
                 bin_edges = base_bin_edges + n_shift*shift_size
                 abs_counts,abs_edges = np.histogram(abs_phase_shifts,bins=bin_edges)
@@ -296,8 +295,8 @@ for start_idx in range(first_start,last_start):
             if diagnostics and start_idx==first_start and diagnostic_histogram_count<8:
                 fig = diagnostics.figure(label='resampled_histogram')
                 ax = fig.add_subplot(111)
-                ax.bar(abs_resampled_centers,abs_resampled_counts,width=base_bin_width/N_BIN_SHIFTS,linewidth=0.25,edgecolor='k',alpha=0.5,label='abs')
-                ax.bar(rel_resampled_centers,rel_resampled_counts,width=base_bin_width/N_BIN_SHIFTS,linewidth=0.25,edgecolor='k',alpha=0.5,label='rel')
+                ax.bar(abs_resampled_centers,abs_resampled_counts,width=base_bin_width/n_bin_shifts,linewidth=0.25,edgecolor='k',alpha=0.5,label='abs')
+                ax.bar(rel_resampled_centers,rel_resampled_counts,width=base_bin_width/n_bin_shifts,linewidth=0.25,edgecolor='k',alpha=0.5,label='rel')
                 ax.set_xlim((0,2*np.pi))
                 ax.legend()
                 ax.set_title('resampled sister phase differences\nblock %d, fast %d, sister %d'%(start_idx,f,step))
@@ -318,11 +317,11 @@ for start_idx in range(first_start,last_start):
             if False:
                 plt.figure()
                 plt.subplot(2,1,1)
-                plt.bar(abs_resampled_centers,abs_resampled_counts,width=base_bin_width/N_BIN_SHIFTS,linewidth=0.25,edgecolor='k')
+                plt.bar(abs_resampled_centers,abs_resampled_counts,width=base_bin_width/n_bin_shifts,linewidth=0.25,edgecolor='k')
                 plt.xlim((0,2*np.pi))
                 plt.title('absolute shift histogram')
                 plt.subplot(2,1,2)
-                plt.bar(rel_resampled_centers,rel_resampled_counts,width=base_bin_width/N_BIN_SHIFTS,linewidth=0.25,edgecolor='k')
+                plt.bar(rel_resampled_centers,rel_resampled_counts,width=base_bin_width/n_bin_shifts,linewidth=0.25,edgecolor='k')
                 plt.xlim((0,2*np.pi))
                 plt.title('relative shift histogram')
                 plt.show()
@@ -357,7 +356,7 @@ for start_idx in range(first_start,last_start):
         complex_variance.append(cvar)
         
         # compute linear fits of sister phase at each depth:
-        x = np.arange(n_bscans)*BSCAN_INTERVAL
+        x = np.arange(n_bscans)*bscan_interval
         p = np.polyfit(x,sisters_phase,1)
         phase_velocity.append(p[0])
 
@@ -379,12 +378,12 @@ for start_idx in range(first_start,last_start):
     np.save(os.path.join(block_var_folder,'%05d.npy'%output_index),complex_variance)
     np.save(os.path.join(residual_error_folder,'%05d.npy'%output_index),residual_error)
     
-    if WRITE_PNGS:
+    if write_pngs:
         if start_idx==first_start:
-            pv_clims = np.percentile(phase_velocity,PHASE_VELOCITY_PNG_CONTRAST_PERCENTILES)
-            ba_clims = np.percentile(amplitude,AMPLITUDE_PNG_CONTRAST_PERCENTILES)
-            bv_clims = np.percentile(np.abs(complex_variance),VARIANCE_PNG_CONTRAST_PERCENTILES)
-            re_clims = np.percentile(residual_error,RESIDUAL_ERROR_PNG_CONTRAST_PERCENTILES)
+            pv_clims = np.percentile(phase_velocity,phase_velocity_png_contrast_percentiles)
+            ba_clims = np.percentile(amplitude,amplitude_png_contrast_percentiles)
+            bv_clims = np.percentile(np.abs(complex_variance),variance_png_contrast_percentiles)
+            re_clims = np.percentile(residual_error,residual_error_png_contrast_percentiles)
             
         plt.figure()
         plt.imshow(phase_velocity,clim=pv_clims)
@@ -393,7 +392,7 @@ for start_idx in range(first_start,last_start):
         plt.imshow(amplitude,clim=ba_clims)
         plt.savefig(os.path.join(block_amp_folder,'amp_%05d.png'%output_index))
         plt.clf()
-        plt.imshow(dB(amplitude),clim=DB_CLIMS)
+        plt.imshow(dB(amplitude),clim=dB_clims)
         plt.savefig(os.path.join(block_amp_folder,'dB_%05d.png'%output_index))
         plt.clf()
         plt.imshow(np.abs(complex_variance),clim=bv_clims)
@@ -402,3 +401,4 @@ for start_idx in range(first_start,last_start):
         plt.imshow(residual_error,clim=re_clims)
         plt.savefig(os.path.join(residual_error_folder,'%05d.png'%output_index))
         plt.close()
+

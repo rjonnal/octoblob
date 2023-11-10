@@ -3,12 +3,8 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 import sys
 import functions as blobf
+from config import dB_clims,dc3_abs_max,dc2_abs_max,noise_roi,dispersion_frame_index
 
-dB_clims = (40,90)
-dc3_abs_max = 1e-7
-dc2_abs_max = 1e-4
-
-noise_roi = [10,100,10,100]
 
 try:
     fn = sys.argv[1]
@@ -38,7 +34,8 @@ def make_bscan(spectra,dc3,dc2):
     print('1/sharpness=%0.1f'%(1/sharpness))
     return out,sharpness
 
-spectra = blobf.get_frame(fn,50)
+spectra = blobf.get_frame(fn,dispersion_frame_index)
+tag = fn.replace('.unp','')
 
 # Define initial parameters
 init_dc3 = 0.0
@@ -94,8 +91,6 @@ resetbutton = Button(resetax, 'Reset', hovercolor='0.975')
 saveax = fig.add_axes([0.65, 0.025, 0.1, 0.04])
 savebutton = Button(saveax, 'Save', hovercolor='0.975')
 
-
-
 def reset(event):
     dc3_slider.reset()
     dc2_slider.reset()
@@ -106,6 +101,7 @@ def save(event):
     coefs = [0.0,0.0,dc3_slider.val,dc2_slider.val]
     print('Saving %s to mapping_dispersion_coefficients.txt'%coefs)
     np.savetxt('mapping_dispersion_coefficients.txt',coefs)
+    np.savetxt('%s_mapping_dispersion_coefficients.txt'%tag,coefs)
     sys.exit()
     
 savebutton.on_clicked(save)

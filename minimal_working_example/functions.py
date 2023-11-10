@@ -12,6 +12,7 @@ import scipy.optimize as spo
 import scipy.interpolate as spi
 from xml.etree import ElementTree as ET
 import inspect
+import config as cfg
 
 # print library version information
 import platform
@@ -51,7 +52,8 @@ fbg_region_correlation_threshold = 0.9
 
 ##### End data file parameters ######
 
-
+def dB(arr):
+    return 20*np.log10(np.abs(arr))
 
 def phase_to_nm(phase):
     return phase/(4*np.pi*1.38)*1050.0
@@ -581,11 +583,12 @@ def bulk_motion_correct(phase_stack,mask,
     return out
 
 
-def guess_bscan_crop_coords(bscan,padding=20):
+def guess_bscan_crop_coords(bscan,padding=cfg.autocrop_padding):
     mprof = np.mean(np.abs(bscan),axis=1)
-    thresh = 2*np.min(mprof)
-    z1 = np.where(mprof>thresh)[0][0]-padding
-    z2 = np.where(mprof>thresh)[0][-1]+padding
+    inner_thresh = cfg.inner_threshold_factor*np.min(mprof)
+    outer_thresh = cfg.outer_threshold_factor*np.min(mprof)
+    z1 = np.where(mprof>inner_thresh)[0][0]-padding
+    z2 = np.where(mprof>outer_thresh)[0][-1]+padding
     return z1,z2
 
 ################################## ORG functions #######################################################

@@ -27,6 +27,7 @@ print('Scipy %s'%scipy.__version__)
 print('Matplotlib %s'%matplotlib.__version__)
 
 import functions as blobf
+from config import dB_clims, dispersion_frame_index
 
 try:
     filename = sys.argv[1]
@@ -48,8 +49,6 @@ except:
 # and frame_index: each UNP file may contain multiple volumes, so to get
 # a single frame we need to index both the volume and the frame within
 # that volume
-volume_index = 0 # this file contains only one volume, so anything >0 causes error
-frame_index = 50 # arbitrary frame between 0 and n_slow-1 (399, in this case)
 
 # Define (and create, if necessary, a folder for figures)
 fig_folder = 'figures'
@@ -65,7 +64,7 @@ show_figures = True
 ###################################################################
 
 
-spectra = blobf.get_frame(filename,frame_index)
+spectra = blobf.get_frame(filename,dispersion_frame_index)
 
 # If desired, show the spectra and plot its average over x (i.e., average spectrum)
 if show_figures:
