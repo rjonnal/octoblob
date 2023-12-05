@@ -182,13 +182,13 @@ if __name__=='__main__':
         cv_vol = flatten_to(cv_vol,x_shifts,x=True)
         re_vol = flatten_to(re_vol,x_shifts,x=True)
 
-    bscan = np.mean(amp_vol[stimulus_index-5:stimulus_index+10,:,:],axis=0)
+    bscan = np.mean(amp_vol[stimulus_index-3:stimulus_index+4,:,:],axis=0)
+    
     top = bscan[:-2,:]
     middle = bscan[1:-1]
     bottom = bscan[2:]
     peaks = np.zeros(bscan.shape)
     peaks[1:-1,:] = (middle>top)*(middle>bottom)
-
     fig = plt.figure(figsize=(12,8))
     img_ax = fig.add_axes([0.05,0.3,0.4,0.6])
     img_ax.imshow(dB(bscan),cmap='gray')
@@ -210,6 +210,15 @@ if __name__=='__main__':
         d = np.abs(y-x_peakidx)
         winner = x_peakidx[np.argmin(d)]
         return x,winner
+
+    def correct2(x,y,peaks,bscan,tolerance=3):
+        aline = bscan[:,x]
+        temp = np.array(peaks[:,x])
+        peak_indices = np.where(temp==1)[0]
+        peak_indices = peak_indices[np.where(np.abs(peak_indices-y)<=tolerance)]
+        peak_amplitudes = [aline[k] for k in peak_indices]
+        return x,peak_indices[np.argmax(peak_amplitudes)]
+        
     
     counter = 0
     last_x = 0
@@ -231,7 +240,7 @@ if __name__=='__main__':
 
         np.savetxt(os.path.join(output_folder,'org_data.txt'),all_dat)
         np.save(os.path.join(output_folder,'amplitude_bscan.npy'),bscan)
-        np.save(os.path.join(output_folder,'amplitude_correlations.txt'),var_vec)
+        np.savetxt(os.path.join(output_folder,'amplitude_correlations.txt'),var_vec)
             
     def fill(tol=1):
         global counter,last_x,pv_vol,top_vec,bottom_vec,plot_ax,org_all
@@ -280,7 +289,7 @@ if __name__=='__main__':
             y_bottoms.append(bottomwinner)
             tops_all.append(pv_vol[:,topwinner,x])
             bottoms_all.append(pv_vol[:,bottomwinner,x])
-            org_all = [top-bottom for bottom,top in zip(bottoms_all,tops_all)]
+        org_all = [top-bottom for bottom,top in zip(bottoms_all,tops_all)]
 
         update_img()
         update_plot()
@@ -335,7 +344,8 @@ if __name__=='__main__':
             if counter%2==0:
                 x = int(round(event.xdata))
                 y = int(round(event.ydata))
-                x,y = correct(x,y,peaks)
+                #x,y = correct(x,y,peaks)
+                x,y = correct2(x,y,peaks,bscan)
                 last_x = x
                 top_vec.append((x,y))
 
@@ -353,7 +363,8 @@ if __name__=='__main__':
             else:
                 x = last_x
                 y = int(round(event.ydata))
-                x,y = correct(x,y,peaks)
+                #x,y = correct(x,y,peaks)
+                x,y = correct2(x,y,peaks,bscan)
                 bottom_vec.append((x,y))
 
                 prof = bscan[:,x-1:x+2].mean(axis=1)
