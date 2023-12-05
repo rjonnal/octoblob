@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import sys,os,glob
-from config import stimulus_index,bscan_interval
+from config import stimulus_index,bscan_interval,dB_clims
 
 def dB(arr):
     return 20*np.log10(np.abs(arr))
@@ -32,6 +32,10 @@ if __name__=='__main__':
     plt.plot(t,mdata)
 
     plt.figure()
-    plt.imshow(bscan,cmap='gray')
+    plt.imshow(dB(bscan),clim=dB_clims,cmap='gray')
+    for x1,y1,x2,y2 in coords:
+        plt.plot(x1,y1,'ro',markersize=4)
+        plt.plot(x2,y2,'ro',markersize=4)
 
+    
     plt.show()
