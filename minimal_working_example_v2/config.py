@@ -12,7 +12,6 @@ dispersion_frame_index = 50
 use_generic_mapping_dispersion_file = True
 start_bscan = 80
 end_bscan = 130
-stimulus_index = 20
 show_bscans = False
 save_bscan_pngs = False
 left_crop = 10
@@ -30,17 +29,16 @@ phase_velocity_png_contrast_percentiles = (5,95)
 amplitude_png_contrast_percentiles = (40,99)
 variance_png_contrast_percentiles = (40,99)
 residual_error_png_contrast_percentiles = (5,95)
+
 block_size = 5 # number of B-scans to use in phase velocity estimation
 bscan_interval = 2.5e-3 # time between B-scans
-# the reference bscan is used for aligning B-scans with one another axially, to flatten the series
 reference_bscan_filename = 'complex_00100.npy'
 
-# parameters for the shifting histogram method of bulk motion correction
+# parameters shifting histogram method
 n_base_bins = 8
 n_bin_shifts = 12
 histogram_threshold_fraction = 0.05
 
-# save the preprocessed ORG data as PNG files too for ease of viewing
 write_pngs = True
 
 

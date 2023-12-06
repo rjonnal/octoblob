@@ -12,7 +12,6 @@ dispersion_frame_index = 50
 use_generic_mapping_dispersion_file = True
 start_bscan = 80
 end_bscan = 130
-stimulus_index = 20
 show_bscans = False
 save_bscan_pngs = False
 left_crop = 10
