@@ -40,8 +40,8 @@ bytes_per_pixel = 2
 
 # Where to crop the spectra before dispersion compensation, processing
 # into B-scans, etc.
-k_crop_1 = 100
-k_crop_2 = 1490
+k_crop_1 = cfg.k_crop_1
+k_crop_2 = cfg.k_crop_2
 
 # For FBG alignment, specify the maximum index (in the k dimension) where the FBG
 # could be found and the correlation threshold required to assume two spectra,
@@ -400,19 +400,26 @@ def window_spectra(spectra,sigma=0.9):
 # We package the resampling and dispersion coefficients into a single list or array,
 # in this order: 3rd order resampling coefficient, 2nd order resampling coefficient,
 # 3rd order dispersion coefficient, 2nd order dispersion coefficient
-def spectra_to_bscan(spectra,resampling_dispersion_coefficients):
+def spectra_to_bscan(spectra,resampling_dispersion_coefficients,oversample=1):
     resampling_coefficients = resampling_dispersion_coefficients[:2]
     dispersion_coefficients = resampling_dispersion_coefficients[2:]
 
     spectra = dc_subtract(spectra)
     spectra = crop_spectra(spectra)
-    
+
     # spectra = k_resample(spectra,resampling_coefficients)
     spectra = dispersion_compensate(spectra,dispersion_coefficients)
     spectra = window_spectra(spectra)
+    if oversample>1:
+        new_spectra = np.zeros((int(round(spectra.shape[0]*oversample)),spectra.shape[1]),dtype=complex)
+        new_spectra[:spectra.shape[0],:] = spectra
+        spectra = new_spectra
+        del new_spectra
+    
     bscan = np.fft.fft(spectra,axis=0)
     # remove one of the conjugate pairs--the top (inverted) one, by default
     bscan = bscan[bscan.shape[0]//2:,:]
+
     return bscan
 
 
@@ -585,8 +592,11 @@ def bulk_motion_correct(phase_stack,mask,
 
 def guess_bscan_crop_coords(bscan,padding=cfg.autocrop_padding):
     mprof = np.mean(np.abs(bscan),axis=1)
-    inner_thresh = cfg.inner_threshold_factor*np.min(mprof)
-    outer_thresh = cfg.outer_threshold_factor*np.min(mprof)
+    profrange = np.max(mprof)-np.min(mprof)
+    inner_thresh = np.min(mprof)+0.1*profrange
+    outer_thresh = np.min(mprof)+0.1*profrange
+    #inner_thresh = cfg.inner_threshold_factor*np.min(mprof)
+    #outer_thresh = cfg.outer_threshold_factor*np.min(mprof)
     z1 = np.where(mprof>inner_thresh)[0][0]-padding
     z2 = np.where(mprof>outer_thresh)[0][-1]+padding
     return z1,z2

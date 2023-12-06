@@ -4,6 +4,8 @@ import sys,os,glob
 import functions as blobf
 from matplotlib.widgets import Button, Slider
 import scipy.signal as sps
+import config as cfg
+import json
 
 dB_clims = (40,90)
 
@@ -13,14 +15,8 @@ except:
     print('Please supply the bscan folder at the command line, i.e., python mwe_step_03_make_org_blocks.py XX_YY_ZZ_bscans')
     sys.exit()
 
-BLOCK_SIZE = 5 # number of B-scans to use in phase velocity estimation
-BSCAN_INTERVAL = 2.5e-3 # time between B-scans
-
-# IMPORTANT: DEFINE T_STIMULUS RELATIVE TO THE B-SCANS BEING PROCESSED!
-# Remember that not all the B-scans may have been processed, and sometimes
-# we only process scans e.g., 80-140; if this is the case, the stimulus starts
-# at 50 ms (i.e., the 100th scan, the 20th in the series, thus 20x2.5ms)
-T_STIMULUS = 50e-3
+BLOCK_SIZE = cfg.block_size # number of B-scans to use in phase velocity estimation
+BSCAN_INTERVAL = cfg.bscan_interval # time between B-scans
 
 # set these to None for automatic estimation of thresholds
 PEAK_THRESHOLD = None #6000 # threshold for detecting IS/OS and COST peaks
@@ -42,7 +38,8 @@ N_BASE_BINS = 8
 N_BIN_SHIFTS = 8
 HISTOGRAM_THRESHOLD_FRACTION = 0.05
 
-
+stimulus_index = cfg.stimulus_index
+bscan_interval = cfg.bscan_interval
 #################################### End of hard coded parameters #############################
 
 def load_dict(fn):
@@ -130,8 +127,6 @@ def yflatten(source_volume,thresh=0.5,medfilt_kernel=5):
 
 
 
-stimulus_index = int(round(T_STIMULUS/BSCAN_INTERVAL))
-
 tag = bscan_folder.replace('_bscans/','')
 
 diagnostics = blobf.Diagnostics(tag)
@@ -166,9 +161,6 @@ for f in bscan_files:
 # bscans = [np.roll(b,np.random.randint(-15,15),axis=0) for b in bscans]
 
 N = len(bscan_files)
-t_vec = np.arange(N-BLOCK_SIZE)*BSCAN_INTERVAL-T_STIMULUS
-t_vec = t_vec + (BLOCK_SIZE-1)*BSCAN_INTERVAL
-
 
 def get_z_crop_coords(bscan,inner_border=20,outer_border=0,noise_level=0.05,diagnostics=False):
     prof = np.mean(np.abs(bscan),axis=1)
@@ -198,7 +190,7 @@ crop_z2,crop_z1 = get_z_crop_coords(bscan_mean,diagnostics=diagnostics)
 bscans = [b[crop_z1:crop_z2,:] for b in bscans]
 bscan_mean_cropped = np.mean(np.abs(np.array(bscans)),axis=0)
 
-bscans_arr = np.array(bscans)
+bscans_arr = np.abs(np.array(bscans))
 bscans_max = np.max(bscans_arr)
 if ORG_THRESHOLD is None:
     ORG_THRESHOLD = bscans_max*0.1
@@ -277,36 +269,43 @@ bscans = np.array(bscans)
 
 bscans = yflatten(bscans)
 
-
 class VisualizationState:
 
-    def __init__(self,volume,peak_threshold,bscan_index,search_half_width):
+    def __init__(self,volume,peak_threshold,bscan_index,search_half_width,defaults=None):
         self.volume = volume
         self.peak_threshold = peak_threshold
-        self.bscan_index = bscan_index
-        self.search_half_width = search_half_width
+        if defaults is None:
+            self.bscan_index = bscan_index
+            self.search_half_width = search_half_width
         
-        self.bscan = np.abs(self.volume[self.bscan_index,:,:])
-        
-        self.profile = np.mean(self.bscan,axis=1)
+            self.bscan = np.abs(self.volume[self.bscan_index,:,:])
+            self.profile = np.mean(self.bscan,axis=1)
     
-        temp = np.array([val for val in self.profile])
-        temp[np.where(temp<self.peak_threshold)] = 0
+            temp = np.array([val for val in self.profile])
+            temp[np.where(temp<self.peak_threshold)] = 0
 
-        left = temp[:-2]
-        center = temp[1:-1]
-        right = temp[2:]
+            left = temp[:-2]
+            center = temp[1:-1]
+            right = temp[2:]
 
-        self.peaks = (center>left).astype(int) * (center>right).astype(int)
-        self.peaks = np.where(self.peaks)[0]+1
+            self.peaks = (center>left).astype(int) * (center>right).astype(int)
+            self.peaks = np.where(self.peaks)[0]+1
         
-        try:
-            self.isos_index = self.peaks[0]
-            self.cost_index = self.peaks[1]
-        except IndexError as ie:
-            self.isos_index = 0
-            self.cost_index = 0
-        
+            try:
+                self.isos_index = self.peaks[0]
+                self.cost_index = self.peaks[1]
+            except IndexError as ie:
+                self.isos_index = 0
+                self.cost_index = 0
+        else:
+            self.peak_threshold = defaults['peak_threshold']
+            self.search_half_width = defaults['search_half_width']
+            self.cost_index = defaults['cost_index'] 
+            self.isos_index = defaults['isos_index'] 
+            self.bscan_index = defaults['bscan_index']
+            self.bscan = np.abs(self.volume[self.bscan_index,:,:])
+            self.profile = np.mean(self.bscan,axis=1)
+                
         self.ytop,self.xtop,self.ybottom,self.xbottom = self.get_valid_points()
 
     def get_valid_points(self):
@@ -330,7 +329,6 @@ class VisualizationState:
         yout_bottom = []
         xout_bottom = []
 
-        print(xvalid)
         for testx in range(np.min(xvalid),np.max(xvalid)+1):
             xsub = xvalid[np.where(xvalid==testx)[0]]
             ysub = yvalid[np.where(xvalid==testx)[0]]
@@ -378,11 +376,23 @@ class VisualizationState:
     def set_peak_threshold(self,k):
         self.peak_threshold = k
         #self.update()
-        
-        
-def get_org_parameters(volume,peak_threshold=PEAK_THRESHOLD,bscan_index=stimulus_index,search_half_width=Z_SEARCH_HALF_WIDTH,diagnostics=False):
 
-    vs = VisualizationState(volume,peak_threshold,bscan_index,search_half_width)
+    def save(self,fn):
+        d = {}
+        d['peak_threshold'] = self.peak_threshold
+        d['search_half_width'] = int(self.search_half_width)
+        d['cost_index'] = int(self.cost_index)
+        d['isos_index'] = int(self.isos_index)
+        d['bscan_index'] = int(self.bscan_index)
+        for k in d.keys():
+            print(d[k],type(d[k]))
+        save_dict(fn,d)
+
+        
+        
+def get_org_parameters(volume,peak_threshold=PEAK_THRESHOLD,bscan_index=stimulus_index,search_half_width=Z_SEARCH_HALF_WIDTH,diagnostics=False,defaults=None):
+
+    vs = VisualizationState(volume,peak_threshold,bscan_index,search_half_width,defaults=defaults)
     
     # Create the figure and the line that we will manipulate
     fig = plt.figure(figsize=(12,6))
@@ -512,9 +522,17 @@ def get_org_parameters(volume,peak_threshold=PEAK_THRESHOLD,bscan_index=stimulus
 
     return vs
 
-
-vs = get_org_parameters(bscans,diagnostics=diagnostics)
-
+# determine how many orgs have been run on this dataset already
+param_flist = glob.glob(os.path.join(org_folder,'org_parameters*.json'))
+org_index = len(param_flist)
+if org_index>0:
+    d = load_dict(param_flist[org_index-1])
+    vs = get_org_parameters(bscans,diagnostics=diagnostics,defaults=d)
+    vs.save(os.path.join(org_folder,'org_parameters_%03d.json'%org_index))
+else:
+    vs = get_org_parameters(bscans,diagnostics=diagnostics,defaults=None)
+    vs.save(os.path.join(org_folder,'org_parameters_%03d.json'%org_index))
+    
 # In this version of the ORG processing we approach the problem more generally, as follows:
 
 # 1. Identify features in the axial structure; these may be peaks above a certain threshold, or rapid
@@ -769,10 +787,13 @@ for start_idx in range(first_start,last_start):
 org = np.array(org)
 org = blobf.phase_to_nm(org)/1000.0 # express in microns/sec
 
+n_pts = len(block_variances)
+t_vec = (np.arange(n_pts)-stimulus_index+BLOCK_SIZE)*bscan_interval
+
 result = np.array([t_vec,org,block_variances])
 result = result.T
 header = 'First column is time in seconds, second column is OS velocity in microns/sec, third column is block variance.'
-np.savetxt(os.path.join(org_folder,'org.txt'),result,header=header)
+np.savetxt(os.path.join(org_folder,'org_%03d.txt'%org_index),result,header=header)
 
 
 plt.figure()
@@ -780,12 +801,12 @@ plt.plot(1000*t_vec,org)
 plt.ylabel('$\Delta L_{OS}$ ($\mu m$/s)')
 plt.xlabel('time (ms)')
 plt.axvline(0,color='g')
-plt.savefig(os.path.join(org_folder,'org.png'))
+plt.savefig(os.path.join(org_folder,'org_%03d.png'%org_index))
 
 plt.figure()
 plt.plot(1000*t_vec,block_variances)
 plt.ylabel('block variance')
 plt.xlabel('time (ms)')
 plt.axvline(0,color='g')
-plt.savefig(os.path.join(org_folder,'block_variance.png'))
+plt.savefig(os.path.join(org_folder,'block_variance_%03d.png'%org_index))
 plt.show()
