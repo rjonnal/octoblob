@@ -1,0 +1,9 @@
+#! /usr/bin/bash
+
+rm -rfv *_bscans
+rm -rfv *mapping_dispersion_coefficients.txt
+rm -rfv __pycache__
+rm -rfv figures
+rm -rfv *#*
+rm -rfv *~
+rm -rfv *_diagnostics
